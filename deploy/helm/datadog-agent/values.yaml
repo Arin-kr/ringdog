@@ -1,0 +1,88 @@
+# Datadog Agent Helm values for RingDog (chart: datadog/datadog)
+#
+# This file maps directly to the PRD `datadog_observability_matrix` section - each
+# block below enables the agent-side plumbing for one Datadog product. Tracer-level
+# config (RUM SDK init, dd-trace, DD_APPSEC_ENABLED, LLM Observability SDK, etc.) lives
+# in the application code under apps/*, not here.
+#
+# Deployed via .github/workflows/cd.yml:
+#   helm upgrade --install datadog-agent datadog/datadog \
+#     -n ringdog -f deploy/helm/datadog-agent/values.yaml \
+#     --set datadog.apiKey=... --set datadog.appKey=...
+
+datadog:
+  # Never commit real keys. CI overrides these via --set from GitHub Secrets
+  # (DD_API_KEY / DD_APP_KEY) at deploy time.
+  apiKey: ""
+  appKey: ""
+
+  site: datadoghq.com
+  env: demo
+  tags:
+    - "project:ringdog"
+    - "env:demo"
+
+  # --- APM (technology_stack + datadog_observability_matrix.apm) ---
+  # Receives traces from dd-trace auto-instrumentation in backend-api / chatbot-service
+  # / order-consumer. Demo: order API DB lock waits, OpenSearch query latency, chatbot
+  # -> Bedrock call chain.
+  apm:
+    portEnabled: true
+    port: 8126
+
+  # --- Logs (datadog_observability_matrix.logs) ---
+  # Collects JSON structured logs from all app pods; correlated with APM via trace_id.
+  logs:
+    enabled: true
+    containerCollectAll: true
+
+  # --- Infrastructure Monitoring / Live Processes (datadog_observability_matrix.infrastructure) ---
+  # EKS node/pod CPU/memory, RDS connection counts, MSK broker metrics dashboards.
+  processAgent:
+    enabled: true
+    processCollection: true
+
+  # --- DSM: Data Streams Monitoring (datadog_observability_matrix.dsm) ---
+  # Visualizes OrderPlaced producer/consumer topology and lag across the MSK Kafka
+  # topics used by backend-api (producer) and order-consumer (consumer).
+  dataStreamsMonitoring:
+    enabled: true
+
+  # --- ASM enablement note (datadog_observability_matrix.asm) ---
+  # ASM itself is enabled per-application via the tracer library config
+  # (DD_APPSEC_ENABLED=true env var on the backend-api / chatbot-service Deployment
+  # pod specs - to be wired up when those Deployment manifests/charts are authored in
+  # a later milestone). remoteConfiguration is required here so the Datadog backend
+  # can remotely activate/tune ASM rules on those tracers without a redeploy.
+  remoteConfiguration:
+    enabled: true
+
+  # Kubernetes State Metrics feeds EKS cluster-level dashboards (Infrastructure Monitoring).
+  kubeStateMetricsEnabled: true
+
+  # Demo-sized resource footprint for the Node Agent DaemonSet - intentionally small
+  # since this is a demo cluster, not a production sizing.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+# --- Cluster Agent + Admission Controller ---
+# Cluster-level metrics API and consistent auto-injection of dd-trace/tracer config
+# into app pods (used for auto-instrumentation and consistent unified service tagging).
+clusterAgent:
+  enabled: true
+  admissionController:
+    enabled: true
+  metricsProvider:
+    enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi

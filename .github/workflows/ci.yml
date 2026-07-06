@@ -1,0 +1,115 @@
+name: ci
+
+# PRD ci_cd_pipeline.triggers: pull_request -> lint, unit test, terraform plan
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (pnpm -r run lint)
+        run: pnpm lint
+
+  unit_test:
+    name: Unit Test
+    runs-on: ubuntu-latest
+    # Datadog CI Visibility (PRD technology_stack.ci_cd.datadog_integration):
+    # DD_CIVISIBILITY_ENABLED=true + dd-trace auto-instruments Jest test runs when these
+    # env vars are present, since backend-api/chatbot-service already depend on dd-trace.
+    # No extra CLI wrapper is required for that auto-instrumentation to kick in.
+    env:
+      DD_CIVISIBILITY_ENABLED: "true"
+      DD_API_KEY: ${{ secrets.DD_API_KEY }}
+      DD_ENV: ci
+      DD_SERVICE: ringdog-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit test (pnpm -r run test)
+        run: pnpm test
+
+      # Optional / future (M4): workspace-level CI Visibility for packages that don't
+      # depend on dd-trace directly, or to upload JUnit XML explicitly via datadog-ci.
+      # Left commented out since JUnit reporter config per-package is a later milestone
+      # (see PRD delivery_plan M4 - "GitHub Actions CD 파이프라인 + CI/CD Visibility 연동").
+      #
+      # - name: Upload test results to Datadog CI Visibility
+      #   run: |
+      #     npx --yes datadog-ci junit upload \
+      #       --service ringdog-ci \
+      #       ./**/junit.xml
+      #   env:
+      #     DD_API_KEY: ${{ secrets.DD_API_KEY }}
+      #     DD_ENV: ci
+
+  terraform_plan:
+    name: Terraform Plan (validate/fmt)
+    runs-on: ubuntu-latest
+    # Forks can't assume the OIDC deploy role, so skip this job for PRs from forks.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # -backend=false: this job only validates HCL syntax/formatting and runs a
+      # provider-aware `validate`, it does not need access to the real S3/DynamoDB
+      # remote state backend. A real `terraform plan` against the S3 backend requires
+      # that backend (created once via infra/terraform/bootstrap) to already exist,
+      # which is out of scope for a PR-time sanity check.
+      - name: Terraform init (no backend)
+        run: terraform -chdir=infra/terraform/envs/demo init -backend=false
+
+      - name: Terraform fmt check
+        run: terraform -chdir=infra/terraform/envs/demo fmt -check
+
+      - name: Terraform validate
+        run: terraform -chdir=infra/terraform/envs/demo validate

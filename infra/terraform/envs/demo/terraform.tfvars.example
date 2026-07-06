@@ -1,0 +1,49 @@
+# Copy this file to terraform.tfvars and adjust as needed.
+# Every variable below has a working default in variables.tf; the only one
+# you actually need to set for CI/CD (GitHub Actions OIDC) to work is
+# github_repo.
+
+github_repo = "your-org/ringdog"
+
+# --- Everything below is optional; shown here with its default value for
+#     reference. Uncomment and change only what you need. ---
+
+# aws_region   = "ap-northeast-2"
+# project_name = "ringdog"
+# environment  = "demo"
+
+# vpc_cidr = "10.60.0.0/16"
+# azs      = ["ap-northeast-2a", "ap-northeast-2c"]
+
+# cluster_name         = "ringdog-demo"
+# k8s_version          = "1.29"
+# node_instance_types  = ["t3.medium"]
+# node_min_size        = 1
+# node_max_size        = 3
+# node_desired_size    = 2
+
+# rds_instance_class = "db.t3.micro"
+# rds_db_name        = "ringdog"
+# rds_username       = "ringdog"
+
+# msk_instance_type          = "kafka.t3.small"
+# msk_number_of_broker_nodes = 2
+
+# opensearch_domain_name   = "ringdog-products"
+# opensearch_instance_type = "t3.small.search"
+
+# ecr_repository_names = [
+#   "ringdog-frontend",
+#   "ringdog-backend-api",
+#   "ringdog-chatbot-service",
+#   "ringdog-order-consumer",
+# ]
+
+# k8s_namespace = "ringdog"
+# service_account_names = {
+#   backend_api     = "backend-api"
+#   chatbot_service = "chatbot-service"
+#   order_consumer  = "order-consumer"
+# }
+
+# bedrock_model_id = "anthropic.claude-3-haiku-20240307-v1:0"

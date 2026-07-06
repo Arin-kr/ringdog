@@ -1,0 +1,146 @@
+name: cd
+
+# PRD ci_cd_pipeline.triggers: push_main -> build, push ECR, deploy EKS
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  # Never cancel an in-flight deploy - let it finish (or fail) before the next one starts.
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: ringdog-demo
+  K8S_NAMESPACE: ringdog
+  DD_CIVISIBILITY_ENABLED: "true"
+  DD_API_KEY: ${{ secrets.DD_API_KEY }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  docker_build_push_ecr:
+    name: Build & Push Docker Images to ECR
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, backend-api, chatbot-service, order-consumer]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ringdog-${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/ringdog-${{ matrix.service }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/ringdog-${{ matrix.service }}:latest
+
+  helm_upgrade_eks:
+    name: Deploy to EKS
+    needs: docker_build_push_ecr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR (for registry hostname)
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Add Datadog Helm repo
+        run: |
+          helm repo add datadog https://helm.datadoghq.com
+          helm repo update
+
+      - name: Deploy / upgrade Datadog Agent
+        run: |
+          helm upgrade --install datadog-agent datadog/datadog \
+            -n ${{ env.K8S_NAMESPACE }} --create-namespace \
+            -f deploy/helm/datadog-agent/values.yaml \
+            --set datadog.apiKey=${{ secrets.DD_API_KEY }} \
+            --set datadog.appKey=${{ secrets.DD_APP_KEY }}
+
+      # TODO(M2): replace this block with `helm upgrade --install <service>
+      # deploy/helm/charts/<service> -n ringdog --set image.tag=${{ github.sha }}`
+      # once per-app Helm charts exist under deploy/helm/charts/. For M1 there is no
+      # chart or Deployment manifest yet for frontend/backend-api/chatbot-service/
+      # order-consumer, so this step only documents the intended deploy command shape
+      # using `kubectl set image` against a Deployment name matching the service name.
+      - name: Roll out application images (placeholder until app Helm charts exist)
+        run: |
+          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          for service in frontend backend-api chatbot-service order-consumer; do
+            echo "TODO(M2): kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${service} ${service}=${REGISTRY}/ringdog-${service}:${{ github.sha }}"
+            # kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${service} \
+            #   ${service}=${REGISTRY}/ringdog-${service}:${{ github.sha }}
+          done
+
+      # NFR-OBS-003: correlate deploy events with APM error-rate spikes by posting a
+      # deployment marker to the Datadog Events API.
+      - name: Send Datadog deployment marker
+        env:
+          DD_SITE: ${{ vars.DD_SITE || 'datadoghq.com' }}
+        run: |
+          curl -sf -X POST "https://api.${DD_SITE}/api/v1/events" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+            -d @- <<EOF
+          {
+            "title": "RingDog deploy to ${{ env.EKS_CLUSTER_NAME }}",
+            "text": "Deployed commit ${{ github.sha }} by ${{ github.actor }} via GitHub Actions cd.yml",
+            "tags": ["project:ringdog", "env:demo", "service:ringdog", "sha:${{ github.sha }}"],
+            "alert_type": "info",
+            "source_type_name": "github"
+          }
+          EOF
+
+  smoke_test:
+    name: Smoke Test
+    needs: helm_upgrade_eks
+    runs-on: ubuntu-latest
+    steps:
+      # ALB_HOSTNAME can't be hardcoded here: the ALB (and its DNS name) is created by
+      # the AWS Load Balancer Controller / Ingress only after infra/terraform/envs/demo
+      # and the EKS ingress resources exist, and that hostname isn't stable/known ahead
+      # of time. Populate this as a repo/environment secret once the ALB is provisioned.
+      - name: Smoke test service health endpoints
+        env:
+          ALB_HOSTNAME: ${{ secrets.ALB_HOSTNAME }}
+        run: |
+          for service in frontend backend-api chatbot-service; do
+            echo "Checking https://${ALB_HOSTNAME}/${service}/health"
+            curl -f "https://${ALB_HOSTNAME}/${service}/health"
+          done
