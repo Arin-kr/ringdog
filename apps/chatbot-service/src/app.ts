@@ -2,9 +2,24 @@ import express, { Express, NextFunction, Request, Response } from "express";
 
 import { chatRouter } from "./routes/chat";
 
+function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const origin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+  res.header("Access-Control-Allow-Origin", origin);
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+
+  next();
+}
+
 export function createApp(): Express {
   const app = express();
 
+  app.use(corsMiddleware);
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
