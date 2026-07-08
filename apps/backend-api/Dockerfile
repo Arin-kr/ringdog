@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1
 
 FROM node:20-alpine AS base
+# Prisma's query engine needs the system libssl, which alpine doesn't ship
+# by default (Node's own bundled OpenSSL doesn't satisfy this).
+RUN apk add --no-cache openssl
 RUN corepack enable
 WORKDIR /workspace
 
 # ---- deps + build ----
 FROM base AS build
-COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
 COPY packages/shared ./packages/shared
 COPY packages/db ./packages/db
 COPY apps/backend-api ./apps/backend-api
@@ -18,7 +21,7 @@ RUN pnpm install --frozen-lockfile --filter @ringdog/backend-api... \
   && pnpm --filter @ringdog/backend-api run build
 
 # ---- runtime ----
-FROM node:20-alpine AS runtime
+FROM base AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 

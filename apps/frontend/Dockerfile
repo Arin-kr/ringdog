@@ -6,7 +6,7 @@ WORKDIR /workspace
 
 # ---- deps + build ----
 FROM base AS build
-COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
 COPY packages/shared ./packages/shared
 COPY apps/frontend ./apps/frontend
 
