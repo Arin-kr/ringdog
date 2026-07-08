@@ -1,0 +1,64 @@
+namespace: ringdog
+
+image:
+  registry: ""
+  tag: latest
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: alb
+  host: ""
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /
+
+frontend:
+  replicaCount: 1
+  port: 3000
+  env:
+    NEXT_PUBLIC_API_BASE_URL: ""
+    NEXT_PUBLIC_CHATBOT_API_BASE_URL: ""
+    NEXT_PUBLIC_DD_SITE: datadoghq.com
+
+backendApi:
+  replicaCount: 1
+  port: 4000
+  serviceAccountName: backend-api
+  env:
+    NODE_ENV: production
+    CORS_ORIGIN: ""
+    # MSK plaintext bootstrap brokers (terraform output: msk_bootstrap_brokers) and
+    # OpenSearch domain endpoint (terraform output: opensearch_domain_endpoint, needs
+    # an "https://" prefix). Both must be set at deploy time — the app falls back to
+    # localhost otherwise, which doesn't exist in the cluster.
+    KAFKA_BROKERS: ""
+    OPENSEARCH_NODE: ""
+
+chatbotService:
+  replicaCount: 1
+  port: 4001
+  serviceAccountName: chatbot-service
+  env:
+    NODE_ENV: production
+    BEDROCK_MOCK_MODE: "false"
+    CORS_ORIGIN: ""
+
+orderConsumer:
+  replicaCount: 1
+  healthPort: 4002
+  serviceAccountName: order-consumer
+  env:
+    NODE_ENV: production
+    # Same MSK bootstrap brokers as backendApi.env.KAFKA_BROKERS above.
+    KAFKA_BROKERS: ""
+
+# Non-secret runtime config — wire Secrets Manager via External Secrets in production.
+secrets:
+  databaseUrl: ""
+  jwtSecret: ""
+
+datadog:
+  env: demo

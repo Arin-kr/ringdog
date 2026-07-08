@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.orderConsumer.serviceAccountName }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{ .Values.orderConsumer.irsaRoleArn | default "" | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-consumer
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: order-consumer
+spec:
+  replicas: {{ .Values.orderConsumer.replicaCount }}
+  selector:
+    matchLabels:
+      app: order-consumer
+  template:
+    metadata:
+      labels:
+        app: order-consumer
+    spec:
+      serviceAccountName: {{ .Values.orderConsumer.serviceAccountName }}
+      containers:
+        - name: order-consumer
+          image: {{ include "ringdog.image" (dict "Values" .Values "repo" "ringdog-order-consumer") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ORDER_CONSUMER_HEALTH_PORT
+              value: {{ .Values.orderConsumer.healthPort | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ringdog-app-secrets
+                  key: databaseUrl
+            - name: DD_SERVICE
+              value: ringdog-order-consumer
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- range $key, $value := .Values.orderConsumer.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ringdog-app-secrets
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  databaseUrl: {{ required "secrets.databaseUrl is required" .Values.secrets.databaseUrl | quote }}
+  jwtSecret: {{ required "secrets.jwtSecret is required" .Values.secrets.jwtSecret | quote }}

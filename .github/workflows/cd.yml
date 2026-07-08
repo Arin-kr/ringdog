@@ -85,7 +85,10 @@ jobs:
           helm repo add datadog https://helm.datadoghq.com
           helm repo update
 
+      # Deferred until the app itself is done — enable by adding DD_API_KEY /
+      # DD_APP_KEY as repository secrets (no other change needed).
       - name: Deploy / upgrade Datadog Agent
+        if: ${{ secrets.DD_API_KEY != '' }}
         run: |
           helm upgrade --install datadog-agent datadog/datadog \
             -n ${{ env.K8S_NAMESPACE }} --create-namespace \
@@ -93,24 +96,34 @@ jobs:
             --set datadog.apiKey=${{ secrets.DD_API_KEY }} \
             --set datadog.appKey=${{ secrets.DD_APP_KEY }}
 
-      # TODO(M2): replace this block with `helm upgrade --install <service>
-      # deploy/helm/charts/<service> -n ringdog --set image.tag=${{ github.sha }}`
-      # once per-app Helm charts exist under deploy/helm/charts/. For M1 there is no
-      # chart or Deployment manifest yet for frontend/backend-api/chatbot-service/
-      # order-consumer, so this step only documents the intended deploy command shape
-      # using `kubectl set image` against a Deployment name matching the service name.
-      - name: Roll out application images (placeholder until app Helm charts exist)
+      # Deploy RingDog application workloads via Helm chart.
+      - name: Deploy RingDog apps (Helm)
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
-          for service in frontend backend-api chatbot-service order-consumer; do
-            echo "TODO(M2): kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${service} ${service}=${REGISTRY}/ringdog-${service}:${{ github.sha }}"
-            # kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${service} \
-            #   ${service}=${REGISTRY}/ringdog-${service}:${{ github.sha }}
-          done
+          helm upgrade --install ringdog deploy/helm/charts/ringdog \
+            -n ${{ env.K8S_NAMESPACE }} --create-namespace \
+            --set image.registry="${REGISTRY}" \
+            --set image.tag="${IMAGE_TAG}" \
+            --set secrets.databaseUrl="${{ secrets.DATABASE_URL }}" \
+            --set secrets.jwtSecret="${{ secrets.JWT_SECRET }}" \
+            --set frontend.env.NEXT_PUBLIC_API_BASE_URL="https://${{ secrets.ALB_HOSTNAME }}" \
+            --set frontend.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL="https://${{ secrets.ALB_HOSTNAME }}" \
+            --set backendApi.env.CORS_ORIGIN="https://${{ secrets.ALB_HOSTNAME }}" \
+            --set chatbotService.env.CORS_ORIGIN="https://${{ secrets.ALB_HOSTNAME }}" \
+            --set backendApi.env.KAFKA_BROKERS="${{ secrets.KAFKA_BROKERS }}" \
+            --set orderConsumer.env.KAFKA_BROKERS="${{ secrets.KAFKA_BROKERS }}" \
+            --set backendApi.env.OPENSEARCH_NODE="https://${{ secrets.OPENSEARCH_ENDPOINT }}" \
+            --set ingress.host="${{ secrets.ALB_HOSTNAME }}" \
+            --set backendApi.irsaRoleArn="${{ secrets.BACKEND_API_IRSA_ARN }}" \
+            --set chatbotService.irsaRoleArn="${{ secrets.CHATBOT_IRSA_ARN }}" \
+            --set orderConsumer.irsaRoleArn="${{ secrets.ORDER_CONSUMER_IRSA_ARN }}"
 
       # NFR-OBS-003: correlate deploy events with APM error-rate spikes by posting a
       # deployment marker to the Datadog Events API.
       - name: Send Datadog deployment marker
+        if: ${{ secrets.DD_API_KEY != '' }}
         env:
           DD_SITE: ${{ vars.DD_SITE || 'datadoghq.com' }}
         run: |
@@ -132,15 +145,25 @@ jobs:
     needs: helm_upgrade_eks
     runs-on: ubuntu-latest
     steps:
-      # ALB_HOSTNAME can't be hardcoded here: the ALB (and its DNS name) is created by
-      # the AWS Load Balancer Controller / Ingress only after infra/terraform/envs/demo
-      # and the EKS ingress resources exist, and that hostname isn't stable/known ahead
-      # of time. Populate this as a repo/environment secret once the ALB is provisioned.
-      - name: Smoke test service health endpoints
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: In-cluster health checks
+        run: |
+          kubectl -n ${{ env.K8S_NAMESPACE }} run smoke-curl --rm -i --restart=Never \
+            --image=curlimages/curl:8.5.0 --command -- sh -c \
+            "curl -sf http://backend-api:4000/health && curl -sf http://chatbot-service:4001/health && curl -sf http://frontend:3000/"
+
+      - name: ALB smoke test (when ALB_HOSTNAME is configured)
+        if: ${{ secrets.ALB_HOSTNAME != '' }}
         env:
           ALB_HOSTNAME: ${{ secrets.ALB_HOSTNAME }}
         run: |
-          for service in frontend backend-api chatbot-service; do
-            echo "Checking https://${ALB_HOSTNAME}/${service}/health"
-            curl -f "https://${ALB_HOSTNAME}/${service}/health"
-          done
+          curl -sf "http://${ALB_HOSTNAME}/"
+          curl -sf "http://${ALB_HOSTNAME}/api/products?limit=1"

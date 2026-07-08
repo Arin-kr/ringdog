@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.backendApi.serviceAccountName }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{ .Values.backendApi.irsaRoleArn | default "" | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: backend-api
+spec:
+  replicas: {{ .Values.backendApi.replicaCount }}
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+      annotations:
+        ad.datadoghq.com/backend-api.logs: '[{"source":"nodejs","service":"ringdog-backend-api"}]'
+    spec:
+      serviceAccountName: {{ .Values.backendApi.serviceAccountName }}
+      containers:
+        - name: backend-api
+          image: {{ include "ringdog.image" (dict "Values" .Values "repo" "ringdog-backend-api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.backendApi.port }}
+          env:
+            - name: BACKEND_API_PORT
+              value: {{ .Values.backendApi.port | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ringdog-app-secrets
+                  key: databaseUrl
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ringdog-app-secrets
+                  key: jwtSecret
+            - name: DD_ENV
+              value: {{ .Values.datadog.env | quote }}
+            - name: DD_SERVICE
+              value: ringdog-backend-api
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- range $key, $value := .Values.backendApi.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backendApi.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: backend-api
+  ports:
+    - port: {{ .Values.backendApi.port }}
+      targetPort: {{ .Values.backendApi.port }}

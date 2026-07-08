@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ringdog
+description: RingDog demo e-commerce workloads (frontend, backend-api, chatbot-service, order-consumer)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
