@@ -2,8 +2,10 @@
 
 FROM node:20-alpine AS base
 # Prisma's query engine needs the system libssl, which alpine doesn't ship
-# by default (Node's own bundled OpenSSL doesn't satisfy this).
-RUN apk add --no-cache openssl
+# by default (Node's own bundled OpenSSL doesn't satisfy this). ca-certificates
+# is needed too, or the engine download from binaries.prisma.sh fails TLS
+# verification with "unable to get local issuer certificate".
+RUN apk add --no-cache openssl ca-certificates
 RUN corepack enable
 WORKDIR /workspace
 
