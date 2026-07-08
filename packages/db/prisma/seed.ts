@@ -29,6 +29,12 @@ function toProduct(index: number) {
 }
 
 async function main() {
+  const existing = await prisma.product.count();
+  if (existing > 0) {
+    console.log(`Skip seed: ${existing} products already exist.`);
+    return;
+  }
+
   const products = Array.from({ length: 60 }, (_, i) => toProduct(i));
 
   for (const product of products) {
