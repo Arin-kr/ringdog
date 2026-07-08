@@ -1,22 +1,29 @@
 import { Product } from "@ringdog/shared";
 
-export type ProductCardProps = Pick<Product, "name" | "price" | "imageUrl">;
+export type ProductCardProps = Pick<Product, "id" | "name" | "price" | "imageUrl"> & {
+  onAddToCart?: () => void;
+};
 
-/**
- * Presentational stub — TODO(M2): link to the product detail page and wire
- * up "add to cart" once the cart API is consumed here.
- */
-export function ProductCard({ name, price, imageUrl }: ProductCardProps): JSX.Element {
+function formatPrice(price: number): string {
+  return new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW" }).format(price);
+}
+
+export function ProductCard({ name, price, imageUrl, onAddToCart }: ProductCardProps): JSX.Element {
   return (
     <div className="product-card">
       {imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt={name} className="product-card__image" />
       ) : (
-        <div className="product-card__image product-card__image--placeholder" />
+        <div className="product-card__image product-card__image--placeholder" aria-hidden />
       )}
       <div className="product-card__name">{name}</div>
-      <div className="product-card__price">${price.toFixed(2)}</div>
+      <div className="product-card__price">{formatPrice(price)}</div>
+      {onAddToCart && (
+        <button type="button" className="button button--small product-card__add" onClick={onAddToCart}>
+          장바구니
+        </button>
+      )}
     </div>
   );
 }

@@ -142,3 +142,172 @@ main {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.site-header {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.site-header__inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.site-header__logo {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 1.25rem;
+}
+
+.site-header__search {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+  min-width: 200px;
+}
+
+.site-header__search input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+}
+
+.site-header__search button {
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.site-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.site-header__nav a {
+  color: #fff;
+  text-decoration: none;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.button--small {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font: inherit;
+}
+
+.site-header .link-button {
+  color: #fff;
+}
+
+.product-card__image--placeholder {
+  background: linear-gradient(135deg, #e8e8e8, #f5f5f5);
+}
+
+.product-card__add {
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.muted {
+  color: #666;
+}
+
+.error-text {
+  color: #c0392b;
+}
+
+.info-banner,
+.success-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+}
+
+.info-banner {
+  background: #eef6ff;
+  color: #1a5276;
+}
+
+.success-banner {
+  background: #eafaf1;
+  color: #1e8449;
+}
+
+.auth-page,
+.cart-page {
+  max-width: 480px;
+}
+
+.auth-form,
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-form label,
+.checkout-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.auth-form input,
+.checkout-form input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.cart-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.cart-list__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.cart-total {
+  font-weight: 700;
+  font-size: 1.1rem;
+}

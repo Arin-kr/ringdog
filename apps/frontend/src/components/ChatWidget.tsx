@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from "react";
 
+import { getToken } from "@/lib/auth";
+
 // Wire format matches PRD `api_contracts.chatbot` (snake_case), which is
 // what chatbot-service's Express routes actually accept/return.
 interface ChatMessagesResponse {
@@ -36,9 +38,13 @@ export function ChatWidget(): JSX.Element {
     setError(null);
 
     try {
+      const token = getToken();
       const response = await fetch(`${CHATBOT_API_BASE_URL}/api/chat/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ session_id: sessionId, message }),
       });
 
