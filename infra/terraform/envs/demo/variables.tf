@@ -47,9 +47,9 @@ variable "cluster_name" {
 }
 
 variable "k8s_version" {
-  description = "Kubernetes version for the EKS control plane."
+  description = "Kubernetes version for the EKS control plane. Must be a STANDARD_SUPPORT version (`aws eks describe-cluster-versions`) — EXTENDED_SUPPORT versions incur extra per-hour cost."
   type        = string
-  default     = "1.29"
+  default     = "1.33"
 }
 
 variable "node_instance_types" {

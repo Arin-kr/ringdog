@@ -48,6 +48,17 @@ resource "aws_eks_cluster" "this" {
     endpoint_public_access  = true # demo simplicity, see module header comment
   }
 
+  # EKS Access Entries (used by the iam-irsa module to grant the GitHub
+  # Actions deploy role cluster-admin) require API-based auth — the default
+  # CONFIG_MAP-only mode rejects aws_eks_access_entry with a 400.
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+    # Must match the AWS default (true) explicitly — this field can only be
+    # set at cluster creation, so leaving it unset here would diff against
+    # the already-created cluster's true value and force a replacement.
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   depends_on = [aws_iam_role_policy_attachment.cluster_policy]
 
   tags = merge(var.tags, {

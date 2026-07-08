@@ -32,3 +32,8 @@ output "cluster_security_group_id" {
   description = "ID of the EKS cluster's primary security group, used to grant node-originated access to RDS/MSK/OpenSearch."
   value       = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
+
+output "cluster_arn" {
+  description = "ARN of the EKS cluster."
+  value       = aws_eks_cluster.this.arn
+}

@@ -103,6 +103,11 @@ module "iam_irsa" {
   rds_secret_arn        = module.rds.secret_arn
   bedrock_model_id      = var.bedrock_model_id
   github_repo           = var.github_repo
+  # Reference the module output (not var.cluster_name) so Terraform sees the
+  # implicit dependency on aws_eks_cluster.this — otherwise the access entry
+  # resources below race the cluster's creation and fail with "No cluster
+  # found for name" when applied in the same run.
+  eks_cluster_name      = module.eks.cluster_name
   project_name          = var.project_name
   environment           = var.environment
   tags                  = local.common_tags

@@ -1,12 +1,19 @@
 # RingDog — Terraform Infrastructure (M1)
 
 Terraform IaC for RingDog, the Datadog observability demo e-commerce app, on
-AWS (`ap-northeast-2`). This directory was authored as part of the M1
-milestone. **Nothing here has been applied.** No `terraform init`, `plan`,
-or `apply` has been run against any AWS account, and no real cloud
-resources exist yet — this assistant does not have (and was not given) AWS
-credentials. You will need your own AWS account and credentials to actually
-provision anything.
+AWS (`ap-northeast-2`). `bootstrap/` (S3 state bucket + DynamoDB lock table)
+is meant to be applied once and left standing — cheap enough to keep between
+demo sessions. `envs/demo/` (EKS/RDS/MSK/OpenSearch/ECR/IAM) is the
+**billable** part: run `terraform apply` before a demo session and
+`terraform destroy` right after, every time — see the "Cost warning" section
+below.
+
+After each `apply`, read the new `terraform output` values and update the
+GitHub Actions repository secrets listed in `.github/workflows/cd.yml`
+(`AWS_ROLE_ARN`, `BACKEND_API_IRSA_ARN`, `CHATBOT_IRSA_ARN`,
+`ORDER_CONSUMER_IRSA_ARN`, `DATABASE_URL`, `JWT_SECRET`, `KAFKA_BROKERS`,
+`OPENSEARCH_ENDPOINT`, `ALB_HOSTNAME`) — the previous run's values are stale
+once `destroy` has torn the resources down.
 
 ## Layout
 
@@ -72,16 +79,16 @@ best practice.
 demo session.** Bootstrap (`bootstrap/`'s S3 bucket + DynamoDB table) is
 cheap enough to leave standing between demos if you plan to redeploy.
 
-## What this assistant did and did not do
+## What this assistant did
 
-- Did: author all `.tf`/`.md` files in this directory as working,
-  syntactically valid Terraform HCL, matching the resource/naming choices
-  in `PRD_v1.yaml` (region `ap-northeast-2`, cluster `ringdog-demo`, ECR
-  repos `ringdog-frontend`/`ringdog-backend-api`/`ringdog-chatbot-service`/
+- Authored all `.tf`/`.md` files in this directory as working, syntactically
+  valid Terraform HCL, matching the resource/naming choices in `PRD_v1.yaml`
+  (region `ap-northeast-2`, cluster `ringdog-demo`, ECR repos
+  `ringdog-frontend`/`ringdog-backend-api`/`ringdog-chatbot-service`/
   `ringdog-order-consumer`, namespace `ringdog`).
-- Did not, and will not: run `terraform init`, `terraform plan`,
-  `terraform apply`, or `terraform destroy`. No AWS credentials are
-  available in this environment, and no cloud resources should be touched
-  by an assistant acting on your behalf without your explicit review. Applying
-  this configuration — and paying for what it creates — is your action to
-  take, with your own AWS credentials, after reviewing the plan output.
+- 2026-07-07: with the user's explicit go-ahead and AWS credentials already
+  configured in their environment (WSL), ran `terraform apply` for both
+  `bootstrap/` and `envs/demo/` after reviewing the plan output together and
+  fixing three bugs surfaced mid-apply. Real, billable AWS resources exist
+  under the user's own AWS account while a demo session is active; run
+  `terraform destroy` in `envs/demo/` between sessions to avoid ongoing cost.

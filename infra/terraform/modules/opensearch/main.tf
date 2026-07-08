@@ -28,7 +28,11 @@ resource "aws_security_group" "opensearch" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "https" {
-  for_each = toset(var.allowed_security_group_ids)
+  # Keyed by static index rather than toset(value) — the security group IDs
+  # here are themselves outputs of resources created in this same apply
+  # (e.g. the EKS cluster SG), so their values are unknown at plan time and
+  # a set derived from them can't be used as a for_each key.
+  for_each = { for idx, sg_id in var.allowed_security_group_ids : tostring(idx) => sg_id }
 
   security_group_id            = aws_security_group.opensearch.id
   referenced_security_group_id = each.value

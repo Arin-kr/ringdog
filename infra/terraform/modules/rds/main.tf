@@ -49,7 +49,11 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "postgres" {
-  for_each = toset(var.allowed_security_group_ids)
+  # Keyed by static index rather than toset(value) — the security group IDs
+  # here are themselves outputs of resources created in this same apply
+  # (e.g. the EKS cluster SG), so their values are unknown at plan time and
+  # a set derived from them can't be used as a for_each key.
+  for_each = { for idx, sg_id in var.allowed_security_group_ids : tostring(idx) => sg_id }
 
   security_group_id            = aws_security_group.rds.id
   referenced_security_group_id = each.value
@@ -102,6 +106,10 @@ resource "aws_db_instance" "this" {
 resource "aws_secretsmanager_secret" "db" {
   name        = "${local.name}/rds/credentials"
   description = "RingDog RDS PostgreSQL credentials (username, password, host, port, dbname) for ${var.environment}"
+  # This is a throwaway demo secret recreated on every destroy/apply cycle
+  # (see module header) — skip the recovery window so the next `apply`
+  # isn't blocked by the previous `destroy`'s pending deletion.
+  recovery_window_in_days = 0
 
   tags = var.tags
 }

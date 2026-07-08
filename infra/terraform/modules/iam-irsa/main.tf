@@ -258,3 +258,26 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
   role   = aws_iam_role.github_actions_deploy.id
   policy = data.aws_iam_policy_document.github_actions_permissions.json
 }
+
+# Grant GitHub Actions kubectl/helm access via EKS Access Entries (K8s 1.23+).
+resource "aws_eks_access_entry" "github_actions" {
+  count = var.eks_cluster_name != "" ? 1 : 0
+
+  cluster_name  = var.eks_cluster_name
+  principal_arn = aws_iam_role.github_actions_deploy.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "github_actions" {
+  count = var.eks_cluster_name != "" ? 1 : 0
+
+  cluster_name  = var.eks_cluster_name
+  principal_arn = aws_iam_role.github_actions_deploy.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.github_actions]
+}

@@ -30,6 +30,10 @@ resource "random_password" "jwt_secret" {
 resource "aws_secretsmanager_secret" "jwt" {
   name        = "${local.name}/app/jwt-secret"
   description = "RingDog backend-api JWT signing secret for ${var.environment}"
+  # Throwaway demo secret recreated on every destroy/apply cycle — skip the
+  # recovery window so the next `apply` isn't blocked by the previous
+  # `destroy`'s pending deletion.
+  recovery_window_in_days = 0
 
   tags = var.tags
 }

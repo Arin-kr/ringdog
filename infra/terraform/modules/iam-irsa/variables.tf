@@ -63,3 +63,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "eks_cluster_name" {
+  description = "EKS cluster name — when set, grants the GitHub Actions deploy role cluster-admin via EKS Access Entries."
+  type        = string
+  default     = ""
+}
