@@ -90,7 +90,7 @@ jobs:
       # Deferred until the app itself is done — enable by adding DD_API_KEY /
       # DD_APP_KEY as repository secrets (no other change needed).
       - name: Deploy / upgrade Datadog Agent
-        if: ${{ secrets.DD_API_KEY != '' }}
+        if: ${{ env.DD_API_KEY != '' }}
         run: |
           helm upgrade --install datadog-agent datadog/datadog \
             -n ${{ env.K8S_NAMESPACE }} --create-namespace \
@@ -213,7 +213,7 @@ jobs:
       # NFR-OBS-003: correlate deploy events with APM error-rate spikes by posting a
       # deployment marker to the Datadog Events API.
       - name: Send Datadog deployment marker
-        if: ${{ secrets.DD_API_KEY != '' }}
+        if: ${{ env.DD_API_KEY != '' }}
         env:
           DD_SITE: ${{ vars.DD_SITE || 'datadoghq.com' }}
         run: |
