@@ -8,12 +8,17 @@ demo sessions. `envs/demo/` (EKS/RDS/MSK/OpenSearch/ECR/IAM) is the
 `terraform destroy` right after, every time — see the "Cost warning" section
 below.
 
-After each `apply`, read the new `terraform output` values and update the
-GitHub Actions repository secrets listed in `.github/workflows/cd.yml`
-(`AWS_ROLE_ARN`, `BACKEND_API_IRSA_ARN`, `CHATBOT_IRSA_ARN`,
-`ORDER_CONSUMER_IRSA_ARN`, `DATABASE_URL`, `JWT_SECRET`, `KAFKA_BROKERS`,
-`OPENSEARCH_ENDPOINT`, `ALB_HOSTNAME`) — the previous run's values are stale
-once `destroy` has torn the resources down.
+`.github/workflows/cd.yml` needs exactly one GitHub Actions repository
+secret, `AWS_ROLE_ARN` (from `terraform output github_actions_role_arn`) —
+set it once, since the role name is fixed and its ARN doesn't change across
+destroy/apply cycles. Everything else that *does* change every cycle (RDS/JWT
+credentials, MSK brokers, OpenSearch endpoint, the per-service IRSA role
+ARNs, the ALB hostname) is resolved by CD itself at deploy time — by fixed
+resource name, using the AWS credentials `AWS_ROLE_ARN` assumes — instead of
+being stored as secrets that would otherwise go stale every session. See the
+"Resolve deploy-time config from AWS" step in `cd.yml` and the
+`github_actions_permissions` policy in `modules/iam-irsa/main.tf` for what
+it's allowed to read.
 
 ## Layout
 

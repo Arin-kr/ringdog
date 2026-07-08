@@ -60,6 +60,8 @@ jobs:
     name: Deploy to EKS
     needs: docker_build_push_ecr
     runs-on: ubuntu-latest
+    outputs:
+      alb_hostname: ${{ steps.alb.outputs.hostname }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -96,29 +98,117 @@ jobs:
             --set datadog.apiKey=${{ secrets.DD_API_KEY }} \
             --set datadog.appKey=${{ secrets.DD_APP_KEY }}
 
-      # Deploy RingDog application workloads via Helm chart.
+      # All of these are recreated with new values every destroy/apply cycle
+      # (this is a cost-gated demo env, torn down between sessions), so none
+      # of it lives in GitHub Secrets — resolved here by fixed resource name
+      # instead, using the AWS credentials already assumed above. AWS_ROLE_ARN
+      # is the one value that can't be resolved this way (it's needed before
+      # any AWS credentials exist), so it stays a GitHub Secret.
+      - name: Resolve deploy-time config from AWS
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+          BACKEND_API_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-backend-api-irsa"
+          CHATBOT_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-chatbot-service-irsa"
+          ORDER_CONSUMER_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-order-consumer-irsa"
+
+          DB_JSON=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/rds/credentials --query SecretString --output text)
+          DB_USER=$(jq -r .username <<<"$DB_JSON")
+          DB_PASS=$(jq -r .password <<<"$DB_JSON")
+          DB_HOST=$(jq -r .host <<<"$DB_JSON")
+          DB_PORT=$(jq -r .port <<<"$DB_JSON")
+          DB_NAME=$(jq -r .dbname <<<"$DB_JSON")
+          DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public"
+
+          JWT_SECRET=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/app/jwt-secret --query SecretString --output text)
+
+          MSK_CLUSTER_ARN=$(aws kafka list-clusters-v2 --cluster-name-filter ringdog-demo --query 'ClusterInfoList[0].ClusterArn' --output text)
+          KAFKA_BROKERS=$(aws kafka get-bootstrap-brokers --cluster-arn "$MSK_CLUSTER_ARN" --query BootstrapBrokerString --output text)
+
+          OPENSEARCH_ENDPOINT=$(aws opensearch describe-domain --domain-name ringdog-products --query 'DomainStatus.Endpoint' --output text)
+          if [ "$OPENSEARCH_ENDPOINT" = "None" ] || [ -z "$OPENSEARCH_ENDPOINT" ]; then
+            OPENSEARCH_ENDPOINT=$(aws opensearch describe-domain --domain-name ringdog-products --query 'DomainStatus.Endpoints.vpc' --output text)
+          fi
+
+          # Mask before these can appear in any later log line.
+          echo "::add-mask::${DB_PASS}"
+          echo "::add-mask::${DATABASE_URL}"
+          echo "::add-mask::${JWT_SECRET}"
+
+          {
+            echo "backend_api_irsa_arn=${BACKEND_API_IRSA_ARN}"
+            echo "chatbot_irsa_arn=${CHATBOT_IRSA_ARN}"
+            echo "order_consumer_irsa_arn=${ORDER_CONSUMER_IRSA_ARN}"
+            echo "database_url=${DATABASE_URL}"
+            echo "jwt_secret=${JWT_SECRET}"
+            echo "kafka_brokers=${KAFKA_BROKERS}"
+            echo "opensearch_endpoint=${OPENSEARCH_ENDPOINT}"
+          } >> "$GITHUB_OUTPUT"
+
+      # First pass: deploy/update all app workloads + the Ingress. ALB-dependent
+      # fields (CORS_ORIGIN, NEXT_PUBLIC_*_BASE_URL, ingress.host) are left
+      # unset here — the ALB doesn't exist until the Ingress below creates it.
       - name: Deploy RingDog apps (Helm)
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          DATABASE_URL: ${{ steps.resolve.outputs.database_url }}
+          JWT_SECRET: ${{ steps.resolve.outputs.jwt_secret }}
+          KAFKA_BROKERS: ${{ steps.resolve.outputs.kafka_brokers }}
+          OPENSEARCH_ENDPOINT: ${{ steps.resolve.outputs.opensearch_endpoint }}
+          BACKEND_API_IRSA_ARN: ${{ steps.resolve.outputs.backend_api_irsa_arn }}
+          CHATBOT_IRSA_ARN: ${{ steps.resolve.outputs.chatbot_irsa_arn }}
+          ORDER_CONSUMER_IRSA_ARN: ${{ steps.resolve.outputs.order_consumer_irsa_arn }}
         run: |
           helm upgrade --install ringdog deploy/helm/charts/ringdog \
             -n ${{ env.K8S_NAMESPACE }} --create-namespace \
             --set image.registry="${REGISTRY}" \
             --set image.tag="${IMAGE_TAG}" \
-            --set secrets.databaseUrl="${{ secrets.DATABASE_URL }}" \
-            --set secrets.jwtSecret="${{ secrets.JWT_SECRET }}" \
-            --set frontend.env.NEXT_PUBLIC_API_BASE_URL="https://${{ secrets.ALB_HOSTNAME }}" \
-            --set frontend.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL="https://${{ secrets.ALB_HOSTNAME }}" \
-            --set backendApi.env.CORS_ORIGIN="https://${{ secrets.ALB_HOSTNAME }}" \
-            --set chatbotService.env.CORS_ORIGIN="https://${{ secrets.ALB_HOSTNAME }}" \
-            --set backendApi.env.KAFKA_BROKERS="${{ secrets.KAFKA_BROKERS }}" \
-            --set orderConsumer.env.KAFKA_BROKERS="${{ secrets.KAFKA_BROKERS }}" \
-            --set backendApi.env.OPENSEARCH_NODE="https://${{ secrets.OPENSEARCH_ENDPOINT }}" \
-            --set ingress.host="${{ secrets.ALB_HOSTNAME }}" \
-            --set backendApi.irsaRoleArn="${{ secrets.BACKEND_API_IRSA_ARN }}" \
-            --set chatbotService.irsaRoleArn="${{ secrets.CHATBOT_IRSA_ARN }}" \
-            --set orderConsumer.irsaRoleArn="${{ secrets.ORDER_CONSUMER_IRSA_ARN }}"
+            --set secrets.databaseUrl="${DATABASE_URL}" \
+            --set secrets.jwtSecret="${JWT_SECRET}" \
+            --set backendApi.env.KAFKA_BROKERS="${KAFKA_BROKERS}" \
+            --set orderConsumer.env.KAFKA_BROKERS="${KAFKA_BROKERS}" \
+            --set backendApi.env.OPENSEARCH_NODE="https://${OPENSEARCH_ENDPOINT}" \
+            --set backendApi.irsaRoleArn="${BACKEND_API_IRSA_ARN}" \
+            --set chatbotService.irsaRoleArn="${CHATBOT_IRSA_ARN}" \
+            --set orderConsumer.irsaRoleArn="${ORDER_CONSUMER_IRSA_ARN}"
+
+      - name: Wait for ALB hostname
+        id: alb
+        run: |
+          set -euo pipefail
+          HOSTNAME=""
+          for i in $(seq 1 40); do
+            HOSTNAME=$(kubectl -n ${{ env.K8S_NAMESPACE }} get ingress ringdog -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            if [ -n "$HOSTNAME" ]; then
+              break
+            fi
+            echo "ALB hostname not ready yet (attempt $i/40), waiting 15s..."
+            sleep 15
+          done
+          if [ -z "$HOSTNAME" ]; then
+            echo "::warning::ALB hostname didn't become available in time — CORS_ORIGIN/API base URLs stay unset until the next deploy re-runs this step."
+          fi
+          echo "hostname=${HOSTNAME}" >> "$GITHUB_OUTPUT"
+
+      # Second pass: now that the ALB exists, point the frontend/backend/chatbot
+      # at it. --reuse-values keeps everything set above (image tag, secrets,
+      # Kafka/OpenSearch/IRSA) without restating it.
+      - name: Update RingDog apps with ALB hostname
+        if: ${{ steps.alb.outputs.hostname != '' }}
+        env:
+          ALB_HOSTNAME: ${{ steps.alb.outputs.hostname }}
+        run: |
+          helm upgrade --install ringdog deploy/helm/charts/ringdog \
+            -n ${{ env.K8S_NAMESPACE }} --reuse-values \
+            --set frontend.env.NEXT_PUBLIC_API_BASE_URL="https://${ALB_HOSTNAME}" \
+            --set frontend.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL="https://${ALB_HOSTNAME}" \
+            --set backendApi.env.CORS_ORIGIN="https://${ALB_HOSTNAME}" \
+            --set chatbotService.env.CORS_ORIGIN="https://${ALB_HOSTNAME}" \
+            --set ingress.host="${ALB_HOSTNAME}"
 
       # NFR-OBS-003: correlate deploy events with APM error-rate spikes by posting a
       # deployment marker to the Datadog Events API.
@@ -160,10 +250,10 @@ jobs:
             --image=curlimages/curl:8.5.0 --command -- sh -c \
             "curl -sf http://backend-api:4000/health && curl -sf http://chatbot-service:4001/health && curl -sf http://frontend:3000/"
 
-      - name: ALB smoke test (when ALB_HOSTNAME is configured)
-        if: ${{ secrets.ALB_HOSTNAME != '' }}
+      - name: ALB smoke test (when the ALB is provisioned)
+        if: ${{ needs.helm_upgrade_eks.outputs.alb_hostname != '' }}
         env:
-          ALB_HOSTNAME: ${{ secrets.ALB_HOSTNAME }}
+          ALB_HOSTNAME: ${{ needs.helm_upgrade_eks.outputs.alb_hostname }}
         run: |
           curl -sf "http://${ALB_HOSTNAME}/"
           curl -sf "http://${ALB_HOSTNAME}/api/products?limit=1"

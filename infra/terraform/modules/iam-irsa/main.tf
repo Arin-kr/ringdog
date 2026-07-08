@@ -10,6 +10,8 @@
 #       Actions).
 
 data "aws_partition" "current" {}
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 locals {
   name = "${var.project_name}-${var.environment}"
@@ -227,6 +229,14 @@ resource "aws_iam_role" "github_actions_deploy" {
 # Intentionally broad for a demo (ECR push across all repos + EKS describe
 # for `aws eks update-kubeconfig`). Narrow to specific repository ARNs /
 # cluster ARN before any non-demo use.
+#
+# Also grants read access to the handful of resources CD needs to resolve
+# deploy-time config (DB creds, JWT secret, MSK brokers, OpenSearch
+# endpoint, the per-service IRSA role ARNs) by fixed resource name at
+# deploy time, instead of that config living in GitHub Secrets that go
+# stale every destroy/apply cycle. AWS_ROLE_ARN itself is the one value
+# that can't be resolved this way (it's needed before any AWS credentials
+# exist) and stays a GitHub Secret.
 data "aws_iam_policy_document" "github_actions_permissions" {
   statement {
     effect    = "Allow"
@@ -250,6 +260,37 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     effect    = "Allow"
     actions   = ["eks:DescribeCluster"]
     resources = ["*"]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [var.rds_secret_arn, var.jwt_secret_arn]
+  }
+
+  # ListClustersV2 has no resource-level permissions (must be "*"); it's how
+  # CD turns the fixed cluster *name* into the cluster ARN it needs for
+  # GetBootstrapBrokers below.
+  statement {
+    effect    = "Allow"
+    actions   = ["kafka:ListClustersV2"]
+    resources = ["*"]
+  }
+
+  statement {
+    effect  = "Allow"
+    actions = ["kafka:GetBootstrapBrokers"]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:kafka:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:cluster/${var.msk_cluster_name}/*",
+    ]
+  }
+
+  statement {
+    effect  = "Allow"
+    actions = ["es:DescribeDomain"]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}",
+    ]
   }
 }
 

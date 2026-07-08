@@ -29,6 +29,21 @@ variable "rds_secret_arn" {
   type        = string
 }
 
+variable "jwt_secret_arn" {
+  description = "ARN of the Secrets Manager secret holding the JWT signing key (from the secrets module). Granted to the GitHub Actions deploy role so CD can resolve it at deploy time instead of storing it as a GitHub Secret."
+  type        = string
+}
+
+variable "msk_cluster_name" {
+  description = "MSK cluster name, used to scope the GitHub Actions deploy role's kafka:GetBootstrapBrokers permission so CD can resolve broker addresses at deploy time."
+  type        = string
+}
+
+variable "opensearch_domain_name" {
+  description = "OpenSearch domain name, used to scope the GitHub Actions deploy role's es:DescribeDomain permission so CD can resolve the endpoint at deploy time."
+  type        = string
+}
+
 variable "bedrock_model_id" {
   description = <<-EOT
     Bedrock foundation model id the chatbot-service is allowed to invoke.

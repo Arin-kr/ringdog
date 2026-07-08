@@ -88,7 +88,7 @@ module "ecr" {
   source = "../../modules/ecr"
 
   repository_names = var.ecr_repository_names
-  tags              = local.common_tags
+  tags             = local.common_tags
 }
 
 # --- IRSA (needs EKS OIDC provider output + RDS secret) ----------------
@@ -96,21 +96,24 @@ module "ecr" {
 module "iam_irsa" {
   source = "../../modules/iam-irsa"
 
-  oidc_provider_arn     = module.eks.oidc_provider_arn
-  oidc_provider_url     = module.eks.oidc_provider_url
-  namespace             = var.k8s_namespace
-  service_account_names = var.service_account_names
-  rds_secret_arn        = module.rds.secret_arn
-  bedrock_model_id      = var.bedrock_model_id
-  github_repo           = var.github_repo
+  oidc_provider_arn      = module.eks.oidc_provider_arn
+  oidc_provider_url      = module.eks.oidc_provider_url
+  namespace              = var.k8s_namespace
+  service_account_names  = var.service_account_names
+  rds_secret_arn         = module.rds.secret_arn
+  jwt_secret_arn         = module.secrets.jwt_secret_arn
+  msk_cluster_name       = var.cluster_name
+  opensearch_domain_name = var.opensearch_domain_name
+  bedrock_model_id       = var.bedrock_model_id
+  github_repo            = var.github_repo
   # Reference the module output (not var.cluster_name) so Terraform sees the
   # implicit dependency on aws_eks_cluster.this — otherwise the access entry
   # resources below race the cluster's creation and fail with "No cluster
   # found for name" when applied in the same run.
-  eks_cluster_name      = module.eks.cluster_name
-  project_name          = var.project_name
-  environment           = var.environment
-  tags                  = local.common_tags
+  eks_cluster_name = module.eks.cluster_name
+  project_name     = var.project_name
+  environment      = var.environment
+  tags             = local.common_tags
 }
 
 # --- App secrets ---------------------------------------------------------
