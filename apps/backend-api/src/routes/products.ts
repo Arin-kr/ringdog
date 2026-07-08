@@ -2,6 +2,8 @@ import { Router } from "express";
 import { prisma } from "@ringdog/db";
 import { DEFAULT_PAGE, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from "@ringdog/shared";
 
+import { searchProducts as opensearchSearch } from "../lib/opensearch";
+
 export const productsRouter = Router();
 
 function parsePagination(query: Record<string, unknown>): { page: number; limit: number } {
@@ -35,15 +37,23 @@ productsRouter.get("/", async (req, res, next) => {
   }
 });
 
-/** GET /api/products/search — FR-SEARCH-001 (skeleton fallback) */
+/** GET /api/products/search — FR-SEARCH-001 (OpenSearch with Prisma fallback) */
 productsRouter.get("/search", async (req, res, next) => {
   try {
     const q = typeof req.query.q === "string" ? req.query.q : "";
     const { page, limit } = parsePagination(req.query as Record<string, unknown>);
 
-    // TODO(M2): replace with OpenSearch query via src/lib/opensearch.ts
-    // (p95 <= 300ms target per NFR-PERF-001). Using a Prisma `contains`
-    // filter for now so the endpoint works end-to-end in this skeleton.
+    try {
+      const result = await opensearchSearch(q, page, limit);
+      res.status(200).json(result);
+      return;
+    } catch (searchErr) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        JSON.stringify({ level: "warn", message: "OpenSearch unavailable, using DB fallback", error: String(searchErr) }),
+      );
+    }
+
     const where = q
       ? {
           OR: [

@@ -4,8 +4,11 @@ import "./tracer";
 
 import { createApp } from "./app";
 import { env } from "./config/env";
+import { runStartupTasks } from "./startup/bootstrap";
 
 const app = createApp();
+
+runStartupTasks();
 
 app.listen(env.port, () => {
   // eslint-disable-next-line no-console

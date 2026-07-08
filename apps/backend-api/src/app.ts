@@ -1,5 +1,6 @@
 import express, { Express } from "express";
 
+import { corsMiddleware } from "./middleware/cors";
 import { errorHandler } from "./middleware/errorHandler";
 import { authRouter } from "./routes/auth";
 import { productsRouter } from "./routes/products";
@@ -9,6 +10,7 @@ import { ordersRouter } from "./routes/orders";
 export function createApp(): Express {
   const app = express();
 
+  app.use(corsMiddleware);
   app.use(express.json());
 
   app.get("/health", (_req, res) => {

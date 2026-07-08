@@ -35,4 +35,6 @@ export const env = {
   opensearchIndexProducts: optional("OPENSEARCH_INDEX_PRODUCTS", "products"),
 
   demoCouponCode: optional("DEMO_COUPON_CODE", "RINGDOG100"),
+
+  corsOrigin: optional("CORS_ORIGIN", "http://localhost:3000"),
 };
