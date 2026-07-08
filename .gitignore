@@ -14,8 +14,15 @@ coverage/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+tfplan.out
+*.tfplan
 crash.log
 crash.*.log
+
+# Session/operational notes with account-specific details (ARNs, endpoints,
+# account IDs) — not meant for the public repo, kept local only.
+docs/credentials-setup.md
+docs/local-setup-progress.md
 
 # Prisma
 packages/db/generated/
