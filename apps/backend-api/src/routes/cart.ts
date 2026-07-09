@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import { prisma } from "@ringdog/db";
 
 import { requireAuth } from "../middleware/auth";
 
-export const cartRouter = Router();
+export const cartRouter: Router = Router();
 
 cartRouter.use(requireAuth);
 
@@ -29,7 +29,7 @@ cartRouter.post(
     body("product_id").isString().notEmpty().withMessage("product_id is required"),
     body("quantity").isInt({ min: 1 }).withMessage("quantity must be a positive integer"),
   ],
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ error: { message: "Validation failed", details: errors.array() } });

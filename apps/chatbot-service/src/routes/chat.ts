@@ -5,7 +5,7 @@ import { tryGetUserIdFromAuthHeader } from "../lib/jwt";
 import { buildContext } from "../services/contextBuilder";
 import { generateReply } from "../services/bedrockClient";
 
-export const chatRouter = Router();
+export const chatRouter: Router = Router();
 
 /** POST /api/chat/messages — FR-CHAT-001/002 */
 chatRouter.post("/messages", async (req, res, next) => {

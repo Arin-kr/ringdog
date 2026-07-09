@@ -4,7 +4,7 @@ import { DEFAULT_PAGE, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from "@ringdog/share
 
 import { searchProducts as opensearchSearch } from "../lib/opensearch";
 
-export const productsRouter = Router();
+export const productsRouter: Router = Router();
 
 function parsePagination(query: Record<string, unknown>): { page: number; limit: number } {
   const page = Math.max(1, Number(query.page) || DEFAULT_PAGE);

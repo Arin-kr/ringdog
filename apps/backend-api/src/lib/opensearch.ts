@@ -135,7 +135,7 @@ export async function searchProducts(
   const total =
     typeof hits.total === "number" ? hits.total : (hits.total?.value ?? 0);
 
-  const items: Product[] = hits.hits.map((hit) => hit._source as Product);
+  const items: Product[] = hits.hits.map((hit: { _source?: unknown }) => hit._source as Product);
 
   return { items, page, limit, total };
 }

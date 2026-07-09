@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 
-import { Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import { prisma } from "@ringdog/db";
 import { DEMO_COUPON_CODE, OrderPlacedEvent, OrderStatus } from "@ringdog/shared";
@@ -8,7 +8,7 @@ import { DEMO_COUPON_CODE, OrderPlacedEvent, OrderStatus } from "@ringdog/shared
 import { requireAuth } from "../middleware/auth";
 import { publishOrderPlaced } from "../lib/kafka";
 
-export const ordersRouter = Router();
+export const ordersRouter: Router = Router();
 
 ordersRouter.use(requireAuth);
 
@@ -16,7 +16,7 @@ ordersRouter.use(requireAuth);
 ordersRouter.post(
   "/checkout",
   [body("coupon_code").optional({ nullable: true }).isString()],
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ error: { message: "Validation failed", details: errors.array() } });

@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { prisma } from "@ringdog/db";
@@ -7,7 +7,7 @@ import { AuthTokenPayload } from "@ringdog/shared";
 
 import { env } from "../config/env";
 
-export const authRouter = Router();
+export const authRouter: Router = Router();
 
 const BCRYPT_SALT_ROUNDS = 10;
 
@@ -19,7 +19,7 @@ const credentialValidators = [
 ];
 
 /** POST /api/auth/signup — FR-AUTH-001 */
-authRouter.post("/signup", credentialValidators, async (req, res, next) => {
+authRouter.post("/signup", credentialValidators, async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     res.status(400).json({ error: { message: "Validation failed", details: errors.array() } });
@@ -52,7 +52,7 @@ authRouter.post("/signup", credentialValidators, async (req, res, next) => {
 });
 
 /** POST /api/auth/login — FR-AUTH-002 */
-authRouter.post("/login", credentialValidators, async (req, res, next) => {
+authRouter.post("/login", credentialValidators, async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     res.status(400).json({ error: { message: "Validation failed", details: errors.array() } });
