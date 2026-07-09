@@ -248,6 +248,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     effect  = "Allow"
     actions = [
       "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
       "ecr:PutImage",
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
