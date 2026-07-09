@@ -36,6 +36,10 @@ COPY --from=build /workspace/apps/backend-api/package.json ./package.json
 COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/packages/shared ./packages/shared
 COPY --from=build /workspace/packages/db ./packages/db
+# packages/db's tsconfig extends this by relative path (../../tsconfig.base.json)
+# — needed for `prisma migrate deploy`/seed run against this image in CD, not
+# for the app itself.
+COPY --from=build /workspace/tsconfig.base.json ./tsconfig.base.json
 
 EXPOSE 4000
 CMD ["node", "dist/server.js"]

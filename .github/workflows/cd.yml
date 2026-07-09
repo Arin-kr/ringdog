@@ -156,6 +156,25 @@ jobs:
             echo "opensearch_endpoint=${OPENSEARCH_ENDPOINT}"
           } >> "$GITHUB_OUTPUT"
 
+      # RDS starts schema-less on every fresh `terraform apply` (this demo env
+      # gets destroyed/recreated between sessions) — nothing else runs Prisma
+      # migrations against it. Uses the backend-api image just pushed above,
+      # since it's the one image with packages/db's migrations + prisma CLI
+      # baked in. Seed is idempotent (skips once products already exist).
+      - name: Run DB migrations and seed
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          DATABASE_URL: ${{ steps.resolve.outputs.database_url }}
+        run: |
+          # First deploy on a fresh cluster: the Helm install below is what
+          # normally creates this namespace, but this step runs before it.
+          kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n ${{ env.K8S_NAMESPACE }} run ringdog-db-migrate --rm -i --restart=Never \
+            --image="${REGISTRY}/ringdog-backend-api:${IMAGE_TAG}" \
+            --env="DATABASE_URL=${DATABASE_URL}" \
+            --command -- sh -c "node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma && node_modules/.bin/ts-node packages/db/prisma/seed.ts"
+
       # Cluster add-on, not a RingDog app — watches Ingress/Service resources
       # and provisions the actual ALB behind them. Idempotent `upgrade
       # --install`, safe to run every deploy. Must exist before the Ingress
