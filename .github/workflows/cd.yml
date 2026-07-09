@@ -211,18 +211,35 @@ jobs:
           CHATBOT_IRSA_ARN: ${{ steps.resolve.outputs.chatbot_irsa_arn }}
           ORDER_CONSUMER_IRSA_ARN: ${{ steps.resolve.outputs.order_consumer_irsa_arn }}
         run: |
-          helm upgrade --install ringdog deploy/helm/charts/ringdog \
-            -n ${{ env.K8S_NAMESPACE }} --create-namespace \
-            --set image.registry="${REGISTRY}" \
-            --set image.tag="${IMAGE_TAG}" \
-            --set secrets.databaseUrl="${DATABASE_URL}" \
-            --set secrets.jwtSecret="${JWT_SECRET}" \
-            --set backendApi.env.KAFKA_BROKERS="${KAFKA_BROKERS}" \
-            --set orderConsumer.env.KAFKA_BROKERS="${KAFKA_BROKERS}" \
-            --set backendApi.env.OPENSEARCH_NODE="https://${OPENSEARCH_ENDPOINT}" \
-            --set backendApi.irsaRoleArn="${BACKEND_API_IRSA_ARN}" \
-            --set chatbotService.irsaRoleArn="${CHATBOT_IRSA_ARN}" \
-            --set orderConsumer.irsaRoleArn="${ORDER_CONSUMER_IRSA_ARN}"
+          # The ALB controller (just installed/upgraded above) generates its
+          # own webhook TLS cert on pod startup and patches the cluster's
+          # ValidatingWebhookConfiguration with it slightly *after* the pod
+          # reports Ready — landing an Ingress apply in that gap fails with
+          # "x509: certificate signed by unknown authority". Transient and
+          # self-resolving within a few seconds, so retry instead of chasing
+          # a more precise readiness signal.
+          for i in $(seq 1 5); do
+            if helm upgrade --install ringdog deploy/helm/charts/ringdog \
+              -n ${{ env.K8S_NAMESPACE }} --create-namespace \
+              --set image.registry="${REGISTRY}" \
+              --set image.tag="${IMAGE_TAG}" \
+              --set secrets.databaseUrl="${DATABASE_URL}" \
+              --set secrets.jwtSecret="${JWT_SECRET}" \
+              --set backendApi.env.KAFKA_BROKERS="${KAFKA_BROKERS}" \
+              --set orderConsumer.env.KAFKA_BROKERS="${KAFKA_BROKERS}" \
+              --set backendApi.env.OPENSEARCH_NODE="https://${OPENSEARCH_ENDPOINT}" \
+              --set backendApi.irsaRoleArn="${BACKEND_API_IRSA_ARN}" \
+              --set chatbotService.irsaRoleArn="${CHATBOT_IRSA_ARN}" \
+              --set orderConsumer.irsaRoleArn="${ORDER_CONSUMER_IRSA_ARN}"; then
+              break
+            fi
+            if [ "$i" -eq 5 ]; then
+              echo "::error::helm upgrade --install ringdog failed after 5 attempts"
+              exit 1
+            fi
+            echo "helm upgrade failed (attempt $i/5), retrying in 15s..."
+            sleep 15
+          done
 
       - name: Wait for ALB hostname
         id: alb
