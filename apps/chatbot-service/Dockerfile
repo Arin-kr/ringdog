@@ -16,7 +16,11 @@ COPY packages/shared ./packages/shared
 COPY packages/db ./packages/db
 COPY apps/chatbot-service ./apps/chatbot-service
 
-RUN pnpm install --frozen-lockfile --filter @ringdog/chatbot-service... \
+# --shamefully-hoist: the runtime stage below only copies the *root*
+# node_modules, not apps/chatbot-service/node_modules — without hoisting, a
+# real npm dep like dd-trace only gets symlinked into the latter and is
+# unresolvable from dist/server.js at runtime.
+RUN pnpm install --frozen-lockfile --shamefully-hoist --filter @ringdog/chatbot-service... \
   && pnpm --filter @ringdog/db run generate \
   && pnpm --filter @ringdog/shared run build \
   && pnpm --filter @ringdog/db run build \

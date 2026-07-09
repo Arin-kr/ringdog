@@ -16,7 +16,11 @@ COPY packages/shared ./packages/shared
 COPY packages/db ./packages/db
 COPY apps/order-consumer ./apps/order-consumer
 
-RUN pnpm install --frozen-lockfile --filter @ringdog/order-consumer... \
+# --shamefully-hoist: the runtime stage below only copies the *root*
+# node_modules, not apps/order-consumer/node_modules — without hoisting, a
+# real npm dep like dd-trace only gets symlinked into the latter and is
+# unresolvable from dist/index.js at runtime.
+RUN pnpm install --frozen-lockfile --shamefully-hoist --filter @ringdog/order-consumer... \
   && pnpm --filter @ringdog/db run generate \
   && pnpm --filter @ringdog/shared run build \
   && pnpm --filter @ringdog/db run build \
