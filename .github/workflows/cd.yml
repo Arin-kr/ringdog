@@ -126,7 +126,10 @@ jobs:
           JWT_SECRET=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/app/jwt-secret --query SecretString --output text)
 
           MSK_CLUSTER_ARN=$(aws kafka list-clusters-v2 --cluster-name-filter ringdog-demo --query 'ClusterInfoList[0].ClusterArn' --output text)
-          KAFKA_BROKERS=$(aws kafka get-bootstrap-brokers --cluster-arn "$MSK_CLUSTER_ARN" --query BootstrapBrokerString --output text)
+          KAFKA_BROKERS_RAW=$(aws kafka get-bootstrap-brokers --cluster-arn "$MSK_CLUSTER_ARN" --query BootstrapBrokerString --output text)
+          # helm --set treats "," as a key/value separator, but MSK returns a
+          # comma-separated broker list — escape commas so it's parsed as one value.
+          KAFKA_BROKERS="${KAFKA_BROKERS_RAW//,/\\,}"
 
           OPENSEARCH_ENDPOINT=$(aws opensearch describe-domain --domain-name ringdog-products --query 'DomainStatus.Endpoint' --output text)
           if [ "$OPENSEARCH_ENDPOINT" = "None" ] || [ -z "$OPENSEARCH_ENDPOINT" ]; then
