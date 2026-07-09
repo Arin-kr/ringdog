@@ -10,6 +10,13 @@ resource "aws_ecr_repository" "this" {
   name                 = each.value
   image_tag_mutability = "MUTABLE"
 
+  # This demo env is destroyed/recreated between sessions (see envs/demo
+  # README), and by the time that happens the repo always has images in it
+  # from CD pushes — without this, `terraform destroy` fails with
+  # RepositoryNotEmptyException and leaves the repos (and everything that
+  # implicitly depends on this module's state) stuck.
+  force_delete = true
+
   image_scanning_configuration {
     scan_on_push = true
   }
