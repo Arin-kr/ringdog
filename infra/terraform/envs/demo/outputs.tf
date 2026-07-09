@@ -49,6 +49,11 @@ output "service_account_role_arns" {
   value       = module.iam_irsa.service_account_role_arns
 }
 
+output "alb_controller_role_arn" {
+  description = "ARN of the aws-load-balancer-controller IRSA role, annotated onto its kube-system ServiceAccount at Helm-install time."
+  value       = module.iam_irsa.alb_controller_role_arn
+}
+
 output "github_actions_role_arn" {
   description = "ARN to configure as the GitHub Secret AWS_ROLE_ARN for CI/CD OIDC auth."
   value       = module.iam_irsa.github_actions_role_arn

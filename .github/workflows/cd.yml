@@ -114,6 +114,9 @@ jobs:
           BACKEND_API_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-backend-api-irsa"
           CHATBOT_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-chatbot-service-irsa"
           ORDER_CONSUMER_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-order-consumer-irsa"
+          ALB_CONTROLLER_IRSA_ARN="arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-alb-controller-irsa"
+
+          VPC_ID=$(aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --query 'cluster.resourcesVpcConfig.vpcId' --output text)
 
           DB_JSON=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/rds/credentials --query SecretString --output text)
           DB_USER=$(jq -r .username <<<"$DB_JSON")
@@ -145,11 +148,34 @@ jobs:
             echo "backend_api_irsa_arn=${BACKEND_API_IRSA_ARN}"
             echo "chatbot_irsa_arn=${CHATBOT_IRSA_ARN}"
             echo "order_consumer_irsa_arn=${ORDER_CONSUMER_IRSA_ARN}"
+            echo "alb_controller_irsa_arn=${ALB_CONTROLLER_IRSA_ARN}"
+            echo "vpc_id=${VPC_ID}"
             echo "database_url=${DATABASE_URL}"
             echo "jwt_secret=${JWT_SECRET}"
             echo "kafka_brokers=${KAFKA_BROKERS}"
             echo "opensearch_endpoint=${OPENSEARCH_ENDPOINT}"
           } >> "$GITHUB_OUTPUT"
+
+      # Cluster add-on, not a RingDog app — watches Ingress/Service resources
+      # and provisions the actual ALB behind them. Idempotent `upgrade
+      # --install`, safe to run every deploy. Must exist before the Ingress
+      # below can get an address.
+      - name: Install/upgrade AWS Load Balancer Controller
+        env:
+          ALB_CONTROLLER_IRSA_ARN: ${{ steps.resolve.outputs.alb_controller_irsa_arn }}
+          VPC_ID: ${{ steps.resolve.outputs.vpc_id }}
+        run: |
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            -n kube-system \
+            --set clusterName=${{ env.EKS_CLUSTER_NAME }} \
+            --set region=${{ env.AWS_REGION }} \
+            --set vpcId="${VPC_ID}" \
+            --set serviceAccount.create=true \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="${ALB_CONTROLLER_IRSA_ARN}"
+          kubectl -n kube-system rollout status deployment/aws-load-balancer-controller --timeout=120s
 
       # First pass: deploy/update all app workloads + the Ingress. ALB-dependent
       # fields (CORS_ORIGIN, NEXT_PUBLIC_*_BASE_URL, ingress.host) are left

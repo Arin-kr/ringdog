@@ -7,6 +7,11 @@ output "service_account_role_arns" {
   }
 }
 
+output "alb_controller_role_arn" {
+  description = "ARN of the aws-load-balancer-controller IRSA role (for annotating its kube-system ServiceAccount)."
+  value       = aws_iam_role.alb_controller.arn
+}
+
 output "github_actions_role_arn" {
   description = "ARN of the GitHub Actions deploy role (set as the GitHub Secret AWS_ROLE_ARN)."
   value       = aws_iam_role.github_actions_deploy.arn

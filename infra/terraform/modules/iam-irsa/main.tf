@@ -170,6 +170,58 @@ resource "aws_iam_role_policy" "order_consumer" {
   policy = data.aws_iam_policy_document.order_consumer_permissions.json
 }
 
+# --- aws-load-balancer-controller: provisions ALBs/NLBs for Ingress ------
+#
+# Not one of the RingDog app service accounts — this is the cluster add-on
+# (installed via Helm in cd.yml) that watches Ingress/Service resources and
+# actually creates the ALB behind them. Without it, the `ringdog` Ingress
+# sits with an empty `.status.loadBalancer` forever. Trust policy is scoped
+# to its own well-known namespace/service-account name (`kube-system` /
+# `aws-load-balancer-controller`), fixed by the upstream Helm chart.
+
+data "aws_iam_policy_document" "alb_controller_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_url}:sub"
+      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "alb_controller" {
+  name               = "${local.name}-alb-controller-irsa"
+  assume_role_policy = data.aws_iam_policy_document.alb_controller_trust.json
+  tags               = var.tags
+}
+
+# Upstream-authored policy, vendored verbatim from
+# https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+# — don't hand-edit; re-download to update.
+resource "aws_iam_policy" "alb_controller" {
+  name   = "${local.name}-alb-controller-policy"
+  policy = file("${path.module}/aws-load-balancer-controller-policy.json")
+}
+
+resource "aws_iam_role_policy_attachment" "alb_controller" {
+  role       = aws_iam_role.alb_controller.name
+  policy_arn = aws_iam_policy.alb_controller.arn
+}
+
 # ==========================================================================
 # (b) GitHub Actions OIDC provider + deploy role
 # ==========================================================================
