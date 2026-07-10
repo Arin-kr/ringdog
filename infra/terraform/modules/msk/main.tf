@@ -57,10 +57,25 @@ resource "aws_vpc_security_group_egress_rule" "all_out" {
   ip_protocol        = "-1"
 }
 
+resource "aws_msk_configuration" "this" {
+  name              = "${local.name}-config"
+  kafka_versions    = [var.kafka_version]
+  server_properties = <<-PROPERTIES
+    auto.create.topics.enable=true
+    default.replication.factor=${var.number_of_broker_nodes}
+    min.insync.replicas=1
+  PROPERTIES
+}
+
 resource "aws_msk_cluster" "this" {
   cluster_name           = var.cluster_name
   kafka_version           = var.kafka_version
   number_of_broker_nodes  = var.number_of_broker_nodes
+
+  configuration_info {
+    arn      = aws_msk_configuration.this.arn
+    revision = aws_msk_configuration.this.latest_revision
+  }
 
   broker_node_group_info {
     instance_type   = var.instance_type
