@@ -11,8 +11,9 @@ interface ChatMessagesResponse {
   session_id: string;
 }
 
-const CHATBOT_API_BASE_URL =
-  process.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL ?? "http://localhost:4001";
+// See apps/frontend/src/lib/apiClient.ts for why this defaults to a relative
+// path rather than a localhost fallback.
+const CHATBOT_API_BASE_URL = process.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL ?? "";
 
 /**
  * Floating chatbot widget available on every page (FR-CHAT-001).

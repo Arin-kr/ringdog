@@ -197,8 +197,8 @@ jobs:
           kubectl -n kube-system rollout status deployment/aws-load-balancer-controller --timeout=120s
 
       # First pass: deploy/update all app workloads + the Ingress. ALB-dependent
-      # fields (CORS_ORIGIN, NEXT_PUBLIC_*_BASE_URL, ingress.host) are left
-      # unset here — the ALB doesn't exist until the Ingress below creates it.
+      # fields (CORS_ORIGIN, ingress.host) are left unset here — the ALB
+      # doesn't exist until the Ingress below creates it.
       - name: Deploy RingDog apps (Helm)
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -259,9 +259,15 @@ jobs:
           fi
           echo "hostname=${HOSTNAME}" >> "$GITHUB_OUTPUT"
 
-      # Second pass: now that the ALB exists, point the frontend/backend/chatbot
-      # at it. --reuse-values keeps everything set above (image tag, secrets,
-      # Kafka/OpenSearch/IRSA) without restating it.
+      # Second pass: now that the ALB exists, point backend-api/chatbot-service
+      # CORS_ORIGIN at it and set ingress.host. --reuse-values keeps everything
+      # set above (image tag, secrets, Kafka/OpenSearch/IRSA) without restating
+      # it. The frontend does NOT get a NEXT_PUBLIC_*_BASE_URL here: those vars
+      # are inlined into the client bundle at `next build` time (before this
+      # ALB hostname exists), so setting them via Helm/runtime env has no
+      # effect on already-built JS. apiClient.ts/ChatWidget.tsx instead default
+      # to relative paths, which resolve same-origin against this same ALB
+      # host since the Ingress already routes /api (and /api/chat) here too.
       - name: Update RingDog apps with ALB hostname
         if: ${{ steps.alb.outputs.hostname != '' }}
         env:
@@ -269,10 +275,8 @@ jobs:
         run: |
           helm upgrade --install ringdog deploy/helm/charts/ringdog \
             -n ${{ env.K8S_NAMESPACE }} --reuse-values \
-            --set frontend.env.NEXT_PUBLIC_API_BASE_URL="https://${ALB_HOSTNAME}" \
-            --set frontend.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL="https://${ALB_HOSTNAME}" \
-            --set backendApi.env.CORS_ORIGIN="https://${ALB_HOSTNAME}" \
-            --set chatbotService.env.CORS_ORIGIN="https://${ALB_HOSTNAME}" \
+            --set backendApi.env.CORS_ORIGIN="http://${ALB_HOSTNAME}" \
+            --set chatbotService.env.CORS_ORIGIN="http://${ALB_HOSTNAME}" \
             --set ingress.host="${ALB_HOSTNAME}"
 
       # NFR-OBS-003: correlate deploy events with APM error-rate spikes by posting a

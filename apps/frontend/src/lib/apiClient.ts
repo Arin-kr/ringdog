@@ -1,6 +1,12 @@
 import { getToken } from "./auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+// Empty string (not a localhost fallback) is intentional: NEXT_PUBLIC_* is
+// inlined into the client bundle at `next build` time, which happens before
+// the ALB hostname exists, so it can never be set correctly for the deployed
+// image. The ALB Ingress already routes /api on the same host as the
+// frontend, so a relative path is same-origin there. Local dev sets
+// NEXT_PUBLIC_API_BASE_URL=http://localhost:4000 via .env instead.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;

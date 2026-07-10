@@ -26,10 +26,13 @@ export function initRum(): void {
     trackLongTasks: true,
     defaultPrivacyLevel: "mask-user-input",
     // Correlates RUM traces with backend-api / chatbot-service APM traces
-    // via the x-datadog-trace-id header (NFR-OBS-001).
+    // via the x-datadog-trace-id header (NFR-OBS-001). Requests to backend-api
+    // / chatbot-service go through the same ALB origin as the frontend (see
+    // apiClient.ts), so the browser's resolved request URL is always this
+    // page's own origin regardless of environment.
     allowedTracingUrls: [
-      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
-      process.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL ?? "http://localhost:4001",
+      process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin,
+      process.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL || window.location.origin,
     ],
   });
 }
