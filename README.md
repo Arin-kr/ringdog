@@ -51,6 +51,9 @@ pnpm dev                      # 전체 앱 동시 기동 (frontend:3000, backend
 ## 개발 단계 (PRD `delivery_plan` 기준)
 
 - **M1**: AWS 인프라/IaC + CI/CD + Helm 차트 기반 구성 (완료)
-- **M2**: 코어 이커머스 기능(인증/상품/검색/장바구니/주문) + 프론트 UI (진행 중)
-- **M3**: 챗봇 Bedrock 실연동 및 LLM Observability
-- **M4**: 관측성/보안/CI-CD 시연 고도화
+- **M2**: 코어 이커머스 기능(인증/상품/검색/장바구니/주문/주문취소/상품상세) + 프론트 UI (완료)
+- **M3**: 챗봇 Bedrock 실연동 및 LLM Observability (기능 완료, 응답 품질 점검 필요)
+- **M4**: 관측성/보안/CI-CD 시연 고도화 (부분 완료 — ASM 앱 배선 및 대시보드 육안 확인 남음)
+
+상세 현황은 [`docs/architecture.md`](./docs/architecture.md#4-현재-구현-상태-2026-07-10-기준)와
+[`docs/local-setup-progress.md`](./docs/local-setup-progress.md) 참고.
