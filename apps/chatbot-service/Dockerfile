@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 # Prisma's query engine needs the system libssl, which alpine doesn't ship
 # by default (Node's own bundled OpenSSL doesn't satisfy this). ca-certificates
 # is needed too, or the engine download from binaries.prisma.sh fails TLS

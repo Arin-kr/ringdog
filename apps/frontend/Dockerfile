@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN corepack enable
 WORKDIR /workspace
 
@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile --filter @ringdog/frontend... \
 # `output: "standalone"` (next.config.js) traces only the deps actually
 # needed at runtime into .next/standalone, so the final image doesn't need
 # the full node_modules tree or pnpm.
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
