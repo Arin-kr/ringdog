@@ -230,7 +230,9 @@ jobs:
               --set backendApi.env.OPENSEARCH_NODE="https://${OPENSEARCH_ENDPOINT}" \
               --set backendApi.irsaRoleArn="${BACKEND_API_IRSA_ARN}" \
               --set chatbotService.irsaRoleArn="${CHATBOT_IRSA_ARN}" \
-              --set orderConsumer.irsaRoleArn="${ORDER_CONSUMER_IRSA_ARN}"; then
+              --set orderConsumer.irsaRoleArn="${ORDER_CONSUMER_IRSA_ARN}" \
+              --set datadog.rumApplicationId="${{ secrets.DD_RUM_APPLICATION_ID }}" \
+              --set datadog.rumClientToken="${{ secrets.DD_RUM_CLIENT_TOKEN }}"; then
               break
             fi
             if [ "$i" -eq 5 ]; then

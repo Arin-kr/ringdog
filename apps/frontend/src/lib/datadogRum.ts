@@ -1,13 +1,26 @@
 import { datadogRum } from "@datadog/browser-rum";
 
+export interface RumConfig {
+  applicationId?: string;
+  clientToken?: string;
+  site?: string;
+  env?: string;
+}
+
 /**
- * Initializes Datadog RUM (+ RUM-APM trace correlation per
- * NFR-OBS-001) only when the required public env vars are configured.
- * No-op otherwise so local dev without Datadog credentials still works.
+ * Initializes Datadog RUM (+ RUM-APM trace correlation per NFR-OBS-001) only
+ * when the required credentials are configured. No-op otherwise so local dev
+ * without Datadog credentials still works.
+ *
+ * applicationId/clientToken/site/env are passed in (read server-side from
+ * plain, non-NEXT_PUBLIC_ env vars by the root layout) rather than read
+ * directly from process.env here: NEXT_PUBLIC_* vars get inlined into the
+ * client bundle at `next build` time, which for the deployed image happens
+ * before these values exist in CI (see apiClient.ts for the same lesson
+ * learned the hard way with NEXT_PUBLIC_API_BASE_URL).
  */
-export function initRum(): void {
-  const applicationId = process.env.NEXT_PUBLIC_DD_RUM_APPLICATION_ID;
-  const clientToken = process.env.NEXT_PUBLIC_DD_RUM_CLIENT_TOKEN;
+export function initRum(config: RumConfig): void {
+  const { applicationId, clientToken, site, env } = config;
 
   if (!applicationId || !clientToken) {
     return;
@@ -16,15 +29,15 @@ export function initRum(): void {
   datadogRum.init({
     applicationId,
     clientToken,
-    site: process.env.NEXT_PUBLIC_DD_SITE ?? "datadoghq.com",
+    site: site ?? "datadoghq.com",
     service: "ringdog-frontend",
-    env: process.env.NEXT_PUBLIC_DD_ENV ?? "local",
+    env: env ?? "local",
     sessionSampleRate: 100,
     sessionReplaySampleRate: 100,
     trackUserInteractions: true,
     trackResources: true,
     trackLongTasks: true,
-    defaultPrivacyLevel: "mask-user-input",
+    defaultPrivacyLevel: "allow",
     // Correlates RUM traces with backend-api / chatbot-service APM traces
     // via the x-datadog-trace-id header (NFR-OBS-001). Requests to backend-api
     // / chatbot-service go through the same ALB origin as the frontend (see

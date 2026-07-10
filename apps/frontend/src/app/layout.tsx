@@ -14,7 +14,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
   return (
     <html lang="en">
       <body>
-        <RumInit />
+        <RumInit
+          applicationId={process.env.DD_RUM_APPLICATION_ID}
+          clientToken={process.env.DD_RUM_CLIENT_TOKEN}
+          site={process.env.DD_SITE}
+          env={process.env.DD_ENV}
+        />
         {children}
         {/* FR-CHAT-001: the chat widget floats on every page. */}
         <ChatWidget />

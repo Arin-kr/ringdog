@@ -21,7 +21,6 @@ frontend:
   env:
     NEXT_PUBLIC_API_BASE_URL: ""
     NEXT_PUBLIC_CHATBOT_API_BASE_URL: ""
-    NEXT_PUBLIC_DD_SITE: datadoghq.com
 
 backendApi:
   replicaCount: 1
@@ -62,3 +61,10 @@ secrets:
 
 datadog:
   env: demo
+  site: datadoghq.com
+  # RUM app id / client token: not resolvable from AWS by fixed name like the
+  # rest of cd.yml's deploy-time config, so set via GitHub Secrets instead
+  # (same pattern as DD_API_KEY/DD_APP_KEY above) — empty here is a safe no-op,
+  # see datadogRum.ts.
+  rumApplicationId: ""
+  rumClientToken: ""
