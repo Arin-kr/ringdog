@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DatadogAppRouter } from "@datadog/browser-rum-nextjs";
 
 import { ChatWidget } from "@/components/ChatWidget";
 import { RumInit } from "@/components/RumInit";
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
           site={process.env.DD_SITE}
           env={process.env.DD_ENV}
         />
+        <DatadogAppRouter />
         {children}
         {/* FR-CHAT-001: the chat widget floats on every page. */}
         <ChatWidget />

@@ -1,4 +1,5 @@
 import { datadogRum } from "@datadog/browser-rum";
+import { nextjsPlugin } from "@datadog/browser-rum-nextjs";
 
 export interface RumConfig {
   applicationId?: string;
@@ -47,5 +48,8 @@ export function initRum(config: RumConfig): void {
       process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin,
       process.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL || window.location.origin,
     ],
+    // Required for the App Router: without it, RUM can't attribute views to
+    // Next.js routes (client-side navigations would all merge into one view).
+    plugins: [nextjsPlugin()],
   });
 }

@@ -11,9 +11,10 @@
     "test": "echo \"no tests yet\""
   },
   "dependencies": {
-    "@datadog/browser-rum": "^5.35.0",
+    "@datadog/browser-rum": "^7.5.0",
+    "@datadog/browser-rum-nextjs": "^7.5.0",
     "@ringdog/shared": "workspace:*",
-    "next": "14.2.5",
+    "next": "15.5.20",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -22,7 +23,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.5",
+    "eslint-config-next": "15.5.20",
     "typescript": "^5.5.4"
   }
 }
