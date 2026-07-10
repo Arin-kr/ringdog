@@ -108,7 +108,7 @@ ordersRouter.get("/", async (req, res, next) => {
   try {
     const orders = await prisma.order.findMany({
       where: { userId: req.userId },
-      include: { items: true },
+      include: { items: { include: { product: true } } },
       orderBy: { createdAt: "desc" },
     });
     res.status(200).json({ items: orders });
@@ -122,7 +122,7 @@ ordersRouter.get("/:id", async (req, res, next) => {
   try {
     const order = await prisma.order.findUnique({
       where: { id: req.params.id },
-      include: { items: true },
+      include: { items: { include: { product: true } } },
     });
 
     if (!order || order.userId !== req.userId) {
@@ -131,6 +131,37 @@ ordersRouter.get("/:id", async (req, res, next) => {
     }
 
     res.status(200).json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Orders already in SHIPPED/CANCELLED are past the point a demo shopper
+// should be able to back out of.
+const CANCELLABLE_STATUSES: OrderStatus[] = ["PENDING", "PAID"];
+
+/** PATCH /api/orders/:id/cancel */
+ordersRouter.patch("/:id/cancel", async (req, res, next) => {
+  try {
+    const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+
+    if (!order || order.userId !== req.userId) {
+      res.status(404).json({ error: { message: "Order not found" } });
+      return;
+    }
+
+    if (!CANCELLABLE_STATUSES.includes(order.status as OrderStatus)) {
+      res.status(409).json({ error: { message: `Cannot cancel an order that is already ${order.status}` } });
+      return;
+    }
+
+    const cancelled = await prisma.order.update({
+      where: { id: order.id },
+      data: { status: "CANCELLED" },
+      include: { items: { include: { product: true } } },
+    });
+
+    res.status(200).json(cancelled);
   } catch (err) {
     next(err);
   }

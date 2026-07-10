@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { getToken } from "@/lib/auth";
 
@@ -11,30 +11,44 @@ interface ChatMessagesResponse {
   session_id: string;
 }
 
+interface ChatBubble {
+  role: "user" | "assistant";
+  content: string;
+}
+
 // See apps/frontend/src/lib/apiClient.ts for why this defaults to a relative
 // path rather than a localhost fallback.
 const CHATBOT_API_BASE_URL = process.env.NEXT_PUBLIC_CHATBOT_API_BASE_URL ?? "";
 
 /**
- * Floating chatbot widget available on every page (FR-CHAT-001).
+ * Floating chatbot widget available on every page (FR-CHAT-001). Renders the
+ * running back-and-forth as chat bubbles (user right-aligned, assistant
+ * left-aligned) rather than only the latest reply.
  *
- * TODO(M3): render full message history, streaming replies, and pass the
- * user's JWT (once auth state exists) so personalized queries work.
+ * TODO(M3): streaming replies.
  */
 export function ChatWidget(): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState("");
-  const [reply, setReply] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
+  }, [messages, isLoading]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!message.trim()) {
+    const text = message.trim();
+    if (!text) {
       return;
     }
 
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setMessage("");
     setIsLoading(true);
     setError(null);
 
@@ -46,7 +60,7 @@ export function ChatWidget(): JSX.Element {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ session_id: sessionId, message }),
+        body: JSON.stringify({ session_id: sessionId, message: text }),
       });
 
       if (!response.ok) {
@@ -54,9 +68,8 @@ export function ChatWidget(): JSX.Element {
       }
 
       const data = (await response.json()) as ChatMessagesResponse;
-      setReply(data.reply);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       setSessionId(data.session_id);
-      setMessage("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -75,10 +88,22 @@ export function ChatWidget(): JSX.Element {
             </button>
           </div>
 
-          <div className="chat-widget__body">
-            {reply && <p className="chat-widget__reply">{reply}</p>}
+          <div className="chat-widget__body" ref={bodyRef}>
+            {messages.length === 0 && !isLoading && (
+              <p className="chat-widget__hint">Ask about products or your orders.</p>
+            )}
+            {messages.map((bubble, index) => (
+              <div
+                key={index}
+                className={`chat-bubble chat-bubble--${bubble.role}`}
+              >
+                {bubble.content}
+              </div>
+            ))}
+            {isLoading && (
+              <div className="chat-bubble chat-bubble--assistant chat-bubble--pending">···</div>
+            )}
             {error && <p className="chat-widget__error">{error}</p>}
-            {!reply && !error && <p className="chat-widget__hint">Ask about products or your orders.</p>}
           </div>
 
           <form className="chat-widget__form" onSubmit={handleSubmit}>

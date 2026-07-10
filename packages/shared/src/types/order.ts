@@ -1,3 +1,5 @@
+import { Product } from "./product";
+
 export type OrderStatus = "PENDING" | "PAID" | "SHIPPED" | "CANCELLED";
 
 export interface OrderItem {
@@ -6,6 +8,7 @@ export interface OrderItem {
   productId: string;
   quantity: number;
   unitPrice: number;
+  product?: Pick<Product, "id" | "name" | "imageUrl">;
 }
 
 export interface Order {

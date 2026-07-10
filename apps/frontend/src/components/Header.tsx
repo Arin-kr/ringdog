@@ -49,9 +49,12 @@ export function Header(): JSX.Element {
         <nav className="site-header__nav">
           <Link href="/cart">장바구니</Link>
           {loggedIn ? (
-            <button type="button" className="link-button" onClick={handleLogout}>
-              로그아웃
-            </button>
+            <>
+              <Link href="/orders">주문내역</Link>
+              <button type="button" className="link-button" onClick={handleLogout}>
+                로그아웃
+              </button>
+            </>
           ) : (
             <>
               <Link href="/login">로그인</Link>
