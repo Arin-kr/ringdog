@@ -28,7 +28,11 @@ function requestLogger(req: Request, res: Response, next: NextFunction): void {
   res.on("finish", () => {
     const fields = {
       method: req.method,
-      path: req.path,
+      // req.path gets truncated by Express's sub-router mounting and is
+      // never restored for handlers that respond directly instead of
+      // calling next() — req.originalUrl stays correct for the whole
+      // request lifecycle regardless.
+      path: req.originalUrl,
       status: res.statusCode,
       duration_ms: Date.now() - start,
     };
