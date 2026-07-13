@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "@ringdog/db";
-import { DEFAULT_PAGE, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from "@ringdog/shared";
+import { DEFAULT_PAGE, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, logger } from "@ringdog/shared";
 
 import { searchProducts as opensearchSearch } from "../lib/opensearch";
 
@@ -48,10 +48,7 @@ productsRouter.get("/search", async (req, res, next) => {
       res.status(200).json(result);
       return;
     } catch (searchErr) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        JSON.stringify({ level: "warn", message: "OpenSearch unavailable, using DB fallback", error: String(searchErr) }),
-      );
+      logger.warn("OpenSearch unavailable, using DB fallback", { error: String(searchErr) });
     }
 
     const where = q

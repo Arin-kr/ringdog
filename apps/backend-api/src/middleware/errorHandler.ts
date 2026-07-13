@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { logger } from "@ringdog/shared";
 
 export interface HttpError extends Error {
   status?: number;
@@ -13,16 +14,7 @@ export interface HttpError extends Error {
 export function errorHandler(err: HttpError, req: Request, res: Response, _next: NextFunction): void {
   const status = err.status ?? 500;
 
-  // eslint-disable-next-line no-console
-  console.error(
-    JSON.stringify({
-      level: "error",
-      message: err.message,
-      status,
-      path: req.path,
-      method: req.method,
-    }),
-  );
+  logger.error(err.message, { status, path: req.path, method: req.method });
 
   res.status(status).json({
     error: {

@@ -22,6 +22,8 @@ spec:
     metadata:
       labels:
         app: order-consumer
+      annotations:
+        ad.datadoghq.com/order-consumer.logs: '[{"source":"nodejs","service":"ringdog-order-consumer"}]'
     spec:
       serviceAccountName: {{ .Values.orderConsumer.serviceAccountName }}
       containers:
@@ -36,6 +38,8 @@ spec:
                 secretKeyRef:
                   name: ringdog-app-secrets
                   key: databaseUrl
+            - name: DD_ENV
+              value: {{ .Values.datadog.env | quote }}
             - name: DD_SERVICE
               value: ringdog-order-consumer
             - name: DD_AGENT_HOST

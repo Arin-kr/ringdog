@@ -2,6 +2,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import { logger } from "@ringdog/shared";
 
 import { env } from "../config/env";
 
@@ -64,8 +65,7 @@ export async function generateReply(message: string, context: string): Promise<G
 
     return { reply, tokensUsed };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(JSON.stringify({ level: "error", message: "Bedrock invocation failed", error: String(err) }));
+    logger.error("Bedrock invocation failed", { error: String(err) });
     return { reply: FALLBACK_MESSAGE, tokensUsed: null };
   }
 }

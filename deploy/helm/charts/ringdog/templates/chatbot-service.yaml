@@ -22,6 +22,8 @@ spec:
     metadata:
       labels:
         app: chatbot-service
+      annotations:
+        ad.datadoghq.com/chatbot-service.logs: '[{"source":"nodejs","service":"ringdog-chatbot-service"}]'
     spec:
       serviceAccountName: {{ .Values.chatbotService.serviceAccountName }}
       containers:
@@ -43,6 +45,8 @@ spec:
                 secretKeyRef:
                   name: ringdog-app-secrets
                   key: jwtSecret
+            - name: DD_ENV
+              value: {{ .Values.datadog.env | quote }}
             - name: DD_SERVICE
               value: ringdog-chatbot-service
             - name: DD_AGENT_HOST

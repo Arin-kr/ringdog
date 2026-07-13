@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { NextFunction, Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import { prisma } from "@ringdog/db";
-import { DEMO_COUPON_CODE, OrderPlacedEvent, OrderStatus } from "@ringdog/shared";
+import { DEMO_COUPON_CODE, OrderPlacedEvent, OrderStatus, logger } from "@ringdog/shared";
 
 import { requireAuth } from "../middleware/auth";
 import { publishOrderPlaced } from "../lib/kafka";
@@ -85,10 +85,7 @@ ordersRouter.post(
         // TODO(M2): retry/backoff + compensating logic per FR-ORDER-002
         // acceptance criteria — for now we log and still return success
         // since the order itself was committed.
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({ level: "error", message: "Failed to publish OrderPlaced event", orderId: order.id }),
-        );
+        logger.error("Failed to publish OrderPlaced event", { orderId: order.id });
         void publishError;
       }
 

@@ -9,3 +9,4 @@ export * from "./events/orderPlaced";
 export * from "./events/productUpdated";
 
 export * from "./constants";
+export * from "./logger";

@@ -3,6 +3,8 @@ import "./tracer";
 
 import http from "http";
 
+import { logger } from "@ringdog/shared";
+
 import { env } from "./config/env";
 import { startOrderPlacedConsumer } from "./consumers/orderPlacedConsumer";
 
@@ -18,14 +20,10 @@ const healthServer = http.createServer((req, res) => {
 });
 
 healthServer.listen(env.healthPort, () => {
-  // eslint-disable-next-line no-console
-  console.log(
-    JSON.stringify({ level: "info", message: `order-consumer health server on port ${env.healthPort}` }),
-  );
+  logger.info(`order-consumer health server on port ${env.healthPort}`);
 });
 
 startOrderPlacedConsumer().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error(JSON.stringify({ level: "error", message: "Failed to start order consumer", error: String(err) }));
+  logger.error("Failed to start order consumer", { error: String(err) });
   process.exit(1);
 });

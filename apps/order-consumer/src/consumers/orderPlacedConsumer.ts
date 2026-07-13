@@ -1,6 +1,6 @@
 import { Consumer } from "kafkajs";
 import { prisma } from "@ringdog/db";
-import { KAFKA_TOPICS, OrderPlacedEvent } from "@ringdog/shared";
+import { KAFKA_TOPICS, OrderPlacedEvent, logger } from "@ringdog/shared";
 
 import { kafka } from "../lib/kafka";
 import { env } from "../config/env";
@@ -32,17 +32,11 @@ export async function startOrderPlacedConsumer(): Promise<void> {
           data: { status: "PAID" },
         });
 
-        // eslint-disable-next-line no-console
-        console.log(
-          JSON.stringify({ level: "info", message: "Order marked PAID", orderId: event.orderId }),
-        );
+        logger.info("Order marked PAID", { orderId: event.orderId });
       } catch (err) {
         // TODO(M4): exponential backoff retry + DLQ topic per PRD
         // sync_strategy.failure_handling instead of just logging.
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({ level: "error", message: "Failed to process OrderPlaced event", error: String(err) }),
-        );
+        logger.error("Failed to process OrderPlaced event", { error: String(err) });
       }
     },
   });
