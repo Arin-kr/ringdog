@@ -53,6 +53,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            - name: DD_SITE
+              value: {{ .Values.datadog.site | quote }}
+            # LLM Observability / Agent Observability (FR-CHAT-003) - routed
+            # through DD_AGENT_HOST above, no DD_API_KEY needed here.
+            - name: DD_LLMOBS_ENABLED
+              value: "true"
+            - name: DD_LLMOBS_ML_APP
+              value: "ringdog-chatbot"
             {{- range $key, $value := .Values.chatbotService.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
