@@ -326,5 +326,17 @@ jobs:
         env:
           ALB_HOSTNAME: ${{ needs.helm_upgrade_eks.outputs.alb_hostname }}
         run: |
-          curl -sf "http://${ALB_HOSTNAME}/"
-          curl -sf "http://${ALB_HOSTNAME}/api/products?limit=1"
+          set -euo pipefail
+          # A freshly created ALB's DNS name can take a couple of minutes to
+          # propagate/resolve publicly even after the Ingress reports it, and
+          # the ALB's target group health checks need a little time to pass
+          # too — retry instead of failing on the first attempt.
+          for i in $(seq 1 20); do
+            if curl -sf "http://${ALB_HOSTNAME}/" && curl -sf "http://${ALB_HOSTNAME}/api/products?limit=1"; then
+              exit 0
+            fi
+            echo "ALB not reachable yet (attempt $i/20), waiting 15s..."
+            sleep 15
+          done
+          echo "::error::ALB never became reachable at http://${ALB_HOSTNAME}/"
+          exit 1
