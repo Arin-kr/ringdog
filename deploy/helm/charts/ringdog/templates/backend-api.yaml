@@ -73,6 +73,22 @@ kind: Service
 metadata:
   name: backend-api
   namespace: {{ .Values.namespace }}
+  annotations:
+    # Kafka cluster monitoring cluster check (Datadog Kafka Consumer
+    # integration, https://docs.datadoghq.com/integrations/kafka_consumer).
+    # backend-api is the ringdog.orders producer, so it's a valid client to
+    # host this on. Only ONE instance of this check must exist across the
+    # whole deployment (it monitors the entire MSK cluster, not just this
+    # pod) - don't copy this annotation onto order-consumer too.
+    ad.datadoghq.com/service.checks: |-
+      {{ dict "kafka_consumer" (dict
+        "init_config" (dict "max_partition_contexts" 10000)
+        "instances" (list (dict
+          "kafka_connect_str" .Values.backendApi.env.KAFKA_BROKERS
+          "tags" (list "kafka_cluster_name:ringdog-demo")
+          "enable_cluster_monitoring" true
+        ))
+      ) | toJson }}
 spec:
   selector:
     app: backend-api
