@@ -17,11 +17,40 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+function requestLogger(req: Request, res: Response, next: NextFunction): void {
+  if (req.path === "/health") {
+    next();
+    return;
+  }
+
+  const start = Date.now();
+
+  res.on("finish", () => {
+    const fields = {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration_ms: Date.now() - start,
+    };
+
+    if (res.statusCode >= 500) {
+      logger.error("Request completed", fields);
+    } else if (res.statusCode >= 400) {
+      logger.warn("Request completed", fields);
+    } else {
+      logger.info("Request completed", fields);
+    }
+  });
+
+  next();
+}
+
 export function createApp(): Express {
   const app = express();
 
   app.use(corsMiddleware);
   app.use(express.json());
+  app.use(requestLogger);
 
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });

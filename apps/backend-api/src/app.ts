@@ -2,6 +2,7 @@ import express, { Express } from "express";
 
 import { corsMiddleware } from "./middleware/cors";
 import { errorHandler } from "./middleware/errorHandler";
+import { requestLogger } from "./middleware/requestLogger";
 import { authRouter } from "./routes/auth";
 import { productsRouter } from "./routes/products";
 import { cartRouter } from "./routes/cart";
@@ -12,6 +13,7 @@ export function createApp(): Express {
 
   app.use(corsMiddleware);
   app.use(express.json());
+  app.use(requestLogger);
 
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
