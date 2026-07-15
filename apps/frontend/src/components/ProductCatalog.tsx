@@ -69,15 +69,17 @@ export function ProductCatalog(): JSX.Element {
 
   return (
     <section>
-      <h1>{q ? `"${q}" 검색 결과` : "키링 상품"}</h1>
-      <p className="muted">{total}개 상품</p>
+      <h1 className="font-heading text-2xl text-stone-800">{q ? `"${q}" 검색 결과` : "키링 상품"}</h1>
+      <p className="mt-1 text-stone-500">{total}개 상품</p>
 
-      {cartMessage && <p className="info-banner">{cartMessage}</p>}
-      {loading && <p>불러오는 중...</p>}
-      {error && <p className="error-text">{error}</p>}
+      {cartMessage && (
+        <p className="mt-4 rounded-xl bg-mint-50 px-4 py-3 text-mint-700">{cartMessage}</p>
+      )}
+      {loading && <p className="mt-4 text-stone-500">불러오는 중...</p>}
+      {error && <p className="mt-4 text-red-600">{error}</p>}
 
       {!loading && !error && (
-        <div className="product-grid">
+        <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4">
           {products.map((product) => (
             <ProductCard
               key={product.id}
@@ -85,6 +87,7 @@ export function ProductCatalog(): JSX.Element {
               name={product.name}
               price={Number(product.price)}
               imageUrl={product.imageUrl}
+              tags={product.tags}
               onAddToCart={() => handleAddToCart(product.id)}
             />
           ))}
