@@ -99,55 +99,69 @@ export default function CartPage(): JSX.Element {
   return (
     <>
       <Header />
-      <main className="cart-page">
-        <h1>장바구니</h1>
+      <main className="mx-auto max-w-md px-6 py-8">
+        <h1 className="font-heading text-2xl text-stone-800">장바구니</h1>
 
-        {loading && <p>불러오는 중...</p>}
-        {error && <p className="error-text">{error}</p>}
+        {loading && <p className="mt-4 text-stone-500">불러오는 중...</p>}
+        {error && <p className="mt-4 text-red-600">{error}</p>}
 
         {orderResult && (
-          <div className="success-banner">
+          <div className="mt-4 rounded-xl bg-mint-50 px-4 py-3 text-mint-700">
             <p>주문이 완료되었습니다. (주문번호: {orderResult.order_id})</p>
             <p>결제 금액: {formatPrice(orderResult.total_amount)}</p>
-            <Link href="/">쇼핑 계속하기</Link>
+            <Link href="/" className="font-medium underline">
+              쇼핑 계속하기
+            </Link>
           </div>
         )}
 
         {!loading && !orderResult && items.length === 0 && (
-          <p>
-            장바구니가 비어 있습니다. <Link href="/">상품 보러가기</Link>
+          <p className="mt-4 text-stone-600">
+            장바구니가 비어 있습니다.{" "}
+            <Link href="/" className="font-medium text-primary-600 underline">
+              상품 보러가기
+            </Link>
           </p>
         )}
 
         {!loading && items.length > 0 && (
           <>
-            <ul className="cart-list">
+            <ul className="mt-4 flex flex-col divide-y divide-stone-200">
               {items.map((item) => (
-                <li key={item.id} className="cart-list__item">
-                  <span>
+                <li key={item.id} className="flex items-center justify-between gap-2 py-3">
+                  <span className="text-stone-700">
                     {item.product.name} × {item.quantity}
                   </span>
-                  <span>{formatPrice(Number(item.product.price) * item.quantity)}</span>
-                  <button type="button" className="link-button" onClick={() => handleRemove(item.id)}>
+                  <span className="text-stone-700">{formatPrice(Number(item.product.price) * item.quantity)}</span>
+                  <button
+                    type="button"
+                    className="text-sm text-stone-400 underline hover:text-red-600"
+                    onClick={() => handleRemove(item.id)}
+                  >
                     삭제
                   </button>
                 </li>
               ))}
             </ul>
 
-            <p className="cart-total">합계: {formatPrice(subtotal)}</p>
+            <p className="mt-4 text-lg font-bold text-stone-800">합계: {formatPrice(subtotal)}</p>
 
-            <form className="checkout-form" onSubmit={handleCheckout}>
-              <label>
+            <form className="mt-6 flex flex-col gap-4" onSubmit={handleCheckout}>
+              <label className="flex flex-col gap-1 text-sm text-stone-600">
                 데모 쿠폰 (RINGDOG100 입력 시 0원)
                 <input
                   type="text"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
                   placeholder="RINGDOG100"
+                  className="rounded-xl border border-stone-200 px-3 py-2 text-base text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
                 />
               </label>
-              <button type="submit" className="button" disabled={checkingOut}>
+              <button
+                type="submit"
+                className="rounded-full bg-primary-500 px-4 py-2.5 font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
+                disabled={checkingOut}
+              >
                 {checkingOut ? "결제 처리 중..." : "결제하기"}
               </button>
             </form>
