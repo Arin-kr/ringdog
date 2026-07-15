@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DatadogAppRouter } from "@datadog/browser-rum-nextjs";
 
+import { jua, notoSansKr } from "./fonts";
 import { ChatWidget } from "@/components/ChatWidget";
 import { RumInit } from "@/components/RumInit";
 
@@ -21,8 +22,8 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <html lang="en">
-      <body>
+    <html lang="ko" className={`${jua.variable} ${notoSansKr.variable}`}>
+      <body className="min-h-screen bg-cream font-sans text-stone-800 antialiased">
         <RumInit
           applicationId={process.env.DD_RUM_APPLICATION_ID}
           clientToken={process.env.DD_RUM_CLIENT_TOKEN}

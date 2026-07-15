@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
 
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx}"],
@@ -32,6 +33,10 @@ const config: Config = {
       boxShadow: {
         soft: "0 8px 24px -6px rgba(255, 106, 77, 0.35)",
         "soft-lg": "0 16px 40px -8px rgba(255, 106, 77, 0.35)",
+      },
+      fontFamily: {
+        sans: ["var(--font-noto-sans-kr)", ...defaultTheme.fontFamily.sans],
+        heading: ["var(--font-jua)", "sans-serif"],
       },
     },
   },
