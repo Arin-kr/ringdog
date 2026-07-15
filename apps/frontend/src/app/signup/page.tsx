@@ -35,14 +35,20 @@ export default function SignupPage(): JSX.Element {
   return (
     <>
       <Header />
-      <main className="auth-page">
-        <h1>회원가입</h1>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
+      <main className="mx-auto max-w-sm px-6 py-8">
+        <h1 className="font-heading text-2xl text-stone-800">회원가입</h1>
+        <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit}>
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
             이메일
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="rounded-xl border border-stone-200 px-3 py-2 text-base text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
           </label>
-          <label>
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
             비밀번호 (8자 이상)
             <input
               type="password"
@@ -50,15 +56,23 @@ export default function SignupPage(): JSX.Element {
               onChange={(e) => setPassword(e.target.value)}
               minLength={8}
               required
+              className="rounded-xl border border-stone-200 px-3 py-2 text-base text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
           </label>
-          {error && <p className="error-text">{error}</p>}
-          <button type="submit" className="button" disabled={loading}>
+          {error && <p className="text-red-600">{error}</p>}
+          <button
+            type="submit"
+            className="rounded-full bg-primary-500 px-4 py-2.5 font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
+            disabled={loading}
+          >
             {loading ? "처리 중..." : "가입하기"}
           </button>
         </form>
-        <p>
-          이미 계정이 있으신가요? <Link href="/login">로그인</Link>
+        <p className="mt-4 text-sm text-stone-600">
+          이미 계정이 있으신가요?{" "}
+          <Link href="/login" className="font-medium text-primary-600 underline">
+            로그인
+          </Link>
         </p>
       </main>
     </>
