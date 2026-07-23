@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Product } from "@ringdog/shared";
 
 import { Header } from "@/components/Header";
+import { ProductIcon } from "@/components/ProductIcon";
 import { apiFetch, ApiError } from "@/lib/apiClient";
 import { isLoggedIn } from "@/lib/auth";
 
@@ -61,45 +62,51 @@ export default function ProductDetailPage(): JSX.Element {
   return (
     <>
       <Header />
-      <main className="product-detail-page">
+      <main className="mx-auto max-w-3xl px-6 py-8">
         <p>
-          <Link href="/">← 목록으로</Link>
+          <Link href="/" className="text-sm text-stone-500 hover:text-primary-600">
+            ← 목록으로
+          </Link>
         </p>
 
-        {loading && <p>불러오는 중...</p>}
-        {error && <p className="error-text">{error}</p>}
+        {loading && <p className="mt-4 text-stone-500">불러오는 중...</p>}
+        {error && <p className="mt-4 text-red-600">{error}</p>}
 
         {!loading && product && (
-          <div className="product-detail">
+          <div className="mt-4 grid grid-cols-1 gap-8 sm:grid-cols-[minmax(0,280px)_1fr]">
             {product.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={product.imageUrl} alt={product.name} className="product-detail__image" />
+              <img src={product.imageUrl} alt={product.name} className="aspect-square w-full rounded-2xl object-cover" />
             ) : (
-              <div className="product-detail__image product-detail__image--placeholder" aria-hidden />
+              <ProductIcon tags={product.tags} name={product.name} className="aspect-square w-full" />
             )}
 
-            <div className="product-detail__info">
-              <h1>{product.name}</h1>
-              <p className="product-detail__price">{formatPrice(product.price)}</p>
+            <div>
+              <h1 className="font-heading text-2xl text-stone-800">{product.name}</h1>
+              <p className="mt-2 text-xl font-bold text-primary-600">{formatPrice(product.price)}</p>
 
               {product.tags.length > 0 && (
-                <ul className="product-detail__tags">
+                <ul className="mt-2 flex flex-wrap gap-2 text-sm text-stone-500">
                   {product.tags.map((tag) => (
-                    <li key={tag}>#{tag}</li>
+                    <li key={tag} className="rounded-full bg-stone-100 px-3 py-1">
+                      #{tag}
+                    </li>
                   ))}
                 </ul>
               )}
 
-              <p className="product-detail__description">{product.description}</p>
-              <p className="muted">재고 {product.stock}개</p>
+              <p className="mt-4 leading-relaxed text-stone-600">{product.description}</p>
+              <p className="mt-2 text-sm text-stone-400">재고 {product.stock}개</p>
 
-              {cartMessage && <p className="info-banner">{cartMessage}</p>}
+              {cartMessage && (
+                <p className="mt-4 rounded-xl bg-mint-50 px-4 py-3 text-mint-700">{cartMessage}</p>
+              )}
 
               <button
                 type="button"
-                className="button"
                 disabled={product.stock <= 0}
                 onClick={handleAddToCart}
+                className="mt-4 rounded-full bg-primary-500 px-5 py-2.5 font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
               >
                 {product.stock > 0 ? "장바구니에 담기" : "품절"}
               </button>
