@@ -3,9 +3,10 @@ import { randomUUID } from "crypto";
 import { NextFunction, Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
 import { prisma } from "@ringdog/db";
-import { DEMO_COUPON_CODE, OrderPlacedEvent, OrderStatus, logger } from "@ringdog/shared";
+import { OrderPlacedEvent, OrderStatus, logger } from "@ringdog/shared";
 
 import { requireAuth } from "../middleware/auth";
+import { calculateOrderTotal } from "../lib/orderTotal";
 import { publishOrderPlaced } from "../lib/kafka";
 
 export const ordersRouter: Router = Router();
@@ -37,12 +38,10 @@ ordersRouter.post(
         return;
       }
 
-      const isDemoCoupon = couponCode === DEMO_COUPON_CODE;
-      const subtotal = cartItems.reduce(
-        (sum, item) => sum + Number(item.product.price) * item.quantity,
-        0,
+      const { totalAmount, isDemoCoupon } = calculateOrderTotal(
+        cartItems.map((item) => ({ price: Number(item.product.price), quantity: item.quantity })),
+        couponCode,
       );
-      const totalAmount = isDemoCoupon ? 0 : subtotal;
 
       // FR-ORDER-001: order + order items are persisted in a single transaction.
       // Status defaults to PENDING; order-consumer asynchronously flips it to
