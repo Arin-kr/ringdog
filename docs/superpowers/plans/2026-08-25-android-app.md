@@ -869,7 +869,7 @@ interface OrderApi {
 - [ ] **Step 5: Run DTO tests to verify they pass**
 
 Run: `./gradlew :app:testLocalDebugUnitTest --tests "com.ringdog.android.data.remote.dto.DtoSerializationTest"`
-Expected: PASS (6 tests).
+Expected: PASS (7 tests).
 
 - [ ] **Step 6: Write the failing test for `ApiResult`/`safeApiCall`**
 
