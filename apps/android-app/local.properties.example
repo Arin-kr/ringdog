@@ -1,0 +1,10 @@
+# Copy to local.properties (gitignored) and fill in real values.
+# sdk.dir is normally auto-written by Android Studio on first sync.
+
+# Datadog RUM → Manage Applications → create an "Android" application to get these:
+DD_RUM_APPLICATION_ID=
+DD_RUM_CLIENT_TOKEN=
+
+# Only used by the `demo` flavor if you want a stable local override instead of
+# passing -PDEMO_BASE_URL on the command line. Must be a bare host (no scheme).
+DEMO_BASE_URL=

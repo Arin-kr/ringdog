@@ -31,3 +31,16 @@ packages/db/generated/
 # IDE
 .vscode/*
 !.vscode/settings.json
+
+# Android (apps/android-app)
+apps/android-app/local.properties
+apps/android-app/**/build/
+apps/android-app/.gradle/
+apps/android-app/.idea/
+apps/android-app/*.iml
+apps/android-app/app/*.iml
+apps/android-app/captures/
+apps/android-app/.cxx/
+*.apk
+*.aab
+*.hprof
