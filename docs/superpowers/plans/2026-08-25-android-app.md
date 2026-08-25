@@ -29,6 +29,7 @@
 - Create: `apps/android-app/gradle.properties`
 - Create: `apps/android-app/app/build.gradle.kts`
 - Create: `apps/android-app/app/src/main/AndroidManifest.xml`
+- Create: `apps/android-app/app/src/main/res/values/themes.xml`
 - Create: `apps/android-app/app/src/main/java/com/ringdog/android/MainActivity.kt`
 - Create: `apps/android-app/app/src/main/java/com/ringdog/android/ui/theme/Theme.kt`
 - Create: `apps/android-app/local.properties.example`
@@ -96,7 +97,12 @@ plugins {
 android.useAndroidX=true
 kotlin.code.style=official
 android.nonTransitiveRClass=true
+org.gradle.jvmargs=-Xmx2560m -Dfile.encoding=UTF-8 -Djavax.net.ssl.trustStoreType=Windows-ROOT
 ```
+
+The last line does two things, both confirmed necessary on this machine by actually running the build during planning:
+- `-Xmx2560m`: the default 512 MiB daemon heap hits `OutOfMemoryError` during D8 dexing with this dependency set (Compose + Retrofit/OkHttp + Datadog SDK + Navigation is enough classes to need more heap than Gradle's default).
+- `-Djavax.net.ssl.trustStoreType=Windows-ROOT`: this network intercepts TLS via a corporate proxy (confirmed: the certificate actually presented for `dl.google.com` is issued by "Zscaler Intermediate Root CA", not Google). Windows itself trusts that proxy's root CA (that's why `curl`/Android Studio/browsers work fine), but the JDK ships its own separate trust store that does not — without this flag, Gradle's plugin/dependency resolution against Google's and Maven's repositories fails to resolve anything, with no clear SSL error in the default log output (only `--info` shows the real "Resource missing" HTTP GETs; the underlying TLS failure doesn't surface without deeper flags). `Windows-ROOT` makes the JVM read from the Windows OS trust store directly instead of its bundled `cacerts`, so it trusts whatever Windows already trusts — no manual certificate export/import needed, and it stays correct if the corporate proxy ever rotates its certificate.
 
 - [ ] **Step 5: Create `apps/android-app/local.properties.example`**
 
@@ -248,7 +254,7 @@ dependencies {
         android:name=".RingDogApplication"
         android:allowBackup="false"
         android:label="RingDog"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+        android:theme="@style/Theme.RingDog">
 
         <activity
             android:name=".MainActivity"
@@ -262,7 +268,17 @@ dependencies {
 </manifest>
 ```
 
-`RingDogApplication` doesn't exist yet — it's created in Task 2. This manifest step is committed together with a temporary no-op `RingDogApplication` so the app builds; Task 2 replaces its body.
+`RingDogApplication` doesn't exist yet — it's created in Task 2. This manifest step is committed together with a temporary no-op `RingDogApplication` so the app builds; Task 2 replaces its body. `Theme.RingDog` doesn't exist yet either — the next step creates it.
+
+- [ ] **Step 7b: Create `apps/android-app/app/src/main/res/values/themes.xml`**
+
+```xml
+<resources>
+    <style name="Theme.RingDog" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
+```
+
+This app has no `com.google.android.material:material` dependency (it's Compose-only — Compose's own `material3` artifact doesn't ship XML styles), so `@style/Theme.Material3.DayNight.NoActionBar` referenced directly in the manifest does not exist and fails resource linking (`AAPT: error: resource style/Theme.Material3.DayNight.NoActionBar ... not found`, confirmed by actually running the build during planning). A minimal custom style parented on the platform's own `android:Theme.Material.Light.NoActionBar` is enough — Compose provides the real Material3 theming at the `RingDogTheme` composable level (Step 9 below); this XML style only needs to exist so the manifest's `android:theme` attribute resolves.
 
 - [ ] **Step 8: Create a temporary no-op `RingDogApplication` (Task 2 will fill this in)**
 
