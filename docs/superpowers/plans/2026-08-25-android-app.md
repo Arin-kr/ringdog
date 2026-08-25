@@ -32,6 +32,7 @@
 - Create: `apps/android-app/app/src/main/java/com/ringdog/android/MainActivity.kt`
 - Create: `apps/android-app/app/src/main/java/com/ringdog/android/ui/theme/Theme.kt`
 - Create: `apps/android-app/local.properties.example`
+- Create: `apps/android-app/gradlew`, `apps/android-app/gradlew.bat`, `apps/android-app/gradle/wrapper/gradle-wrapper.properties`, `apps/android-app/gradle/wrapper/gradle-wrapper.jar` (generated, not hand-written — see Step 11)
 - Modify: `.gitignore` (repo root)
 
 **Interfaces:**
@@ -331,17 +332,49 @@ private fun Placeholder() {
 }
 ```
 
-- [ ] **Step 11: Verify the project builds**
+- [ ] **Step 11: Generate the Gradle wrapper**
 
-Run (from `apps/android-app/`): `./gradlew :app:assembleLocalDebug`
+The project has no `gradlew`/`gradlew.bat` yet — every later task's "run `./gradlew ...`" step depends on this existing. This machine has a standalone Gradle 8.9 already extracted at
+`C:\Users\MZC01-ARINAN\AppData\Local\Android\gradle-8.9` (set up as a one-time environment step, outside this repo) purely to bootstrap the wrapper — it is not otherwise part of this project.
+
+From `apps/android-app/`, run:
+
+```bash
+JAVA_HOME="/c/Users/MZC01-ARINAN/AppData/Local/Programs/Microsoft/jdk-17.0.10.7-hotspot" \
+  "/c/Users/MZC01-ARINAN/AppData/Local/Android/gradle-8.9/bin/gradle.bat" wrapper --gradle-version 8.9 --distribution-type bin
+```
+
+Expected: creates `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, `gradle/wrapper/gradle-wrapper.properties`. Commit all four — the wrapper jar is a binary file and is normally committed for Gradle projects (this is how every consumer of the repo, including CI later, gets the exact same Gradle version without installing it separately).
+
+- [ ] **Step 12: Point the project at the installed Android SDK**
+
+Add a `sdk.dir` line to `apps/android-app/local.properties` (create the file now if it doesn't exist yet from Step 5's example — it's gitignored, so this is a one-line file for now until Datadog credentials are added later):
+
+```properties
+sdk.dir=C\:\\Users\\MZC01-ARINAN\\AppData\\Local\\Android\\Sdk
+```
+
+This machine has no persistent `ANDROID_HOME` environment variable, so `sdk.dir` in `local.properties` is how the Android Gradle Plugin finds the SDK (the standard mechanism — this is exactly what Android Studio itself writes here on a normal setup).
+
+- [ ] **Step 13: Verify the project builds**
+
+This machine also has no persistent `JAVA_HOME` — every `./gradlew` invocation in this and every later task must be prefixed exactly like this:
+
+```bash
+JAVA_HOME="/c/Users/MZC01-ARINAN/AppData/Local/Programs/Microsoft/jdk-17.0.10.7-hotspot" ./gradlew :app:assembleLocalDebug
+```
+
+Run (from `apps/android-app/`) the command above.
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 14: Commit**
 
 ```bash
 git add .gitignore apps/android-app
 git commit -m "feat(android): scaffold Android app project (Gradle, flavors, gitignore)"
 ```
+
+`local.properties` itself is gitignored and will not be included — only the wrapper files, build config, manifest, and source files.
 
 ---
 
