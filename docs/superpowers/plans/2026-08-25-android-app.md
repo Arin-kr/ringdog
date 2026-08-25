@@ -3116,11 +3116,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.ringdog.android.ui.order.OrderHistoryViewModel
 
 @Composable
 fun CartCheckoutSection(
-    cartViewModel: CartViewModel,
     orderViewModel: OrderHistoryViewModel,
     onCheckoutSuccess: (orderId: String) -> Unit,
 ) {
@@ -3142,7 +3142,7 @@ fun CartCheckoutSection(
 }
 ```
 
-Add the missing `androidx.compose.ui.unit.dp` import alongside the others above.
+`CartCheckoutSection` only needs the `OrderHistoryViewModel` (checkout lives there, per this task's Interfaces note) — it does not take a `CartViewModel` parameter since it never reads cart state directly.
 
 - [ ] **Step 3: Create `RingDogNavHost`**
 
@@ -3237,7 +3237,6 @@ fun RingDogNavHost(navController: NavHostController) {
             Column {
                 CartScreen(viewModel = cartViewModel)
                 CartCheckoutSection(
-                    cartViewModel = cartViewModel,
                     orderViewModel = orderViewModel,
                     onCheckoutSuccess = { orderId ->
                         navController.navigate(Routes.orderDetail(orderId)) {
