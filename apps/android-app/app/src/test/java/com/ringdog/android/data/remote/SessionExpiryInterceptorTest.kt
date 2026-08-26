@@ -25,16 +25,31 @@ class SessionExpiryInterceptorTest {
     }
 
     @Test
-    fun `invokes callback exactly once on a 401 response`() {
+    fun `invokes callback exactly once on a 401 response to a request with an Authorization header`() {
         server.enqueue(MockResponse().setResponseCode(401))
         val callCount = AtomicInteger(0)
         val client = OkHttpClient.Builder()
             .addInterceptor(SessionExpiryInterceptor { callCount.incrementAndGet() })
             .build()
 
-        client.newCall(Request.Builder().url(server.url("/secure")).build()).execute()
+        client.newCall(
+            Request.Builder().url(server.url("/secure")).addHeader("Authorization", "Bearer jwt-123").build(),
+        ).execute()
 
         assertEquals(1, callCount.get())
+    }
+
+    @Test
+    fun `does not invoke callback on a 401 response to a request without an Authorization header`() {
+        server.enqueue(MockResponse().setResponseCode(401))
+        val callCount = AtomicInteger(0)
+        val client = OkHttpClient.Builder()
+            .addInterceptor(SessionExpiryInterceptor { callCount.incrementAndGet() })
+            .build()
+
+        client.newCall(Request.Builder().url(server.url("/login")).build()).execute()
+
+        assertEquals(0, callCount.get())
     }
 
     @Test
