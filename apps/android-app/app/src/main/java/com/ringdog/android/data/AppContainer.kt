@@ -1,5 +1,10 @@
 package com.ringdog.android.data
 
+import com.ringdog.android.data.remote.NetworkModule
+import com.ringdog.android.data.repository.AuthRepository
+
 // Repository singletons are added here one at a time as each domain area
 // (auth, cart, product, order) is implemented in later tasks.
-object AppContainer
+object AppContainer {
+    val authRepository: AuthRepository by lazy { AuthRepository(NetworkModule.authApi) }
+}
