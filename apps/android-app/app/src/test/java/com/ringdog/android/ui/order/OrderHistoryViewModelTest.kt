@@ -25,10 +25,9 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-@OptIn(ExperimentalCoroutinesApi::class)
-
 private fun order(id: String) = OrderDto(id, "u1", "19.99", null, "PENDING", "2026-01-01", emptyList())
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class OrderHistoryViewModelTest {
 
     @get:Rule
