@@ -24,7 +24,10 @@ fun ProductDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(uiState.addedToCart) {
-        if (uiState.addedToCart) onNavigateToCart()
+        if (uiState.addedToCart) {
+            onNavigateToCart()
+            viewModel.onNavigatedToCart()
+        }
     }
 
     Column(

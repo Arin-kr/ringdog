@@ -26,13 +26,17 @@ fun ProductListScreen(
     viewModel: ProductListViewModel,
     onProductClick: (String) -> Unit,
     onCartClick: () -> Unit,
+    onOrderHistoryClick: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("RingDog") },
-            actions = { Button(onClick = onCartClick) { Text("장바구니") } },
+            actions = {
+                Button(onClick = onOrderHistoryClick) { Text("주문 내역") }
+                Button(onClick = onCartClick) { Text("장바구니") }
+            },
         )
 
         if (uiState.isLoading) {

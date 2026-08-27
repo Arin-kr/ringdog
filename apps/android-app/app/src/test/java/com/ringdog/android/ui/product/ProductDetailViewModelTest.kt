@@ -87,4 +87,22 @@ class ProductDetailViewModelTest {
         verify(exactly = 0) { rumMonitor.addAction(any(), any(), any()) }
         assertEquals("Product not found", viewModel.uiState.value.errorMessage)
     }
+
+    @Test
+    fun `onNavigatedToCart resets addedToCart so navigation does not re-trigger`() = runTest {
+        val rumMonitor = mockk<RumMonitor>(relaxed = true)
+        every { GlobalRumMonitor.get() } returns rumMonitor
+        coEvery { productRepository.getProduct("p1") } returns ApiResult.Success(product)
+        val cartItem = CartItemDto("c1", "u1", "p1", 1, "2026-01-01")
+        coEvery { cartRepository.addItem("p1", 1) } returns ApiResult.Success(cartItem)
+
+        val viewModel = ProductDetailViewModel("p1", productRepository, cartRepository)
+        viewModel.addToCart()
+        advanceUntilIdle()
+        assertEquals(true, viewModel.uiState.value.addedToCart)
+
+        viewModel.onNavigatedToCart()
+
+        assertEquals(false, viewModel.uiState.value.addedToCart)
+    }
 }

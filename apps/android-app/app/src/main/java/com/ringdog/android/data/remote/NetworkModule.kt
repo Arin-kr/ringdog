@@ -33,7 +33,12 @@ object NetworkModule {
         OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor { TokenStore.getToken() })
             .addInterceptor(datadogInterceptor)
-            .addInterceptor(SessionExpiryInterceptor { AuthEventBus.notifySessionExpired() })
+            .addInterceptor(
+                SessionExpiryInterceptor {
+                    TokenStore.clearToken()
+                    AuthEventBus.notifySessionExpired()
+                },
+            )
             .addInterceptor(loggingInterceptor)
             .build()
     }

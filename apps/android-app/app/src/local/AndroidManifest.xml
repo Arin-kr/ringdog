@@ -1,0 +1,13 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      The `local` flavor points BASE_URL at the Android emulator's host-loopback
+      alias (http://10.0.2.2:4000/) to reach a developer's local backend over
+      plain HTTP. targetSdk 34 blocks cleartext traffic by default, so this
+      flavor-specific manifest (merged only into `local` builds by Gradle's
+      manifest merger, which picks up src/<flavorName>/AndroidManifest.xml)
+      exempts just this flavor. The `demo` flavor uses a real HTTPS ALB and
+      has no such exemption, so it stays cleartext-blocked.
+    -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

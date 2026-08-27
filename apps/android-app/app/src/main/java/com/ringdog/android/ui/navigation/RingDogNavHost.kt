@@ -69,6 +69,7 @@ fun RingDogNavHost(navController: NavHostController) {
                 viewModel = viewModel,
                 onProductClick = { productId -> navController.navigate(Routes.productDetail(productId)) },
                 onCartClick = { navController.navigate(Routes.CART) },
+                onOrderHistoryClick = { navController.navigate(Routes.ORDER_HISTORY) },
             )
         }
 

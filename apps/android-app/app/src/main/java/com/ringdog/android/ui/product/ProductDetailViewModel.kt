@@ -57,4 +57,8 @@ class ProductDetailViewModel(
             }
         }
     }
+
+    fun onNavigatedToCart() {
+        _uiState.value = _uiState.value.copy(addedToCart = false)
+    }
 }
