@@ -6,9 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.rememberNavController
+import com.datadog.android.rum.GlobalRumMonitor
+import com.ringdog.android.ui.navigation.RingDogNavHost
 import com.ringdog.android.ui.theme.RingDogTheme
 
 class MainActivity : ComponentActivity() {
@@ -17,14 +19,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             RingDogTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Placeholder()
+                    val navController = rememberNavController()
+                    DisposableEffect(navController) {
+                        val listener = androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
+                            val viewName = destination.route ?: "unknown"
+                            GlobalRumMonitor.get().startView(viewName, viewName)
+                        }
+                        navController.addOnDestinationChangedListener(listener)
+                        onDispose { navController.removeOnDestinationChangedListener(listener) }
+                    }
+                    RingDogNavHost(navController = navController)
                 }
             }
         }
     }
-}
-
-@Composable
-private fun Placeholder() {
-    Text("RingDog")
 }
