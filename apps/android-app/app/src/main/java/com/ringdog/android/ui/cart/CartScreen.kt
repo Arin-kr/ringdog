@@ -19,10 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun CartScreen(viewModel: CartViewModel) {
+fun CartScreen(viewModel: CartViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         Text("장바구니")
 
         if (uiState.isLoading) {

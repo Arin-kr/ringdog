@@ -3,6 +3,7 @@ package com.ringdog.android.ui.navigation
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -86,7 +87,7 @@ fun RingDogNavHost(navController: NavHostController) {
             val cartViewModel = viewModel { CartViewModel(AppContainer.cartRepository) }
             val orderViewModel = viewModel { OrderHistoryViewModel(AppContainer.orderRepository) }
             Column {
-                CartScreen(viewModel = cartViewModel)
+                CartScreen(viewModel = cartViewModel, modifier = Modifier.weight(1f))
                 CartCheckoutSection(
                     orderViewModel = orderViewModel,
                     onCheckoutSuccess = { orderId ->
