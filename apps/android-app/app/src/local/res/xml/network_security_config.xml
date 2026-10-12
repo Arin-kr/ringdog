@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  `local` flavor only (merged from src/local/). Once a networkSecurityConfig is
+  set, android:usesCleartextTraffic is ignored, so cleartext to the local
+  backend (http://10.0.2.2:4000/) is permitted here instead.
+
+  debug-overrides (applied only to debuggable builds) additionally trust
+  user-installed CAs. Needed on networks doing TLS inspection (e.g. a corporate
+  proxy re-signing HTTPS): the SDK's uploads to Datadog's intake fail
+  certificate validation otherwise, and RUM batches pile up on the device
+  without ever being sent. Install the proxy's root CA on the emulator as a
+  user CA (see apps/android-app/README.md). No CA file is bundled in the repo.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

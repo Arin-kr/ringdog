@@ -8,6 +8,9 @@
       manifest merger, which picks up src/<flavorName>/AndroidManifest.xml)
       exempts just this flavor. The `demo` flavor uses a real HTTPS ALB and
       has no such exemption, so it stays cleartext-blocked.
+
+      Cleartext is now granted via network_security_config.xml (which overrides
+      usesCleartextTraffic once set); it also trusts user CAs in debug builds.
     -->
-    <application android:usesCleartextTraffic="true" />
+    <application android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>

@@ -14,9 +14,19 @@ val localProperties = Properties().apply {
 fun localOrProjectProperty(key: String, default: String = ""): String =
     (project.findProperty(key) as String?) ?: localProperties.getProperty(key, default)
 
+// First non-blank local.properties value among `keys`. Accepts both this repo's
+// DD_RUM_* names and the `rum.*` names from Datadog's onboarding snippet, strips
+// surrounding quotes (.properties keeps them literally), and skips unfilled
+// `<PLACEHOLDER>` values copied verbatim from that snippet.
+fun localRumProperty(vararg keys: String): String =
+    keys.asSequence()
+        .map { localProperties.getProperty(it, "").trim().removeSurrounding("\"") }
+        .firstOrNull { it.isNotBlank() && !(it.startsWith("<") && it.endsWith(">")) }
+        ?: ""
+
 android {
     namespace = "com.ringdog.android"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.ringdog.android"
@@ -34,12 +44,18 @@ android {
             buildConfigField(
                 "String",
                 "DD_RUM_APPLICATION_ID",
-                "\"${localProperties.getProperty("DD_RUM_APPLICATION_ID", "")}\"",
+                "\"${localRumProperty("DD_RUM_APPLICATION_ID", "rum.applicationId")}\"",
             )
             buildConfigField(
                 "String",
                 "DD_RUM_CLIENT_TOKEN",
-                "\"${localProperties.getProperty("DD_RUM_CLIENT_TOKEN", "")}\"",
+                "\"${localRumProperty("DD_RUM_CLIENT_TOKEN", "rum.clientToken")}\"",
+            )
+            buildConfigField("String", "DD_ENV", "\"${localRumProperty("DD_ENV", "rum.environmentName")}\"")
+            buildConfigField(
+                "String",
+                "DD_REMOTE_CONFIG_ID",
+                "\"${localRumProperty("DD_REMOTE_CONFIG_ID", "rum.remoteConfigId")}\"",
             )
         }
         create("demo") {
@@ -56,6 +72,8 @@ android {
                 "DD_RUM_CLIENT_TOKEN",
                 "\"${localOrProjectProperty("DD_RUM_CLIENT_TOKEN_ANDROID")}\"",
             )
+            buildConfigField("String", "DD_ENV", "\"\"")
+            buildConfigField("String", "DD_REMOTE_CONFIG_ID", "\"\"")
         }
     }
 
@@ -104,10 +122,12 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    implementation("com.datadoghq:dd-sdk-android-rum:2.14.0")
-    implementation("com.datadoghq:dd-sdk-android-trace:2.14.0")
-    implementation("com.datadoghq:dd-sdk-android-logs:2.14.0")
-    implementation("com.datadoghq:dd-sdk-android-okhttp:2.14.0")
+    implementation("com.datadoghq:dd-sdk-android-rum:3.15.0")
+    implementation("com.datadoghq:dd-sdk-android-trace:3.15.0")
+    implementation("com.datadoghq:dd-sdk-android-logs:3.15.0")
+    implementation("com.datadoghq:dd-sdk-android-okhttp:3.15.0")
+    implementation("com.datadoghq:dd-sdk-android-session-replay:3.15.0")
+    implementation("com.datadoghq:dd-sdk-android-session-replay-compose:3.15.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.11")

@@ -25,8 +25,11 @@ object NetworkModule {
 
     // Restricting tracedHosts to backend-api's own host ensures Datadog distributed-trace
     // headers are only attached to requests we control, never leaked to a third-party host.
+    // 100% trace sampling (SDK default is 20%) so every backend call in a demo links RUM → APM.
     private val datadogInterceptor: DatadogInterceptor by lazy {
-        DatadogInterceptor.Builder(mapOf(tracedHost to setOf(TracingHeaderType.DATADOG))).build()
+        DatadogInterceptor.Builder(mapOf(tracedHost to setOf(TracingHeaderType.DATADOG)))
+            .setTraceSampleRate(100f)
+            .build()
     }
 
     private val okHttpClient: OkHttpClient by lazy {
