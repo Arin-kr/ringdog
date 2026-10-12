@@ -3,6 +3,126 @@
 Datadog 풀스택 관측성(RUM, APM, Logs, CI/CD Visibility, DSM, LLM Observability, ASM, Infrastructure Monitoring)
 데모용 키링 이커머스 애플리케이션. 전체 요구사항은 [`PRD_v1.yaml`](./PRD_v1.yaml) 참고.
 
+## 아키텍처 구조도
+
+```mermaid
+flowchart LR
+    user(["👤 사용자 (브라우저)"])
+    android(["📱 Android 앱"])
+    gha["GitHub Actions<br/>ci.yml / cd.yml"]
+    dd[("🐶 Datadog<br/>RUM · APM · Logs · DSM<br/>LLM Obs · CI Visibility")]
+
+    subgraph aws["AWS · ap-northeast-2"]
+        ecr["ECR<br/>이미지 4종"]
+        sm["Secrets Manager<br/>RDS / JWT 시크릿"]
+        bedrock["Amazon Bedrock<br/>Claude 3 Haiku"]
+
+        subgraph vpc["VPC 10.60.0.0/16 · 2 AZ (2a / 2c)"]
+            subgraph pub["Public Subnet × 2"]
+                alb["ALB<br/>(AWS LB Controller가 Ingress로 생성)"]
+                nat["NAT Gateway × 1"]
+            end
+
+            subgraph priv["Private Subnet × 2"]
+                subgraph eks["EKS ringdog-demo · k8s 1.33 · t3.medium × 2 노드"]
+                    subgraph ns["namespace: ringdog"]
+                        fe["frontend<br/>Next.js :3000"]
+                        api["backend-api<br/>Express :4000"]
+                        chat["chatbot-service<br/>Express :4001"]
+                        oc["order-consumer<br/>Kafka Consumer"]
+                    end
+                    agent["Datadog Agent (DaemonSet)<br/>+ Cluster Agent"]
+                end
+                rds[("RDS PostgreSQL 16<br/>db.t3.micro")]
+                msk[["MSK Kafka 3.6<br/>kafka.t3.small × 2 브로커"]]
+                os[("OpenSearch 2.15<br/>t3.small.search × 1")]
+            end
+        end
+    end
+
+    user -->|HTTP| alb
+    android -->|HTTP /api| alb
+    alb -->|"/"| fe
+    alb -->|"/api"| api
+    alb -->|"/api/chat"| chat
+
+    api -->|주문·회원·장바구니| rds
+    api -->|상품 검색| os
+    api -->|"OrderPlaced 발행<br/>(ringdog.orders)"| msk
+    msk -->|구독| oc
+    oc -->|주문 상태 PENDING→PAID| rds
+    chat -->|InvokeModel| bedrock
+
+    api -.->|IRSA| sm
+    gha -->|"OIDC → 이미지 push"| ecr
+    gha -->|helm upgrade| eks
+    ecr -.->|image pull| eks
+
+    agent -.->|traces · logs · metrics| dd
+    user -.->|RUM| dd
+    android -.->|RUM| dd
+    gha -.->|CI Visibility · 배포 마커| dd
+```
+
+### 요청 흐름 요약
+
+| 경로 | 흐름 |
+|---|---|
+| 웹 페이지 | 사용자 → ALB `/` → `frontend` (Next.js SSR) |
+| 상품/검색/장바구니/주문 API | ALB `/api` → `backend-api` → RDS(PostgreSQL) / OpenSearch |
+| 주문 처리 (비동기) | `backend-api`가 MSK `ringdog.orders`에 `OrderPlaced` 발행 → `order-consumer`가 소비 → RDS에서 주문을 `PAID`로 변경 |
+| 챗봇 | ALB `/api/chat` → `chatbot-service` → Amazon Bedrock (Claude 3 Haiku) |
+| 관측성 | 각 Pod의 dd-trace → 노드별 Datadog Agent → Datadog / 브라우저·Android RUM SDK → Datadog |
+
+## 인프라 구성 (`infra/terraform/envs/demo`)
+
+데모용이라 **비용 최소화 사양**으로 구성되어 있습니다. 값은 모두 `variables.tf`의 기본값입니다.
+
+| 구분 | 리소스 | 사양 / 설정 |
+|---|---|---|
+| 리전 / 네트워크 | VPC | `10.60.0.0/16`, **2 AZ** (`ap-northeast-2a`, `ap-northeast-2c`) |
+| | 서브넷 | AZ별 Public 1 + Private 1 (총 4개) |
+| | NAT Gateway | **1개** (단일 NAT, 비용 절감) |
+| 컴퓨팅 | EKS 클러스터 | `ringdog-demo`, Kubernetes **1.33** |
+| | 관리형 노드 그룹 | **t3.medium × 2** (min 1 / max 3), 루트 디스크 20GB, Private Subnet 배치 |
+| | 인그레스 | AWS Load Balancer Controller → internet-facing **ALB** (HTTP :80, target-type ip) |
+| 데이터베이스 | RDS | **PostgreSQL 16**, `db.t3.micro`, 20GB, **Single-AZ** |
+| 메시징 | Amazon MSK | **Kafka 3.6.0**, `kafka.t3.small` × **2 브로커** (AZ당 1), 브로커당 EBS 20GB, TLS 암호화 |
+| 검색 | Amazon OpenSearch | **OpenSearch 2.15**, `t3.small.search` × **1 노드**, EBS 10GB, 노드 간 암호화 |
+| 컨테이너 레지스트리 | ECR | `ringdog-frontend` / `ringdog-backend-api` / `ringdog-chatbot-service` / `ringdog-order-consumer` |
+| 보안 / 권한 | IRSA | 서비스별 ServiceAccount IAM Role (`backend-api`, `chatbot-service`, `order-consumer`) |
+| | Secrets Manager | RDS 접속 정보, JWT 서명 키 |
+| | GitHub OIDC Role | GitHub Actions가 장기 Access Key 없이 ECR push / EKS 배포 |
+| AI | Amazon Bedrock | `anthropic.claude-3-haiku-20240307-v1:0` (chatbot-service만 호출 가능) |
+| State | S3 + DynamoDB | Terraform 원격 state / lock (`infra/terraform/bootstrap`, 상시 유지) |
+
+### EKS 워크로드 (Helm `deploy/helm/charts/ringdog`, namespace `ringdog`)
+
+| 서비스 | 역할 | 포트 | Replica | Ingress 경로 |
+|---|---|---|---|---|
+| `frontend` | Next.js 사용자 웹 + Datadog RUM | 3000 | 1 | `/` |
+| `backend-api` | 인증/상품/검색/장바구니/주문 API, Kafka Producer | 4000 | 1 | `/api` |
+| `chatbot-service` | Bedrock 기반 챗봇, LLM Observability | 4001 | 1 | `/api/chat` |
+| `order-consumer` | `OrderPlaced` Kafka Consumer | (health 4002) | 1 | 없음 (내부 전용) |
+| Datadog Agent | DaemonSet (노드당 1) + Cluster Agent / Admission Controller | — | 노드 수만큼 | — |
+
+### Datadog 관측 구성
+
+| 기능 | 수집 위치 |
+|---|---|
+| RUM | `frontend` (browser-rum + Next.js 플러그인), Android 앱 |
+| APM + 로그 연계 | 백엔드 3개 서비스의 `dd-trace` + 공용 JSON logger (`dd.trace_id` 주입) |
+| Logs | Agent가 전체 Pod의 JSON 로그 수집 |
+| DSM | `backend-api`(Producer) → MSK → `order-consumer`(Consumer) 토폴로지/lag |
+| LLM Observability | `chatbot-service`의 Bedrock 호출 |
+| Infrastructure | Kube State Metrics, Process Agent, Kafka cluster check |
+| CI/CD Visibility | GitHub Actions 파이프라인 + 배포 마커 |
+| ASM | Remote Configuration 활성화 (앱 측 배선은 진행 중) |
+
+> 💰 **비용 참고:** EKS·MSK·OpenSearch·RDS·NAT가 시간 단위로 과금되므로, 데모가 끝나면
+> `kubectl delete ingress ringdog -n ringdog`로 ALB를 먼저 정리한 뒤 `terraform destroy`로 내립니다.
+> (bootstrap S3/DynamoDB는 유지)
+
 ## 모노레포 구조
 
 ```
@@ -11,6 +131,7 @@ apps/
   backend-api/        Express - 인증/상품/검색/장바구니/주문 API
   chatbot-service/    Express - Amazon Bedrock 기반 챗봇
   order-consumer/     Node - MSK(Kafka) OrderPlaced 컨슈머
+  android-app/        Kotlin/Jetpack Compose 모바일 앱 (Datadog Android RUM)
 packages/
   shared/             서비스 간 공유 TS 타입 및 이벤트 스키마
   db/                 Prisma 스키마 및 생성된 DB 클라이언트 (단일 소스)
