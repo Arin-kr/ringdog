@@ -87,7 +87,7 @@ flowchart LR
 | | 관리형 노드 그룹 | **t3.medium × 2** (min 1 / max 3), 루트 디스크 20GB, Private Subnet 배치 |
 | | 인그레스 | AWS Load Balancer Controller → internet-facing **ALB** (HTTP :80, target-type ip) |
 | 데이터베이스 | RDS | **PostgreSQL 16**, `db.t3.micro`, 20GB, **Single-AZ** |
-| 메시징 | Amazon MSK | **Kafka 3.6.0**, `kafka.t3.small` × **2 브로커** (AZ당 1), 브로커당 EBS 20GB, TLS 암호화 |
+| 메시징 | Amazon MSK | **Kafka 3.6.0**, `kafka.t3.small` × **2 브로커** (AZ당 1), 브로커당 EBS 20GB, 클라이언트 통신은 평문(9092)과 TLS(9094) 둘 다 허용(앱은 평문 9092 사용), 브로커 간 통신은 암호화 |
 | 검색 | Amazon OpenSearch | **OpenSearch 2.15**, `t3.small.search` × **1 노드**, EBS 10GB, 노드 간 암호화 |
 | 컨테이너 레지스트리 | ECR | `ringdog-frontend` / `ringdog-backend-api` / `ringdog-chatbot-service` / `ringdog-order-consumer` |
 | 보안 / 권한 | IRSA | 서비스별 ServiceAccount IAM Role (`backend-api`, `chatbot-service`, `order-consumer`) |
