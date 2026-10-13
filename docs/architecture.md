@@ -84,7 +84,7 @@ flowchart LR
 ## 4. 현재 구현 상태 (2026-07-10 기준)
 
 `infra/terraform/envs/demo`는 비용 문제로 데모 세션마다 destroy/apply를 반복하는
-운영 방식을 쓴다(`docs/local-setup-progress.md` 참고) — 아래는 코드 기준 구현 상태다.
+운영 방식을 쓴다([`setup/02-infra.md`](./setup/02-infra.md) 참고) — 아래는 코드 기준 구현 상태다.
 
 **M1 (인프라/IaC/CI-CD 기반) — 완료.**
 - Terraform: VPC/EKS/RDS/MSK/OpenSearch/ECR/IAM(IRSA)/ALB 컨트롤러까지 전부
@@ -114,8 +114,7 @@ flowchart LR
   RDS에 저장(`GET /api/chat/sessions/:session_id`로 조회 가능).
 - 프론트 챗봇 위젯이 사용자/봇 메시지를 카카오톡 스타일 말풍선으로 누적 표시.
 - 알려진 이슈: 챗봇이 시딩된 실제 상품 데이터 대신 일반적인 답변을 하는 경향이 관찰됨
-  — `contextBuilder.ts`/프롬프트 구성 추가 점검 필요(`docs/local-setup-progress.md`
-  2026-07-10 항목 참고).
+  — `contextBuilder.ts`/프롬프트 구성 추가 점검 필요.
 
 **M4 (관측성·보안·CI/CD 고도화) — 부분 완료.**
 - 완료: RUM(브라우저 SDK 심음), APM(dd-trace 전 서비스), Logs(Agent 수집), DSM(Kafka

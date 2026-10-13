@@ -160,12 +160,15 @@ pnpm --filter @ringdog/db run seed      # 샘플 키링 상품 60개 시드 (선
 pnpm dev                      # 전체 앱 동시 기동 (frontend:3000, backend-api:4000, chatbot-service:4001)
 ```
 
-## 배포 (AWS)
+## 배포 (AWS) → 데모
 
-1. `infra/terraform/bootstrap` 를 1회 적용하여 Terraform state용 S3 버킷/DynamoDB 테이블 생성.
-2. `infra/terraform/envs/demo` 에서 VPC/EKS/RDS/MSK/OpenSearch/ECR/IAM(IRSA)/Secrets Manager 구성.
-3. `deploy/helm/datadog-agent` 로 Datadog Agent Helm 배포.
-4. GitHub Actions(`.github/workflows/cd.yml`)가 main 브랜치 머지 시 ECR 푸시 및 EKS 배포 수행.
+인프라 구축부터 서비스 배포, 데모 시연까지의 전체 절차는 [`docs/README.md`](./docs/README.md)에서 순서대로 따라가면 됩니다.
+
+1. [사전 준비](./docs/setup/01-prerequisites.md) — 계정·권한·로컬 도구
+2. [인프라 구축](./docs/setup/02-infra.md) — Terraform `bootstrap` / `envs/demo`
+3. [서비스 배포](./docs/setup/03-deploy.md) — GitHub Actions `cd.yml` (Datadog Agent 포함)
+4. [Datadog 설정](./docs/setup/04-datadog.md) — 키, RUM 애플리케이션, Slack
+5. [데모 시나리오](./docs/demo/README.md)
 
 세부 아키텍처는 [`docs/architecture.md`](./docs/architecture.md) 참고.
 
@@ -176,5 +179,4 @@ pnpm dev                      # 전체 앱 동시 기동 (frontend:3000, backend
 - **M3**: 챗봇 Bedrock 실연동 및 LLM Observability (기능 완료, 응답 품질 점검 필요)
 - **M4**: 관측성/보안/CI-CD 시연 고도화 (부분 완료 — ASM 앱 배선 및 대시보드 육안 확인 남음)
 
-상세 현황은 [`docs/architecture.md`](./docs/architecture.md#4-현재-구현-상태-2026-07-10-기준)와
-[`docs/local-setup-progress.md`](./docs/local-setup-progress.md) 참고.
+상세 현황은 [`docs/architecture.md`](./docs/architecture.md#4-현재-구현-상태-2026-07-10-기준) 참고.

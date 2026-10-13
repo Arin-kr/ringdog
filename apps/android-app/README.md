@@ -3,10 +3,8 @@
 Native Android client for the RingDog shopping app, instrumented with
 Datadog RUM, Trace, Logs, and Session Replay (Datadog Android SDK
 3.15.0; Compose replay needs the `session-replay-compose` extension,
-available from SDK 2.16.0). See
-`docs/superpowers/specs/2026-08-25-android-app-design.md` for the full
-design and `docs/superpowers/plans/2026-08-25-android-app.md` for how it
-was built.
+available from SDK 2.16.0). The original design spec and build plan
+were removed from `docs/` on 2026-10-13 and remain in git history.
 
 ## Local development
 
