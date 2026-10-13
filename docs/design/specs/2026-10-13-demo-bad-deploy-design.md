@@ -1,7 +1,7 @@
 # 데모 메인 시나리오 ① "배포 후 결제 에러 급증" 설계
 
 - 작성일: 2026-10-13
-- 상태: 설계 검토 중
+- 상태: 승인됨 — 구현 계획 [`docs/design/plans/2026-10-13-demo-bad-deploy.md`](../plans/2026-10-13-demo-bad-deploy.md)
 - 시나리오 운영 문서(대본·진행 현황): [`docs/demo/01-bad-deploy/README.md`](../../demo/01-bad-deploy/README.md)
 
 ## 1. 목적
@@ -72,7 +72,7 @@
 - 참고: 프론트 장바구니의 쿠폰 입력란 기본값이 `RINGDOG100`이므로, 시연자가 입력란을 비우고 주문하면 에러 재현
 
 ### C3. `.github/workflows/demo-build.yml` (workflow_dispatch)
-- 입력: `ref`(브랜치), `version`(예: `1.0.0`, `1.1.0`)
+- 입력: `version`(`1.0.0` 또는 `1.1.0`). 소스 ref는 버전에 고정 매핑(1.0.0→main, 1.1.0→demo/bad-deploy) — 잘못된 조합 방지
 - backend-api 이미지를 빌드해 ECR `ringdog-backend-api:<version>`으로 push
 - 데모 준비 시 1회씩 실행 (main→1.0.0, demo/bad-deploy→1.1.0). ECR은 terraform destroy 시 함께 삭제되므로 환경 재생성 후 재실행 필요
 
@@ -83,12 +83,12 @@
 - **롤백도 동일 워크플로** (`version=1.0.0`) — Workflow Automation이 GitHub 액션으로 호출
 
 ### C5. 트래픽 생성기 (클러스터 내부 실행)
-- 위치: `tools/demo-traffic/` + Helm 템플릿(토글 `trafficGen.enabled`)
-- **k6** (API 트래픽): 회원가입/로그인 → 상품 목록·검색 → 장바구니 담기 → 주문(50% 쿠폰 / 50% 미입력). 평시 약 1~2 RPS
-- **Playwright** (브라우저 RUM): 같은 여정을 실제 Chromium으로 약 1세션/분 → RUM 세션, Session Replay, Funnel 데이터 생성. 버그 버전에서는 결제 실패 화면이 Replay에 남음
+- 위치: `deploy/helm/charts/ringdog/files/traffic/` 스크립트 + Helm 템플릿(토글 `trafficGen.enabled`), on/off는 `demo-traffic.yml`
+- **k6** (API 트래픽): 회원가입/로그인 → 상품 목록·검색 → 장바구니 담기 → 주문(50% 쿠폰 / 50% 미입력). 평시 분당 30회 여정(약 3~4 RPS)
+- **k6 browser** (`k6/browser`, 브라우저 RUM — Playwright 대신 k6 하나로 통일): 같은 여정을 실제 Chromium으로 약 1세션/분 → RUM 세션, Session Replay, Funnel 데이터 생성. 버그 버전에서는 결제 실패 화면이 Replay에 남음
 - 대상: 클러스터 내부 frontend/backend Service가 아닌 **ALB 주소**(RUM은 브라우저에서 Datadog으로 전송되어야 하므로 실제 경로 사용)
 - 실행 시점: 데모 시작 약 30분 전부터 (환경 상시 유지하지 않음)
-- 리소스: Playwright 약 500MB 메모리. 실제로 노드가 부족해지면 그때 증설 검토
+- 리소스: 브라우저 Pod 약 512Mi~1Gi 메모리. 실제로 노드가 부족해지면 그때 증설 검토
 
 ### C6. Datadog 설정 (`datadog/`)
 | 파일 | 내용 |
@@ -119,7 +119,7 @@ sequenceDiagram
     participant S as Slack
     participant C as Claude Code (MCP)
 
-    Note over K,DD: 트래픽 생성기(k6/Playwright) 실행 중 — v1.0.0 정상
+    Note over K,DD: 트래픽 생성기(k6 API·브라우저) 실행 중 — v1.0.0 정상
     P->>GH: demo-deploy version=1.1.0
     GH->>K: helm upgrade (backend-api만 교체)
     GH->>DD: 배포 이벤트
@@ -138,7 +138,7 @@ sequenceDiagram
 ```
 
 ## 5. 오류 처리 및 안전장치
-- `demo-deploy`는 `version` 입력을 허용 목록(`1.0.0`, `1.1.0`, `1.1.1`) 으로 제한
+- `demo-deploy`는 `version` 입력을 허용 목록(`1.0.0`, `1.1.0`)으로 제한
 - Workflow 롤백은 반드시 Slack 승인 단계 경유. 거부/타임아웃(10분) 시 Slack에 "수동 대응 필요" 보고
 - `cd.yml`(main push)은 backend-api를 sha 태그로 되돌리므로, 데모 직전 `demo-deploy version=1.0.0` 1회 실행을 체크리스트에 포함
 - 트래픽 생성기는 데모 계정(`demo-traffic-*`)만 사용, 대상은 데모 ALB로 고정

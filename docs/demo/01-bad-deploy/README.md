@@ -13,7 +13,7 @@ backend-api **v1.1.0**("쿠폰 코드 대소문자 무시" 기능 추가)을 배
 | # | 항목 | 상태 | 비고 |
 |---|---|---|---|
 | 0 | 설계 문서 작성 | ✅ 완료 | 2026-10-13 |
-| 1 | 구현 계획 작성 | ⬜ 대기 | |
+| 1 | 구현 계획 작성 | ✅ 완료 | [plan](../../design/plans/2026-10-13-demo-bad-deploy.md) — Task 1~10 |
 | 2 | docs 정리 + setup 가이드(01~04) | ✅ 완료 | 2026-10-13 |
 | C0-1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ⬜ 대기 | main 반영 |
 | C0-2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role) | ⬜ 대기 | `infra/terraform/team` |
