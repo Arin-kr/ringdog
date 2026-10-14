@@ -33,6 +33,8 @@ spec:
               value: {{ .Values.datadog.rumApplicationId | quote }}
             - name: DD_RUM_CLIENT_TOKEN
               value: {{ .Values.datadog.rumClientToken | quote }}
+            - name: DD_RUM_REMOTE_CONFIGURATION_ID
+              value: {{ .Values.datadog.rumRemoteConfigurationId | quote }}
             {{- range $key, $value := .Values.frontend.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}

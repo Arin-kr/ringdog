@@ -68,3 +68,4 @@ datadog:
   # see datadogRum.ts.
   rumApplicationId: ""
   rumClientToken: ""
+  rumRemoteConfigurationId: ""

@@ -11,8 +11,8 @@
     "test": "echo \"no tests yet\""
   },
   "dependencies": {
-    "@datadog/browser-rum": "^7.5.0",
-    "@datadog/browser-rum-nextjs": "^7.5.0",
+    "@datadog/browser-rum": "^7.15.0",
+    "@datadog/browser-rum-nextjs": "^7.15.0",
     "@ringdog/shared": "workspace:*",
     "next": "15.5.20",
     "react": "^18.3.1",

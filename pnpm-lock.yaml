@@ -116,11 +116,11 @@ importers:
   apps/frontend:
     dependencies:
       '@datadog/browser-rum':
-        specifier: ^7.5.0
-        version: 7.5.0
+        specifier: ^7.15.0
+        version: 7.15.0
       '@datadog/browser-rum-nextjs':
-        specifier: ^7.5.0
-        version: 7.5.0(@datadog/browser-rum@7.5.0)(next@15.5.20(@opentelemetry/api@1.9.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        specifier: ^7.15.0
+        version: 7.15.0(@datadog/browser-rum@7.15.0)(next@15.5.20(@opentelemetry/api@1.9.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       '@ringdog/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -305,14 +305,14 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@datadog/browser-core@7.5.0':
-    resolution: {integrity: sha512-qvjv0Ox55+x/wxFT8cjIAse1voLVorJd3lg2Q53nJ0CREZ1bqqjo2gDz/Lm4t0fqQnqyqrOncc3X2pg4LxCFzg==}
+  '@datadog/browser-core@7.15.0':
+    resolution: {integrity: sha512-htDnhCpWiP/dKItxi0unTp7j7m9X1+Bxh1PjLY3gTn6U+oWa1wo42UqnPt5Vmje5wHMmmuuNRxnr9zXH61xyag==}
 
-  '@datadog/browser-rum-core@7.5.0':
-    resolution: {integrity: sha512-Okyq2+y3Dtw5AL4xpw/fT1Dkmyr/Q4na3Wa+D9FU+i1g5i3BGyr6HNUv6L7vCrF6CyDVfCi3Nv90lgdprRCkyQ==}
+  '@datadog/browser-rum-core@7.15.0':
+    resolution: {integrity: sha512-ReTr9t5Nx6ZCPlyN2f+weh6wzd9bi+l0+NKka0uswV8vC0/AnyAaKANW+49763LxBMtn4L+jrKHc5DfvXHiZAA==}
 
-  '@datadog/browser-rum-nextjs@7.5.0':
-    resolution: {integrity: sha512-vl8AUn9UPZbEia6SMy4CzXG9ww572K8fqy5VH55c/HIx2qRReW62qrguAuS59KVwYBYiVSzKywJbgQQ7WNqJKg==}
+  '@datadog/browser-rum-nextjs@7.15.0':
+    resolution: {integrity: sha512-Wz1w4ndhMQU5j+J3UxuHMyoQ5P08s+ZFbM2AtI586w7zXG4pgYZb6URhImBcAOg74wMNDDiWW0iBjAaJ+0W+aA==}
     peerDependencies:
       next: '>=13.0.0'
       react: '>=18.0.0'
@@ -322,14 +322,14 @@ packages:
       react:
         optional: true
 
-  '@datadog/browser-rum-react@7.5.0':
-    resolution: {integrity: sha512-C9/y4Xnj5UdFquf+uFHhNTcLvBJKZYfWoB/1zvMqzzN53ZUb1HOOjGDb5HeY/M4J0ctRnd09/rGQsgFk3ep4hA==}
+  '@datadog/browser-rum-react@7.15.0':
+    resolution: {integrity: sha512-eGzYdjnncjx7ZvcZZW4nAjsIKpN/hWXGGx5BBGflHJUVGn6jg0cAvNva/rlm9YiwHlZMX8Elj5pd1AcGRqo06Q==}
     peerDependencies:
       '@datadog/browser-rum': '*'
       '@datadog/browser-rum-slim': '*'
       '@tanstack/react-router': '>=1.64.0 <2'
       react: 18 || 19
-      react-router: 6 || 7
+      react-router: 6 || 7 || 8
       react-router-dom: 6 || 7
     peerDependenciesMeta:
       '@datadog/browser-rum':
@@ -345,10 +345,10 @@ packages:
       react-router-dom:
         optional: true
 
-  '@datadog/browser-rum@7.5.0':
-    resolution: {integrity: sha512-w7T0sAu9wx0zIdAmHM4avwdJW/gu+llCUCyeo5mQO5Qbf7VcA8K9Y+R4ZsNizRC14K5beAAkj5MqdaBC2x+yZg==}
+  '@datadog/browser-rum@7.15.0':
+    resolution: {integrity: sha512-pnyu2fbEKOcTLhJvggHOKKOquXQaYpnY4AWiZArQ4ygsSKEbUG9QVSIl/dgZwzJ6VF0zWxt88SrSVhbxH3LWZg==}
     peerDependencies:
-      '@datadog/browser-logs': 7.5.0
+      '@datadog/browser-logs': 7.15.0
     peerDependenciesMeta:
       '@datadog/browser-logs':
         optional: true
@@ -356,8 +356,8 @@ packages:
   '@datadog/flagging-core@1.2.1':
     resolution: {integrity: sha512-qeDkki9fFlqyoZBrn7tneT6pZ04EKKvf3xxisYw1a74zbJihvQui/ARUsjXCurRpzpFqGGTJw/oz+HnXaKhcdw==}
 
-  '@datadog/js-core@0.0.5':
-    resolution: {integrity: sha512-9cGazfbindLRCcHh7Pgle68SZrSKMr6ScIvtT7XwxTGp38RaskXA/CG4nUojb46nWnsmV+KyH3C8WymkXdgMJg==}
+  '@datadog/js-core@0.0.16':
+    resolution: {integrity: sha512-JHDE2CrVWz3kpS2SwZij4/NjFB1vvYtG4qtQTmnXVtVKabgQoane1XqRc4FiITYsZkrGdABfETTJJVEPW0xVpQ==}
 
   '@datadog/libdatadog@0.9.4':
     resolution: {integrity: sha512-55wHHAuhHOOrBGoWV+fRuEDypN6PMJZq4LTOwExnhoDMvVcZKtqYT05xea/toRs0o75+A1IeNAQHsRLbJMf5oA==}
@@ -3608,21 +3608,21 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@datadog/browser-core@7.5.0':
+  '@datadog/browser-core@7.15.0':
     dependencies:
-      '@datadog/js-core': 0.0.5
+      '@datadog/js-core': 0.0.16
 
-  '@datadog/browser-rum-core@7.5.0':
+  '@datadog/browser-rum-core@7.15.0':
     dependencies:
-      '@datadog/browser-core': 7.5.0
-      '@datadog/js-core': 0.0.5
+      '@datadog/browser-core': 7.15.0
+      '@datadog/js-core': 0.0.16
 
-  '@datadog/browser-rum-nextjs@7.5.0(@datadog/browser-rum@7.5.0)(next@15.5.20(@opentelemetry/api@1.9.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)':
+  '@datadog/browser-rum-nextjs@7.15.0(@datadog/browser-rum@7.15.0)(next@15.5.20(@opentelemetry/api@1.9.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@datadog/browser-core': 7.5.0
-      '@datadog/browser-rum-core': 7.5.0
-      '@datadog/browser-rum-react': 7.5.0(@datadog/browser-rum@7.5.0)(react@18.3.1)
-      '@datadog/js-core': 0.0.5
+      '@datadog/browser-core': 7.15.0
+      '@datadog/browser-rum-core': 7.15.0
+      '@datadog/browser-rum-react': 7.15.0(@datadog/browser-rum@7.15.0)(react@18.3.1)
+      '@datadog/js-core': 0.0.16
     optionalDependencies:
       next: 15.5.20(@opentelemetry/api@1.9.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
@@ -3633,27 +3633,27 @@ snapshots:
       - react-router
       - react-router-dom
 
-  '@datadog/browser-rum-react@7.5.0(@datadog/browser-rum@7.5.0)(react@18.3.1)':
+  '@datadog/browser-rum-react@7.15.0(@datadog/browser-rum@7.15.0)(react@18.3.1)':
     dependencies:
-      '@datadog/browser-core': 7.5.0
-      '@datadog/browser-rum-core': 7.5.0
-      '@datadog/js-core': 0.0.5
+      '@datadog/browser-core': 7.15.0
+      '@datadog/browser-rum-core': 7.15.0
+      '@datadog/js-core': 0.0.16
     optionalDependencies:
-      '@datadog/browser-rum': 7.5.0
+      '@datadog/browser-rum': 7.15.0
       react: 18.3.1
 
-  '@datadog/browser-rum@7.5.0':
+  '@datadog/browser-rum@7.15.0':
     dependencies:
-      '@datadog/browser-core': 7.5.0
-      '@datadog/browser-rum-core': 7.5.0
-      '@datadog/js-core': 0.0.5
+      '@datadog/browser-core': 7.15.0
+      '@datadog/browser-rum-core': 7.15.0
+      '@datadog/js-core': 0.0.16
 
   '@datadog/flagging-core@1.2.1':
     dependencies:
       spark-md5: 3.0.2
     optional: true
 
-  '@datadog/js-core@0.0.5': {}
+  '@datadog/js-core@0.0.16': {}
 
   '@datadog/libdatadog@0.9.4':
     optional: true
@@ -5102,8 +5102,8 @@ snapshots:
       '@typescript-eslint/parser': 7.18.0(eslint@8.57.1)(typescript@5.9.3)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
       eslint-plugin-react-hooks: 5.2.0(eslint@8.57.1)
@@ -5126,7 +5126,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -5137,22 +5137,22 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-module-utils@2.14.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 7.18.0(eslint@8.57.1)(typescript@5.9.3)
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -5163,7 +5163,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
+      eslint-module-utils: 2.14.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
       hasown: 2.0.4
       is-core-module: 2.16.2
       is-glob: 4.0.3

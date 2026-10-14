@@ -232,7 +232,8 @@ jobs:
               --set chatbotService.irsaRoleArn="${CHATBOT_IRSA_ARN}" \
               --set orderConsumer.irsaRoleArn="${ORDER_CONSUMER_IRSA_ARN}" \
               --set datadog.rumApplicationId="${{ secrets.DD_RUM_APPLICATION_ID }}" \
-              --set datadog.rumClientToken="${{ secrets.DD_RUM_CLIENT_TOKEN }}"; then
+              --set datadog.rumClientToken="${{ secrets.DD_RUM_CLIENT_TOKEN }}" \
+              --set datadog.rumRemoteConfigurationId="${{ secrets.DD_RUM_REMOTE_CONFIGURATION_ID }}"; then
               break
             fi
             if [ "$i" -eq 5 ]; then

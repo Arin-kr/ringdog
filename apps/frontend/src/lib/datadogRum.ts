@@ -6,6 +6,7 @@ export interface RumConfig {
   clientToken?: string;
   site?: string;
   env?: string;
+  remoteConfigurationId?: string;
 }
 
 /**
@@ -21,7 +22,7 @@ export interface RumConfig {
  * learned the hard way with NEXT_PUBLIC_API_BASE_URL).
  */
 export function initRum(config: RumConfig): void {
-  const { applicationId, clientToken, site, env } = config;
+  const { applicationId, clientToken, site, env, remoteConfigurationId } = config;
 
   if (!applicationId || !clientToken) {
     return;
@@ -30,6 +31,9 @@ export function initRum(config: RumConfig): void {
   datadogRum.init({
     applicationId,
     clientToken,
+    // Lets Datadog's RUM UI override sample rates etc. without a redeploy
+    // (needs browser SDK >= 7.13.0). Omitted when unset, e.g. local dev.
+    ...(remoteConfigurationId ? { remoteConfiguration: { id: remoteConfigurationId } } : {}),
     site: site ?? "datadoghq.com",
     service: "ringdog-frontend",
     env: env ?? "local",

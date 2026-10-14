@@ -29,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
           clientToken={process.env.DD_RUM_CLIENT_TOKEN}
           site={process.env.DD_SITE}
           env={process.env.DD_ENV}
+          remoteConfigurationId={process.env.DD_RUM_REMOTE_CONFIGURATION_ID}
         />
         <DatadogAppRouter />
         {children}
