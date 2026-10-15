@@ -1,4 +1,8 @@
-# 데모 시나리오 ① "배포 후 결제 에러 급증" 구현 계획
+# 데모 시나리오 ② "배포 후 결제 에러 급증" 구현 계획
+
+> ⚠️ **2026-10-15 구축 순서 변경 — 이 계획은 바로 실행하지 않습니다.** 시나리오 ① [타임세일 트래픽 폭주 → DB 병목](../specs/2026-10-15-demo-flash-sale-db-design.md)을 먼저 구축합니다.
+> 이 계획의 공통 기반 Task(**Task 1 일부·2·3·6**: 에러 관측 보강, Unified Service Tagging, CD 수동 실행, 팀 권한 스택, 트래픽 생성기)는 시나리오 ① 구현 계획으로 옮겨서 먼저 수행하고,
+> 시나리오 ① 완료 후 이 계획은 **② 전용 Task(4·5·7~10)** 와 트래픽 생성기의 쿠폰 혼합 프로필만 남기도록 다시 정리합니다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -9,7 +13,7 @@
 **Tech Stack:** Node 24 / Express / dd-trace 5 / vitest 2, Helm 3, Terraform ≥1.7 (AWS provider ~>5), GitHub Actions, k6 0.52.0 (`k6/browser`), Datadog (APM, Logs, RUM, Watchdog, Bits AI SRE, Workflow Automation, MCP)
 
 **Spec:** [`docs/design/specs/2026-10-13-demo-bad-deploy-design.md`](../specs/2026-10-13-demo-bad-deploy-design.md)
-**진행 현황 문서:** [`docs/demo/01-bad-deploy/README.md`](../../demo/01-bad-deploy/README.md) — 각 Task 완료 시 진행 현황 표 갱신
+**진행 현황 문서:** [`docs/demo/02-bad-deploy/README.md`](../../demo/02-bad-deploy/README.md) — 각 Task 완료 시 진행 현황 표 갱신
 
 ## Global Constraints
 
@@ -51,7 +55,7 @@
 | `infra/terraform/team/{versions.tf,backend.tf,main.tf,outputs.tf}` | 생성 | IAM 그룹 + EKS 관리자 Role (상시 유지) |
 | `infra/terraform/envs/demo/{main.tf,variables.tf}` | 수정 | 팀 Role에 EKS access entry 부여 |
 | `datadog/monitors/*.json`, `datadog/dashboards/*.json`, `datadog/workflows/*.json` | 생성 | Datadog 설정 정의(마스킹) |
-| `docs/setup/*.md`, `docs/demo/01-bad-deploy/*.md` | 수정/생성 | 운영 문서 갱신, Datadog UI 설정 가이드 |
+| `docs/setup/*.md`, `docs/demo/02-bad-deploy/*.md` | 수정/생성 | 운영 문서 갱신, Datadog UI 설정 가이드 |
 
 ---
 
@@ -1142,8 +1146,8 @@ git commit -m "feat(demo): k6 API/browser traffic generator and demo-traffic wor
 ### Task 7: 운영 문서 — Datadog UI 설정 가이드 + 시나리오 문서 갱신
 
 **Files:**
-- Create: `docs/demo/01-bad-deploy/datadog-setup.md`
-- Modify: `docs/demo/01-bad-deploy/README.md` (체크리스트를 실제 워크플로 이름으로, 진행 현황 갱신)
+- Create: `docs/demo/02-bad-deploy/datadog-setup.md`
+- Modify: `docs/demo/02-bad-deploy/README.md` (체크리스트를 실제 워크플로 이름으로, 진행 현황 갱신)
 
 - [ ] **Step 1: datadog-setup.md 작성**
 
@@ -1163,12 +1167,12 @@ git commit -m "feat(demo): k6 API/browser traffic generator and demo-traffic wor
 
 - [ ] **Step 2: README 체크리스트 갱신**
 
-`docs/demo/01-bad-deploy/README.md` 4절의 명령을 실제 이름으로: "`demo-build` 실행" → "GitHub Actions → **demo-build** → Run workflow (main) → version `1.0.0`, 이어서 `1.1.0`", "트래픽 생성기 실행" → "**demo-traffic** → `start`", 리셋 절차에 "**demo-traffic** → `stop`" 추가. 3절 대본 1:00 행의 행동을 "GitHub Actions → **demo-deploy** → version `1.1.0`"으로.
+`docs/demo/02-bad-deploy/README.md` 4절의 명령을 실제 이름으로: "`demo-build` 실행" → "GitHub Actions → **demo-build** → Run workflow (main) → version `1.0.0`, 이어서 `1.1.0`", "트래픽 생성기 실행" → "**demo-traffic** → `start`", 리셋 절차에 "**demo-traffic** → `stop`" 추가. 3절 대본 1:00 행의 행동을 "GitHub Actions → **demo-deploy** → version `1.1.0`"으로.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/demo/01-bad-deploy
+git add docs/demo/02-bad-deploy
 git commit -m "docs(demo): Datadog UI setup guide and updated checklist for scenario 01"
 ```
 
@@ -1189,7 +1193,7 @@ git commit -m "docs(demo): Datadog UI setup guide and updated checklist for scen
   `sum(last_5m):sum:trace.<OP>.request.errors{env:demo,service:ringdog-backend-api,resource_name:<RESOURCE>}.as_count() / sum:trace.<OP>.request.hits{env:demo,service:ringdog-backend-api,resource_name:<RESOURCE>}.as_count() > 0.05`
 - [ ] **Step 6: Bits AI SRE 연동 방식 확인** — MCP `list_datadog_skills`(query "bits ai sre monitor") / 공식 문서로 "모니터 알람 시 Bits AI SRE 자동 조사"를 켜는 정확한 방법(모니터 설정 옵션 또는 알림 핸들) 확인 후 Step 7에 반영
 - [ ] **Step 7: 모니터 생성** — MCP `validate_monitor_definition` → `create_datadog_monitor`:
-  - `[RingDog demo] checkout 에러율 > 5%` (Step 5 쿼리, warning 0.02, 메시지에 Slack 채널 핸들 + Step 6 방식 + `@workflow-<Task 9 워크플로 핸들>`은 Task 9 후 `update_datadog_monitor`로 추가), tags `project:ringdog`, `env:demo`, `scenario:01-bad-deploy`
+  - `[RingDog demo] checkout 에러율 > 5%` (Step 5 쿼리, warning 0.02, 메시지에 Slack 채널 핸들 + Step 6 방식 + `@workflow-<Task 9 워크플로 핸들>`은 Task 9 후 `update_datadog_monitor`로 추가), tags `project:ringdog`, `env:demo`, `scenario:02-bad-deploy`
   - `[RingDog demo] Watchdog backend-api` — Watchdog 모니터 (`service:ringdog-backend-api env:demo`)
 - [ ] **Step 8: 대시보드 생성** — MCP `upsert_datadog_dashboard`: 위젯 ① version별 요청 수(timeseries, by version) ② checkout 에러율(Step 5 쿼리) ③ checkout p95 지연 ④ RUM 에러 수(`service:ringdog-frontend`) ⑤ 이벤트 오버레이 `source:demo-deploy`. 제목 `[RingDog demo] 01 배포 후 결제 에러`
 - [ ] **Step 9: 정의 내보내기 + 커밋** — MCP `search_datadog_monitors`/`get_datadog_dashboard`로 JSON 받아 `id`, `creator`, `org_id`, 타임스탬프 필드를 제거해 `datadog/`에 저장. `datadog/README.md`에 "MCP 또는 API로 재생성하는 방법" 한 단락
@@ -1201,7 +1205,7 @@ git add datadog && git commit -m "feat(datadog): scenario 01 monitors and dashbo
 
 ### Task 9 (실환경, 사용자 UI 작업): Slack + Workflow Automation
 
-- [ ] **Step 1:** 사용자가 `docs/demo/01-bad-deploy/datadog-setup.md` 1~3절대로 Slack 연동, GitHub Connection, 롤백 Workflow 생성 (Claude는 화면별 안내·검토)
+- [ ] **Step 1:** 사용자가 `docs/demo/02-bad-deploy/datadog-setup.md` 1~3절대로 Slack 연동, GitHub Connection, 롤백 Workflow 생성 (Claude는 화면별 안내·검토)
 - [ ] **Step 2:** Workflow를 수동 실행 → Slack 승인 → **demo-deploy** 실행 확인 → 회복 보고 메시지 확인 (1.0.0 → 1.0.0 재배포라 무해, Review Focus 4)
 - [ ] **Step 3:** MCP `update_datadog_monitor`로 checkout 모니터 메시지에 `@workflow-...` 핸들 추가
 - [ ] **Step 4:** 사용자가 Workflow JSON export → Claude가 마스킹 검토 → `datadog/workflows/rollback-backend-api.json` 커밋
@@ -1213,7 +1217,7 @@ git add datadog/workflows && git commit -m "feat(datadog): approval-gated rollba
 
 ### Task 10 (실환경): 전체 리허설
 
-- [ ] **Step 1:** `docs/demo/01-bad-deploy/README.md` 4절 당일 체크리스트 수행
+- [ ] **Step 1:** `docs/demo/02-bad-deploy/README.md` 4절 당일 체크리스트 수행
 - [ ] **Step 2:** 3절 대본대로 진행하며 각 단계 실제 소요 시간 기록 (배포→알람, 알람→Bits AI 결론, 승인→회복)
 - [ ] **Step 3:** MCP 시연: 새 Claude Code 세션에서 대본 프롬프트 실행 → `demo/fix-coupon-<날짜>` → `demo/bad-deploy` PR 생성 확인 (ci.yml이 PR에서 테스트 실행). 수정 내용 기대값: `couponCode?.trim().toUpperCase()` 등 undefined 안전 처리 + `undefined` 쿠폰 테스트
 - [ ] **Step 4:** 5절 리셋 절차 수행 (PR 닫기, 브랜치 삭제, demo-traffic stop)

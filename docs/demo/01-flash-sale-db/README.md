@@ -1,0 +1,86 @@
+# 데모 시나리오 ① 타임세일 트래픽 폭주 → DB 병목
+
+> 탐지(Composite Monitor) → AI 분석(Bits AI SRE·Chat) → 원인 분리(RUM·APM·Log·DBM·Infra) → 승인 기반 완화(Workflow Automation) → 근본 수정(MCP)
+>
+> 설계(초안): [`docs/design/specs/2026-10-15-demo-flash-sale-db-design.md`](../../design/specs/2026-10-15-demo-flash-sale-db-design.md)
+> 구축 순서: **이 시나리오를 먼저 구축**하면서 데모 공통 기반을 함께 만듭니다. 시나리오 ② [배포 후 결제 에러 급증](../02-bad-deploy/README.md)은 이 환경을 재사용합니다.
+
+## 1. 한 줄 요약
+
+타임세일에 트래픽이 5~10배 늘어난 상태에서 **인덱스 없는 인기상품 집계 쿼리**와 **재고 일괄 수정 배치의 락**이 겹쳐 결제가 멈춥니다. 사용자 화면에서 시작해 DB 원인 두 개를 분리하고, Slack 승인으로 완화한 뒤 IDE에서 인덱스 마이그레이션 PR까지 만듭니다.
+
+| 사용 제품 | Infrastructure · APM · Log · RUM · DBM · Composite Monitor · Workflow Automation · **Bits AI SRE · Bits AI Chat · Datadog MCP** |
+|---|---|
+
+## 2. 진행 현황
+
+| # | 항목 | 상태 | 비고 |
+|---|---|---|---|
+| 0 | 설계 초안 작성 | ✅ 완료 | 2026-10-15 |
+| 1 | 부서 회의 검토 + 결정 항목 반영 | ⬜ 대기 | 2026-10-16 회의, 설계 8장 |
+| 2 | 구현 계획 작성 | ⬜ 대기 | ② 계획의 공통 기반 Task를 흡수 |
+| **공통 기반** | | | ②·3단계에서 재사용 |
+| B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ⬜ 대기 | |
+| B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ⬜ 대기 | `infra/terraform/team` |
+| B3 | Unified Service Tagging + 에러 로그 보강 | ⬜ 대기 | |
+| B4 | 트래픽 생성기 (k6 API + k6 browser), 평시/급증 프로필 | ⬜ 대기 | |
+| B5 | Slack 연동 + GitHub Connection | ⬜ 대기 | |
+| **시나리오 ① 전용** | | | |
+| F1 | RDS 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ⬜ 대기 | |
+| F2 | Datadog AWS Integration (RDS·ALB·MSK) | ⬜ 대기 | |
+| F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그 | ⬜ 대기 | |
+| F4 | 대량 주문 시드 Job | ⬜ 대기 | |
+| F5 | HPA + 락 주입 Job | ⬜ 대기 | |
+| F6 | `demo-control.yml` (spike / inject / mitigate / reset) | ⬜ 대기 | |
+| F7 | 모니터: Composite, 블로킹 세션 지속, 장시간 쿼리 | ⬜ 대기 | |
+| F8 | Workflow: 승인 기반 완화 (세션 종료 / 위젯 OFF) | ⬜ 대기 | |
+| F9 | 데모 대시보드 | ⬜ 대기 | |
+| F10 | MCP 근본 수정 시연 리허설 | ⬜ 대기 | |
+| R | 전체 리허설 (타이밍·장애 강도 조정) | ⬜ 대기 | RDS CPU 크레딧 영향 확인 |
+
+상태 표기: ⬜ 대기 / 🔄 진행 중 / ✅ 완료 / ⚠️ 이슈
+
+## 3. 데모 대본 (약 25분)
+
+시연 단계별 상세(사용 제품, 화면, 대처 방법, 트리거 설계)는 [설계 3장·4.4](../../design/specs/2026-10-15-demo-flash-sale-db-design.md#3-시연-진행-약-25분)를 따릅니다.
+
+| 시간 | 단계 | 시연자 행동 | 멘트 포인트 |
+|---|---|---|---|
+| 0:00 | 평시 | 서비스 맵·RUM·데모 대시보드 | "세일 직전, 정상 상태입니다" |
+| 3:00 | 장애 주입 | `demo-control` → `inject` | "20시, 타임세일이 시작됩니다" |
+| 4:00 | 탐지 | Slack 알림 (Composite) | "결제 지연이 사용자 체감과 서버 양쪽에서 확인될 때만 알립니다" |
+| 7:00 | AI 1차 조사 | Bits AI SRE 결과 | "AI가 먼저 방향을 잡아 줍니다" |
+| 9:00 | 사용자 영향 | RUM frustration 세션 → Replay | "고객이 결제 버튼을 계속 누르고 있습니다" |
+| 12:00 | 서비스 지연 | checkout 트레이스 + 연결 로그 | "시간은 전부 DB에서 쓰고 있습니다" |
+| 15:00 | DB 원인 분리 | DBM Explain Plan / Blocking 트리 | "원인이 두 개입니다" |
+| 17:00 | Bits Chat | DBM 화면에서 질문 2개 | "같은 결론을 자연어로도 확인합니다" |
+| 18:00 | 인프라 확인 | RDS CPU·크레딧, Pod 수 | "Pod를 늘리면 오히려 나빠집니다" |
+| 20:00 | 즉시 대처 | Slack [블로킹 세션 종료] [위젯 OFF] | "승인 한 번으로 완화하고 회복까지 자동 확인" |
+| 22:00 | 근본 수정 | Claude Code + MCP 프롬프트 | "IDE에서 인덱스 마이그레이션 PR까지" |
+| 25:00 | 정리 | (선택) MCP 포스트모템 초안 | "재발 방지 항목까지 정리" |
+
+## 4. 데모 전 체크리스트
+
+### 환경 준비 (환경이 없을 때)
+- [ ] [setup 가이드](../../README.md#시작하기-순서대로) 1~4단계 완료
+- [ ] 대량 주문 시드 Job 실행 완료 (환경 재생성마다 1회)
+- [ ] DBM 수집 확인: Datadog DBM에 RingDog DB 호스트와 쿼리 샘플 표시
+
+### 당일 (30분 전)
+- [ ] Slack 데모 채널에 "데모 환경 사용 중" 공지
+- [ ] `demo-control` → `reset` 실행 (인덱스 없음, 위젯 OFF, 락 Job 없음)
+- [ ] 트래픽 생성기 평시 프로필 실행 → APM 요청량, RUM 세션, DBM 쿼리 수신 확인
+- [ ] 모니터 상태 OK, 열린 알람 없음
+- [ ] Datadog 탭(대시보드·RUM·APM·DBM·Infra·Bits AI), Slack, GitHub Actions, Claude Code 미리 열기
+
+## 5. 리셋 절차
+1. `demo-control` → `reset` 실행
+2. 모니터 Resolve 확인, 진행 중 Workflow 실행 취소 확인
+3. 시연 중 생성된 PR 닫기 + 브랜치 삭제 (인덱스 마이그레이션 PR은 머지하지 않음)
+4. 환경을 더 쓰지 않으면 [환경 삭제](../../setup/02-infra.md#2-6-환경-삭제-데모-종료-후-필수)
+5. Slack 데모 채널에 "데모 환경 사용 종료" 공지
+
+## 6. 작업 로그
+| 날짜 | 내용 |
+|---|---|
+| 2026-10-15 | 시나리오 설계 초안, 회의용 페이지 작성. 구축 순서를 ① 타임세일 → ② 배포 결함으로 확정, 공통 기반을 ①로 이관 |

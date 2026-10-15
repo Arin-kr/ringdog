@@ -1,8 +1,9 @@
-# 데모 메인 시나리오 ① "배포 후 결제 에러 급증" 설계
+# 데모 시나리오 ② "배포 후 결제 에러 급증" 설계
 
 - 작성일: 2026-10-13
 - 상태: 승인됨 — 구현 계획 [`docs/design/plans/2026-10-13-demo-bad-deploy.md`](../plans/2026-10-13-demo-bad-deploy.md)
-- 시나리오 운영 문서(대본·진행 현황): [`docs/demo/01-bad-deploy/README.md`](../../demo/01-bad-deploy/README.md)
+- 시나리오 운영 문서(대본·진행 현황): [`docs/demo/02-bad-deploy/README.md`](../../demo/02-bad-deploy/README.md)
+- **2026-10-15 구축 순서 변경**: 시나리오 ① [타임세일 트래픽 폭주 → DB 병목](./2026-10-15-demo-flash-sale-db-design.md)을 먼저 구축하고, 이 시나리오는 그 환경을 재사용해 두 번째로 구축한다. 아래 C0-1, C0-2, C1, C5와 C6의 Slack·GitHub 연결은 ① 설계 4.3 "데모 공통 기반"으로 이관되었다. 이 문서의 해당 절은 내용 참고용으로 유지한다.
 
 ## 1. 목적
 
@@ -37,12 +38,12 @@
 
 ## 3. 구성 요소
 
-### C0-1. `cd.yml` 수동 실행 추가 (main 반영)
+### C0-1. `cd.yml` 수동 실행 추가 (main 반영) — ① 공통 기반으로 이관
 - `on: workflow_dispatch` 추가 → 환경을 새로 만든 뒤 빈 커밋 push 없이 Actions 화면에서 배포 실행
 - OIDC 신뢰 조건(`ref:refs/heads/main`)과 맞도록 main 브랜치에서 실행
 - 반영 후 [`docs/setup/03-deploy.md`](../../setup/03-deploy.md) 3-2절 갱신
 
-### C0-2. 팀 권한 스택 `infra/terraform/team/` (상시 유지)
+### C0-2. 팀 권한 스택 `infra/terraform/team/` (상시 유지) — ① 공통 기반으로 이관
 팀원 입·퇴사를 IAM 그룹 멤버십만으로 관리한다 (사용자 결정, 2026-10-13). repo에 이름·ARN이 노출되지 않고, 환경 재생성 없이 즉시 반영된다.
 
 | 리소스 | 내용 |
@@ -56,7 +57,7 @@
 - 입사: IAM 사용자 생성 → 그룹 추가 → 액세스 키 발급(안전한 경로로 전달). 퇴사: 액세스 키 삭제 → 그룹 제거 → 사용자 삭제
 - 반영 후 [`docs/setup/01-prerequisites.md`](../../setup/01-prerequisites.md), [`02-infra.md`](../../setup/02-infra.md) 갱신
 
-### C1. Unified Service Tagging + 에러 정보 보강 (main 반영)
+### C1. Unified Service Tagging + 에러 정보 보강 (main 반영) — ① 공통 기반으로 이관
 - `deploy/helm/charts/ringdog/templates/*.yaml` 4개 서비스 모두:
   - 환경변수 `DD_VERSION`, Deployment/Pod 라벨 `tags.datadoghq.com/env|service|version`
   - 버전 값: 서비스별 `<svc>.version` → 없으면 `image.tag`
@@ -82,7 +83,7 @@
 - Datadog 이벤트 API로 배포 마커 전송 (`service:ringdog-backend-api`, `version:<v>`)
 - **롤백도 동일 워크플로** (`version=1.0.0`) — Workflow Automation이 GitHub 액션으로 호출
 
-### C5. 트래픽 생성기 (클러스터 내부 실행)
+### C5. 트래픽 생성기 (클러스터 내부 실행) — ① 공통 기반으로 이관 (쿠폰 50% 혼합 여정은 ② 전용 프로필)
 - 위치: `deploy/helm/charts/ringdog/files/traffic/` 스크립트 + Helm 템플릿(토글 `trafficGen.enabled`), on/off는 `demo-traffic.yml`
 - **k6** (API 트래픽): 회원가입/로그인 → 상품 목록·검색 → 장바구니 담기 → 주문(50% 쿠폰 / 50% 미입력). 평시 분당 30회 여정(약 3~4 RPS)
 - **k6 browser** (`k6/browser`, 브라우저 RUM — Playwright 대신 k6 하나로 통일): 같은 여정을 실제 Chromium으로 약 1세션/분 → RUM 세션, Session Replay, Funnel 데이터 생성. 버그 버전에서는 결제 실패 화면이 Replay에 남음

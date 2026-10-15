@@ -5,16 +5,16 @@
 
 | # | 시나리오 | 주요 기능 | 상태 |
 |---|---|---|---|
-| 01 | [배포 후 결제 에러 급증](./01-bad-deploy/README.md) | APM, RUM, Logs, Watchdog, Bits AI SRE, Workflow Automation, MCP | 🔄 구현 준비 중 |
-| 02 | 타임세일 트래픽 폭주 → DB 병목 ([설계 초안](../design/specs/2026-10-15-demo-flash-sale-db-design.md)) | Infra, APM, Logs, RUM, DBM, Bits AI SRE/Chat, Workflow Automation, MCP | 📝 설계 초안 (회의 검토) |
+| 01 | [타임세일 트래픽 폭주 → DB 병목](./01-flash-sale-db/README.md) | Infra, APM, Logs, RUM, DBM, Bits AI SRE/Chat, Workflow Automation, MCP | 📝 설계 초안 (회의 검토) — **먼저 구축**, 공통 기반 포함 |
+| 02 | [배포 후 결제 에러 급증](./02-bad-deploy/README.md) | APM, RUM, Logs, Watchdog, Bits AI SRE/Chat, Workflow Automation, MCP | ⏸ 설계·계획 완료, ① 구축 후 진행 (① 환경 재사용) |
 
 ## 후보 시나리오 (미착수)
 
 | 후보 | 주요 기능 | 장애 주입 방법 (예정) |
 |---|---|---|
-| CI/CD Optimization | CI Visibility, Test Optimization, Quality Gates, DORA | flaky 테스트, 느린 빌드 단계 (02 설계 7.1) |
-| 주문 처리 지연 | DSM, APM | order-consumer 지연/중지 → consumer lag (02 설계 7.2) |
-| 정산 배치 지연 | Jobs Monitoring (Airflow, Spark) | 대량 데이터로 Spark 잡 지연/OOM (02 설계 7.3) |
+| CI/CD Optimization | CI Visibility, Test Optimization, Quality Gates, DORA | flaky 테스트, 느린 빌드 단계 (① 설계 7.1) |
+| 주문 처리 지연 | DSM, APM | order-consumer 지연/중지 → consumer lag (① 설계 7.2) |
+| 정산 배치 지연 | Jobs Monitoring (Airflow, Spark) | 대량 데이터로 Spark 잡 지연/OOM (① 설계 7.3) |
 | 응답은 정상인데 실제로는 장애 | Logs, APM | OpenSearch 연결 차단 → DB fallback |
 | 트래픽 급증 / Pod OOM | Infra, APM, Workflow(스케일 아웃) | k6 부하, Chaos Mesh |
 
