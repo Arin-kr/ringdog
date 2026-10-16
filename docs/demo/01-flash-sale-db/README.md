@@ -17,7 +17,7 @@
 | # | 항목 | 상태 | 비고 |
 |---|---|---|---|
 | 0 | 설계 초안 작성 | ✅ 완료 | 2026-10-15 |
-| 1 | 부서 회의 검토 + 결정 항목 반영 | ⬜ 대기 | 2026-10-16 회의, 설계 8장 |
+| 1 | 부서 회의 검토 + 결정 항목 반영 | 🔄 진행 중 | 설계 8장 1~4번 확정(2026-10-16), 5번 담당·일정 미정 |
 | 2 | 구현 계획 작성 | ⬜ 대기 | ② 계획의 공통 기반 Task를 흡수 |
 | **공통 기반** | | | ②·3단계에서 재사용 |
 | B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ⬜ 대기 | |
@@ -26,11 +26,11 @@
 | B4 | 트래픽 생성기 (k6 API + k6 browser), 평시/급증 프로필 | ⬜ 대기 | |
 | B5 | Slack 연동 + GitHub Connection | ⬜ 대기 | |
 | **시나리오 ① 전용** | | | |
-| F1 | RDS 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ⬜ 대기 | |
+| F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ⬜ 대기 | |
 | F2 | Datadog AWS Integration (RDS·ALB·MSK) | ⬜ 대기 | |
 | F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ⬜ 대기 | 위젯 표시 규칙: 설계 4.7 |
 | F4 | 대량 주문 시드 Job | ⬜ 대기 | |
-| F5 | HPA + metrics-server, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ⬜ 대기 | 설계 4.1.1·4.6 |
+| F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ⬜ 대기 | 설계 4.1.1·4.6 |
 | F6 | `demo-control.yml` (spike / inject / mitigate / reset) | ⬜ 대기 | reset은 세일가 원복 포함 |
 | F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
 | F8 | Workflow 2개: 1차 위젯 OFF / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (Slack 승인 각 1회) | ⬜ 대기 | |
@@ -88,3 +88,4 @@
 | 2026-10-15 | 대처를 1차(위젯 OFF) / 2차(블로킹 세션 종료)로 분리, 원인별 트리거 모니터 2개, 락 주입 3분 지연·최대 30분, "스케일 아웃 함정" 설명 보강 |
 | 2026-10-16 | 원인 ② 배치를 "세일가 반영 배치"로 구체화하고 7단계 발견 경로 추가(4분, 전체 약 28분), 위젯 표시 규칙, 10단계를 "원인 ① 근본 수정"으로 변경, "위젯 OFF는 롤백 아님" 멘트 추가 |
 | 2026-10-16 | 2차 대처에 배치 안전 모드(50개씩 커밋) 자동 재실행 추가(세션 종료 시 세일가 반영 롤백 보완, 전체 약 29분), reset에 세일가 원복 추가, 설계에 EKS 내부 구조도(Node·Pod·Container) 추가 |
+| 2026-10-16 | 설계 8장 1~4번 추천안대로 확정(RDS t3.small, ConfigMap 플래그, GitHub Actions 경유 대처, Jobs Monitoring은 같은 EKS + Spot). metrics-server 설치, 노드 3대 고정(최대 4), 전 Pod 리소스 요청값 추가 |

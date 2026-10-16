@@ -1,8 +1,8 @@
 # 데모 시나리오 ① "타임세일 트래픽 폭주 → DB 병목" 설계 (초안)
 
 - 작성일: 2026-10-15
-- 상태: **초안 — 2026-10-16 부서 회의 검토용**. 회의 결과 반영 후 구현 계획(`docs/design/plans/`) 작성
-- 2026-10-16 보강: 원인 ② 배치의 실체와 7단계 발견 경로(4.6), 위젯 표시 규칙(4.7), "위젯 OFF는 롤백 아님", "인덱스는 원인 ①만 해결" 명시. 2차 대처에 배치 안전 모드 자동 재실행 추가, EKS 내부 구조도(4.1.1)
+- 상태: **초안 — 8장 1~4번 확정(2026-10-16), 5번(담당·일정) 미정**. 설계 승인 후 구현 계획(`docs/design/plans/`) 작성
+- 2026-10-16 보강: 원인 ② 배치의 실체와 7단계 발견 경로(4.6), 위젯 표시 규칙(4.7), "위젯 OFF는 롤백 아님", "인덱스는 원인 ①만 해결" 명시. 2차 대처에 배치 안전 모드 자동 재실행 추가, EKS 내부 구조도(4.1.1), metrics-server·노드 3대 고정·리소스 요청값, 8장 1~4번 확정
 - 시나리오 운영 문서(대본·진행 현황): [`docs/demo/01-flash-sale-db/README.md`](../../demo/01-flash-sale-db/README.md)
 - 구축 순서: **이 시나리오 ①을 먼저 구축**하면서 데모 공통 기반(4.3)을 함께 만든다. 시나리오 ② [배포 후 결제 에러 급증](./2026-10-13-demo-bad-deploy-design.md)은 그 환경을 그대로 사용해 두 번째로 구축한다.
 
@@ -127,7 +127,7 @@ flowchart TB
     ddsaas[("Datadog")]
     gha["GitHub Actions<br/>demo-control (kubectl)"]
 
-    subgraph eks["EKS ringdog-demo · 관리형 노드 그룹 ringdog-demo-nodes (t3.medium, 평시 2대 · 최대 3대)"]
+    subgraph eks["EKS ringdog-demo · 관리형 노드 그룹 ringdog-demo-nodes (t3.medium 3대 고정 · 최대 4대)"]
         direction LR
         subgraph n1["Node 1 · t3.medium (2 vCPU / 4 GiB)"]
             direction TB
@@ -166,6 +166,12 @@ flowchart TB
             subgraph pk6["Pod k6 (신규)"]
                 ck6["k6<br/>API 평시 / 급증"]
             end
+        end
+        subgraph n3["Node 3 · t3.medium (2 vCPU / 4 GiB, 신규)"]
+            direction TB
+            subgraph n3ds["Pod datadog-agent (DaemonSet)"]
+                n3a["agent · trace-agent · process-agent"]
+            end
             subgraph pk6b["Pod k6-browser (신규)"]
                 ck6b["k6 browser<br/>Chromium · RUM 세션"]
             end
@@ -195,6 +201,7 @@ flowchart TB
     n1a -->|DBM 쿼리 샘플 · Explain| rds
     n1a -.-> ddsaas
     n2a -.-> ddsaas
+    n3a -.-> ddsaas
     gha -->|Job 생성| cbatch
     gha -->|Job 생성| cjob
 ```
@@ -202,22 +209,24 @@ flowchart TB
 - Pod 배치는 예시다. 실제 노드는 스케줄러가 정하고, `datadog-agent`(DaemonSet)만 노드마다 1개씩 뜬다. MSK·OpenSearch 연결은 4.1 참고
 - 앱 Pod는 컨테이너 1개(사이드카 없음). dd-trace는 앱 컨테이너 안의 라이브러리이고, Cluster Agent의 Admission Controller가 `DD_AGENT_HOST` 등을 주입해 **같은 노드의 trace-agent**로 트레이스를 보낸다
 - DBM은 Cluster Agent가 Postgres 체크를 노드 Agent 하나에 배정해, 그 Agent가 RDS 엔드포인트에 직접 연결해 수집한다
-- **확인 필요 (현재 환경에 없음)**:
-  - **metrics-server**: 없으면 CPU 기준 HPA가 동작하지 않는다 → 신규 설치 대상
-  - **노드 자동 확장**: Cluster Autoscaler·Karpenter가 없어 노드 수는 2대로 고정. backend-api 4개 + k6 browser(Chromium) + Agent를 2대에 올릴 수 있는지 리허설에서 확인하고, 부족하면 시연 전 `desired_size` 3으로 올린다
+- **현재 환경에 없어서 추가하는 것**:
+  - **metrics-server**: 없으면 CPU 기준 HPA가 동작하지 않아 8단계 "스케일 아웃 함정" 장면이 나오지 않는다 → `cd.yml`에서 Helm으로 `kube-system`에 설치(aws-load-balancer-controller 설치 단계 옆). HPA는 `cpu` 사용률 기준이므로 backend-api에 CPU `requests`가 반드시 있어야 한다
+  - **노드 용량**: Cluster Autoscaler·Karpenter가 없어 노드 수는 자동으로 늘지 않는다. 노드 자동 확장은 시연 대상이 아니므로 설치하지 않고, **노드를 3대로 고정**한다(`node_desired_size` 2 → 3, `node_max_size` 3 → 4, `node_min_size`는 1 유지). 비용은 t3.medium 1대분(시간당 약 $0.05) 증가하며, 환경은 시연 때만 띄우므로 영향이 작다
+  - **리소스 요청값**: 모든 Pod(앱 4개, k6, k6-browser, inventory-batch, demo-control Job)에 `requests`/`limits`를 지정해, HPA 최대(backend-api 4개) + k6 browser(Chromium, 메모리 약 1 GiB) + Agent가 3대에 Pending 없이 올라가도록 한다. 실제 값은 리허설에서 `kubectl top`으로 확인 후 조정
 
 ### 4.2 시나리오 ① 전용 추가·변경 항목
 
 | 구분 | 내용 | 비고 |
 |---|---|---|
 | RDS 파라미터 그룹 | `shared_preload_libraries=pg_stat_statements`, `track_activity_query_size=4096`, (선택) `track_io_timing=on` | Terraform `modules/rds`에 파라미터 그룹 추가. 적용 시 재시작 필요 |
-| RDS 사양 | `db.t3.micro`(1GB) → **`db.t3.small` 검토** | 대량 데이터 + DBM 수집 안정성. 비용 소폭 증가 (회의 결정) |
+| RDS 사양 | `db.t3.micro`(1GB) → **`db.t3.small`** (결정) | 대량 데이터 + DBM 수집 안정성. 비용 소폭 증가 |
+| EKS 노드 | `node_desired_size` 2 → **3**, `node_max_size` 3 → 4, metrics-server 설치, 모든 Pod에 `requests`/`limits` | 4.1.1. HPA 동작과 Pending 방지 |
 | DBM 준비 SQL | `datadog` 사용자, `datadog` 스키마, `pg_monitor` 권한, `pg_stat_statements` 확장, `datadog.explain_statement` 함수 | CD의 migrate 단계 뒤에 실행. 비밀번호는 Secrets Manager |
 | Datadog Agent | Cluster Agent cluster check로 Postgres 체크 `dbm: true`, RDS 엔드포인트 직접 연결. 블로킹 지표용 `custom_queries` 추가(4.4) | `deploy/helm/datadog-agent/values.yaml` (`clusterChecks` 활성화) |
 | AWS 연동 | Datadog AWS Integration (CloudWatch: RDS·ALB·MSK, Resource Collection) | IAM Role은 비용이 없으므로 상시 유지 `infra/terraform/team/`에 배치 |
 | 앱 (backend-api) | `GET /api/products/trending` (인덱스 없는 집계, 플래그 OFF면 집계 없이 `{ enabled: false }` 반환), checkout 재고 차감 `UPDATE products` 트랜잭션 | main에 반영. 위젯 플래그 OFF가 기본 |
 | 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯. 표시 규칙은 4.7 | RUM에 위젯 로딩 시간 표시 |
-| 플래그 | ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET` (기본) / Datadog Feature Flags (선택). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | 회의 결정. ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
+| 플래그 | **ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET`** (결정. Datadog Feature Flags는 이후 확장). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
 | 데이터 | 대량 주문 시드 Job: 주문 약 50만 건, `order_items` 약 150만 건 | 환경 재생성마다 1회 실행 (약 10분 예상, 리허설로 확인) |
 | k8s | backend-api HPA(CPU 기준, 1→4) + metrics-server, 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 최대 30분, 동작은 4.6) | 2차 대처 시점(약 19분 뒤)까지 락이 유지되어야 함. 노드 용량은 4.1.1 |
 | 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `spike` / `inject` / `mitigate` / `reset`) | 인덱스 삭제·생성, 플래그 토글, 배치 Job 실행(장애 모드 / 안전 모드)·삭제, 블로킹 세션 종료, 세일가 원복 |
@@ -249,7 +258,7 @@ Composite 모니터는 사람에게 알리는 용도로만 쓰고 조치를 트�
 | 결과 보고 | 3분 후 RDS CPU·trending p95 조회 → Slack 보고 | 3분 후 checkout p95·블로킹 지표·배치 완료 여부(세일가 반영 1,200/1,200) 조회 → Slack 보고 |
 
 - **알림 순서**: 락은 `inject` 3분 뒤 시작하고 블로킹 모니터는 5분 지속 조건이라, 2차 알림은 1차 대처 무렵(장애 주입 후 약 8분)에 도착한다. 대본상 2차 알림은 "두 번째 원인을 DBM으로 확인한 뒤" 처리한다. 도착 시점은 리허설로 조정
-- **조치 실행 방식**: **A (기본안)** Workflow가 GitHub Actions `demo-control` `action=mitigate` 실행 → 러너가 `kubectl`로 클러스터 내부에서 조치. 시나리오 ②의 롤백과 같은 GitHub Connection 사용, 추가 구성 요소 없음. **B (대안)** EKS에 Datadog Private Action Runner 설치 → Workflow의 PostgreSQL/Kubernetes 액션으로 직접 실행. Datadog 단독으로 끝나지만 설치·권한 구성 추가 (회의 결정)
+- **조치 실행 방식**: **A로 결정.** Workflow가 GitHub Actions `demo-control` `action=mitigate` 실행 → 러너가 `kubectl`로 클러스터 내부에서 조치. 시나리오 ②의 롤백과 같은 GitHub Connection 사용, 추가 구성 요소 없음. (검토했던 대안 B: EKS에 Datadog Private Action Runner 설치 → Workflow의 PostgreSQL/Kubernetes 액션으로 직접 실행. Datadog 단독으로 끝나지만 설치·권한 구성이 추가되어 채택하지 않음)
 - **공통**: 거부/10분 무응답 시 "수동 대응 필요" 보고
 - **안전장치**: PID를 Workflow에서 넘기지 않고 Job 실행 시점에 다시 조회. 종료 대상은 **30초 이상 블로킹 중 + `application_name = 'inventory-batch'`** 세션으로 제한. 위젯 OFF는 플래그 토글이라 언제든 되돌릴 수 있음
 
@@ -348,17 +357,20 @@ RDS t3 계열은 기본 성능(t3.micro 약 10%, t3.small 약 20%)을 넘는 만
 - **환경 (신규)**: EKS에 Airflow(Helm) + Spark on Kubernetes(spark-operator). DAG `daily_sales_etl`: RDS 주문 데이터 → Spark 집계(일별 상품 매출) → RDS 리포팅 테이블. 웨어하우스는 사용하지 않음
 - **시나리오**: 시나리오 ①의 대량 데이터로 Spark 잡이 느려지거나 OOM 실패 → Jobs Monitoring에서 이전 실행 대비 소요 시간·자원 사용·실패 단계 비교, Airflow DAG 지연 → 원인(데이터 skew / executor 메모리) 확인
 - **대처**: executor 메모리·파티션 수 조정 후 재실행, 실행 시간 회귀 모니터
-- **확인 필요**: Spark 잡용 노드 용량(t3.medium 2대로 부족 → 전용 노드 그룹/Spot 검토), Airflow·Spark 계측 방식(구현 계획에서 문서 기준으로 확정)
+- **실행 위치 (결정)**: 같은 EKS에 Spark 잡 전용 **Spot 노드 그룹** 추가(taint로 Spark Pod만 배치). EMR on EKS는 사용하지 않음
+- **확인 필요**: Spot 노드 그룹 인스턴스 타입·대수, Airflow·Spark 계측 방식(구현 계획에서 문서 기준으로 확정)
 
-## 8. 회의 결정 필요 항목
+## 8. 결정 사항
 
-| # | 항목 | 선택지 | 추천 |
+1~4번은 2026-10-16 추천안대로 확정했다. 5번은 미정.
+
+| # | 항목 | 결정 | 근거 |
 |---|---|---|---|
-| 1 | RDS 사양 | t3.micro 유지 / **t3.small** | t3.small (데이터량·DBM 안정성) |
-| 2 | 위젯 플래그 | **ConfigMap 환경변수** / Datadog Feature Flags | ConfigMap으로 시작, Feature Flags는 이후 확장 |
-| 3 | 즉시 대처 실행 방식 (4.4) | **A. GitHub Actions 경유** / B. Private Action Runner | A (②의 롤백과 같은 연결 재사용) |
-| 4 | Jobs Monitoring 실행 위치 | 같은 EKS 전용 노드 그룹(Spot) / EMR on EKS | 같은 EKS + Spot 노드 그룹 (비용·구성 단순) |
-| 5 | 담당·일정 | 시나리오 ① / ② / 7.1 / 7.2 / 7.3 담당자 | ① → ② 순서 고정, 3단계 중 7.2(DSM)가 가장 빠름 |
+| 1 | RDS 사양 | **db.t3.small** | 데이터량·DBM 수집 안정성 |
+| 2 | 위젯 플래그 | **ConfigMap 환경변수** (Datadog Feature Flags는 이후 확장) | 구성 단순. 플래그는 backend-api 소유 |
+| 3 | 즉시 대처 실행 방식 (4.4) | **A. GitHub Actions 경유** | ②의 롤백과 같은 GitHub Connection 재사용, 추가 구성 요소 없음 |
+| 4 | Jobs Monitoring 실행 위치 | **같은 EKS + Spot 노드 그룹** | 비용·구성 단순 |
+| 5 | 담당·일정 | (미정) 시나리오 ① / ② / 7.1 / 7.2 / 7.3 담당자와 목표 시점 | ① → ② 순서 고정, 3단계 중 7.2(DSM)가 가장 빠름 |
 
 ## 9. 범위 외
 - Quality Monitoring (웨어하우스 필요 — 이번 범위에서 제외)
