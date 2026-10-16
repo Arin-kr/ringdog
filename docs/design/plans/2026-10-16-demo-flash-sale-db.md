@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 타임세일 트래픽 급증 + 인덱스 없는 인기상품 쿼리 + 세일가 반영 배치의 락이 겹친 장애를 `demo-control inject` 한 번으로 재현하고, Datadog으로 원인 2개를 분리해 Slack 승인 2번(위젯 OFF / 세션 종료 + 배치 안전 모드 재실행)으로 회복시키는 시연 환경을 만든다. 시나리오 ②와 3단계가 재사용할 데모 공통 기반도 함께 만든다.
+**Goal:** 타임세일 트래픽 급증 + 인덱스 없는 인기상품 쿼리 + 세일가 반영 배치의 락이 겹친 장애를 `demo-control inject` 한 번으로 재현하고, Datadog으로 원인 2개를 분리해 원인 ①(위젯 OFF → MCP 인덱스 PR → 인덱스 적용 + 위젯 ON)과 원인 ②(세션 종료 + 배치 안전 모드 재실행)를 Slack 승인으로 차례대로 해결하는 시연 환경을 만든다. 시연자가 하는 일은 5가지(`demo-up` / `inject` / 1차 / 2차 / `reset` 또는 `demo-down`)로 묶는다(설계 3.1). 시나리오 ②와 3단계가 재사용할 데모 공통 기반도 함께 만든다.
 
 **Architecture:** 앱 쪽은 backend-api에 인기상품 API(플래그), checkout 재고 차감(+`lock_timeout`), 세일가 반영 배치 Job 진입점을 추가하고 frontend에 위젯을 넣는다. 인프라는 Terraform(RDS 파라미터 그룹·DBM 계정 시크릿·노드 3대·팀 스택)과 Helm(UST, 리소스 요청값, HPA, 플래그 ConfigMap, LimitRange, k6)으로 구성하고, cd.yml이 metrics-server·DBM 준비·Agent Postgres 체크를 배포한다. 시연 조작은 전부 `demo-control.yml` → `deploy/demo/demo-control.sh` 하나로 모은다. Datadog 모니터·대시보드·Workflow는 실환경 Task에서 만들고 정의를 `datadog/`에 마스킹해 커밋한다.
 
@@ -15,17 +15,18 @@
 
 - 서비스명: `ringdog-backend-api`, `ringdog-frontend`, `ringdog-chatbot-service`, `ringdog-order-consumer`, 배치 `inventory-batch` / env: `demo`
 - 배치 DB 연결 `application_name = 'inventory-batch'`. 세션 종료는 이 이름 + "다른 세션을 막고 있음" + "트랜잭션이 30초 넘게 열려 있음" 세 조건을 모두 만족하는 세션만
-- 배치 Job 이름 `inventory-batch-fault`(장애 모드) / `inventory-batch-safe`(안전 모드), `backoffLimit: 0`. 장애 모드: 대상 1,200개, 상품당 1초, 커밋 1회, 시작 지연 180초, `activeDeadlineSeconds` 1980. 안전 모드: 50개씩 커밋, `lock_timeout` 2초, 지연 0, `activeDeadlineSeconds` 600
+- 배치 Job 이름 `inventory-batch-fault`(장애 모드) / `inventory-batch-safe`(안전 모드), `backoffLimit: 0`. 장애 모드: 대상 1,200개, 상품당 1.5초(약 30분), 커밋 1회, 시작 지연 180초, `activeDeadlineSeconds` 2580. 안전 모드: 50개씩 커밋, `lock_timeout` 2초, 지연 0, `activeDeadlineSeconds` 600
 - checkout 재고 차감 트랜잭션 `lock_timeout` 5초
 - 위젯 플래그: ConfigMap `ringdog-feature-flags`, 키 `FEATURE_TRENDING_WIDGET`, Helm 값 `featureFlags.trendingWidget`(`"true"`/`"false"`, 기본 `"false"`). 플래그는 backend-api만 읽는다
-- 원인 ① 근본 수정 인덱스: `orders(created_at)` = `orders_created_at_idx`, `order_items(order_id)` = `order_items_order_id_idx`. 시연 중 MCP가 만드는 PR은 **절대 main에 머지하지 않음** (`reset`이 이 이름의 인덱스를 지움)
+- 원인 ① 근본 수정 인덱스: `orders(created_at)` = `orders_created_at_idx`, `order_items(order_id)` = `order_items_order_id_idx`. 시연 중 MCP가 만드는 PR(브랜치 `demo/fix-index-<날짜>`)은 **절대 main에 머지하지 않음**. DB에는 `demo-control fix-index`가 같은 인덱스를 `CONCURRENTLY` 없이 직접 만들고(배치의 긴 트랜잭션 때문에 `CONCURRENTLY`는 멈춤), `reset`이 지우고 PR을 닫는다
+- 시연자 조작은 5가지: 로컬 `scripts/demo-up.sh` / `demo-control inject` / Workflow 1(승인 2번) / Workflow 2(승인 1번) / `demo-control reset` 또는 로컬 `scripts/demo-down.sh`. Workflow 승인 대기: Workflow 1 첫 승인 10분·두 번째 15분, Workflow 2 30분
 - 블로킹 지표: `ringdog.db.blocking_sessions`, `ringdog.db.blocked_sessions` (Postgres 체크 `custom_queries`)
 - RDS `db.t3.small`, EKS 노드 `desired 3 / max 4 / min 1`, Cluster Autoscaler 없음
 - GitHub OIDC는 `ref:refs/heads/main`만 신뢰 → 모든 데모 워크플로는 main에서 실행
 - public repo: AWS 계정 ID, ARN, External ID, Connection ID, Slack 채널 ID, 비밀번호·키를 커밋하지 않음
 - 문서는 한국어. 설계/계획 문서는 `docs/design/`
 - Windows 개발 PC: `aws`/`terraform`/`helm`/`git push`는 WSL에서 실행. Terraform은 `/mnt/d`가 아닌 WSL 내부 경로 복사본에서 실행 (provider 로딩 timeout 회피)
-- `terraform apply`, `git push`(main push = cd.yml 실행 = 비용 발생 환경 필요)는 **사용자 확인 후에만**
+- `terraform apply`/`destroy`(`demo-up`/`demo-down` 포함), `git push`(main push = cd.yml 실행 = 비용 발생 환경 필요)는 **사용자 확인 후에만**
 - Datadog MCP는 현재 다른(고객) org에 연결되어 있을 수 있음 → 실환경 Task 시작 전 `/mcp`로 RingDog org인지 확인. 모니터 생성에는 org의 MCP Write Access가 필요
 
 ## Review Focus
@@ -33,8 +34,8 @@
 1. **세션을 끊은 뒤 장애 모드 배치가 Job 재시도로 다시 떠서 락을 또 잡음** → 재시도 없이 Failed로 끝나야 함 (Task 9 Step 1: 렌더링 테스트가 `backoffLimit: 0` 확인, `mitigate session`이 fault Job도 삭제)
 2. **장애 중 인기상품 API가 느리거나 실패** → 위젯은 에러 문구 없이 사라지고 상품 목록은 그대로 보여야 함 (Task 7 Step 1: 타임아웃·실패·비활성 테스트)
 3. **k6가 계속 구매해서 재고가 바닥남 / 재고 부족 주문** → 500이 아니라 409, 시드가 재고를 넉넉히 채움 (Task 6 Step 1: `OutOfStockError` 테스트, Task 11 시드 SQL)
-4. **새 환경(백업 테이블 없음)에서 `reset`을 실행하거나 `reset`을 두 번 실행** → 오류 없이 끝나야 함 (Task 11 SQL의 `to_regclass` 가드, Task 15 Step 6 확인)
-5. **세션 종료가 배치가 아닌 세션(checkout, 수동 psql)까지 끊음** → `inventory-batch`만 끊어야 함 (Task 15 Step 7: 다른 이름의 블로커를 두고 `mitigate session` 실행)
+4. **새 환경(백업 테이블 없음)에서 `reset`을 실행하거나 `reset`을 두 번 실행** → 오류 없이 끝나야 함 (Task 11 SQL의 `to_regclass` 가드, Task 16 Step 6 확인)
+5. **세션 종료가 배치가 아닌 세션(checkout, 수동 psql)까지 끊음** → `inventory-batch`만 끊어야 함 (Task 16 Step 7: 다른 이름의 블로커를 두고 `mitigate session` 실행)
 
 ---
 
@@ -57,8 +58,9 @@
 | `deploy/helm/charts/ringdog/tests/render-test.sh` | 생성 | Helm 렌더링 회귀 테스트 |
 | `deploy/helm/datadog-agent/postgres-values.tmpl.yaml` | 생성 | Postgres DBM cluster check + 블로킹 custom query |
 | `deploy/dbm/datadog-setup.sql` | 생성 | `datadog` 계정·스키마·권한·`explain_statement` |
-| `deploy/demo/demo-control.sh`, `inventory-batch-job.yaml`, `sql/*.sql`, `tests/render-test.sh` | 생성 | 시연 조작 (seed/start/spike/inject/mitigate/reset/stop) |
-| `.github/workflows/cd.yml` | 수정 | 수동 실행, metrics-server, DBM 준비, Agent Postgres 체크 |
+| `deploy/demo/demo-control.sh`, `inventory-batch-job.yaml`, `sql/{bulk-seed,terminate-batch-blockers,apply-index,reset}.sql`, `tests/render-test.sh` | 생성 | 시연 조작 (inject/mitigate/fix-index/reset + seed/start/spike/stop) |
+| `scripts/{lib-demo-env,demo-up,demo-down}.sh` | 생성 | 환경 올리기·내리기 한 번에 (WSL) |
+| `.github/workflows/cd.yml` | 수정 | 수동 실행, metrics-server, DBM 준비, Agent Postgres 체크, 대량 시드, 평시 트래픽 |
 | `.github/workflows/demo-control.yml` | 생성 | `demo-control.sh` 실행 (Datadog Workflow가 호출) |
 | `.github/workflows/ci.yml` | 수정 | team 스택 fmt/validate |
 | `infra/terraform/team/*` | 생성 | IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role (상시 유지) |
@@ -797,7 +799,7 @@ git commit -m "feat(infra): RDS DBM parameter group and datadog secret, db.t3.sm
 
 **Interfaces:**
 - Consumes: Secrets Manager `ringdog-demo/rds/credentials`, `ringdog-demo/rds/datadog` (Task 4)
-- Produces: Datadog 지표 `ringdog.db.blocking_sessions`, `ringdog.db.blocked_sessions` (태그 `env:demo`, `dbinstanceidentifier:ringdog-demo`) — Task 16 모니터가 사용
+- Produces: Datadog 지표 `ringdog.db.blocking_sessions`, `ringdog.db.blocked_sessions` (태그 `env:demo`, `dbinstanceidentifier:ringdog-demo`) — Task 17 모니터가 사용
 - Produces: kube-system에 metrics-server (Task 8 HPA가 사용)
 
 - [ ] **Step 1: DBM 준비 SQL**
@@ -957,7 +959,7 @@ clusterAgent:
 - [ ] **Step 4: actionlint**
 
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && docker run --rm -v \"\$PWD:/repo\" -w /repo rhysd/actionlint:1.7.3 -color"` (`$PWD` 이스케이프가 깨지면 스크립트 파일로 실행)
-Expected: `cd.yml` 변경분에서 새 경고 없음. WSL에 docker가 없거나 이미지 pull이 사내 TLS 때문에 실패하면, 사용자에게 알리고 `go install`/바이너리 다운로드 대신 Task 14의 실제 실행으로 검증을 대체
+Expected: `cd.yml` 변경분에서 새 경고 없음. WSL에 docker가 없거나 이미지 pull이 사내 TLS 때문에 실패하면, 사용자에게 알리고 `go install`/바이너리 다운로드 대신 Task 15의 실제 실행으로 검증을 대체
 
 - [ ] **Step 5: Commit**
 
@@ -1266,7 +1268,7 @@ Expected: 11 passed, 에러 없음. typecheck가 `Prisma.TransactionClient` Pick
 
 - [ ] **Step 8: 로컬 동작 확인 (선택, 로컬 Postgres가 있을 때)**
 
-`.env`의 로컬 DB로 `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api dev` → `curl -s localhost:4000/api/products/trending` → `{"enabled":false,"items":[]}`. `FEATURE_TRENDING_WIDGET=true`로 재시작 → `{"enabled":true,"items":[...]}`(주문이 없으면 빈 배열). 로컬 DB가 없으면 건너뛰고 Task 14에서 확인
+`.env`의 로컬 DB로 `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api dev` → `curl -s localhost:4000/api/products/trending` → `{"enabled":false,"items":[]}`. `FEATURE_TRENDING_WIDGET=true`로 재시작 → `{"enabled":true,"items":[...]}`(주문이 없으면 빈 배열). 로컬 DB가 없으면 건너뛰고 Task 15에서 확인
 
 - [ ] **Step 9: Commit**
 
@@ -1590,7 +1592,7 @@ env의 `DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED` 항목 아래:
     enabled: true
     minReplicas: 1
     maxReplicas: 4
-    # DB 대기 중에는 CPU가 크게 오르지 않으므로 낮게 잡는다. 리허설(Task 15)에서 조정.
+    # DB 대기 중에는 CPU가 크게 오르지 않으므로 낮게 잡는다. 리허설(Task 16)에서 조정.
     targetCPUUtilization: 50
 ```
 파일 끝:
@@ -1624,7 +1626,7 @@ git commit -m "feat(helm): trending widget flag configmap and backend-api CPU HP
 - Create: `deploy/demo/demo-control.sh` (이 Task에서는 `render_batch_job` 함수만, 나머지는 Task 11)
 
 **Interfaces:**
-- Produces: `runBatch(mode: BatchMode, targets: BatchTarget[], deps: BatchDeps): Promise<void>`, `salePrice(price: number): number`, 상수 `SAFE_CHUNK_SIZE=50`, `FAULT_ITEM_DELAY_MS=1000`, `PROGRESS_EVERY=25`, `SAFE_MAX_ATTEMPTS=3`, `SALE_STOCK=100000`
+- Produces: `runBatch(mode: BatchMode, targets: BatchTarget[], deps: BatchDeps): Promise<void>`, `salePrice(price: number): number`, 상수 `SAFE_CHUNK_SIZE=50`, `FAULT_ITEM_DELAY_MS=1500`, `PROGRESS_EVERY=25`, `SAFE_MAX_ATTEMPTS=3`, `SALE_STOCK=100000`
 - Produces: 이미지 내 진입점 `node dist/jobs/inventoryBatch.js` (env `BATCH_MODE=fault|safe`, `BATCH_TARGET_COUNT` 기본 1200)
 - Produces: 셸 함수 `render_batch_job <mode> <image>` → stdout에 Job YAML (Task 11이 `kubectl apply -f -`)
 - Produces: DB 테이블 `demo_price_backup(product_id text PK, price numeric(10,2), stock int)` (Task 11 `reset.sql`이 복원)
@@ -1664,7 +1666,7 @@ function fakeDeps(failFirstTransaction = false) {
 }
 
 describe("runBatch", () => {
-  it("fault mode: one transaction holding every row, 1s pause per item, progress logs", async () => {
+  it("fault mode: one transaction holding every row, 1.5s pause per item, progress logs", async () => {
     const { deps, transactions, logs } = fakeDeps();
     await runBatch("fault", targets, deps);
     expect(transactions).toHaveLength(1);
@@ -1719,7 +1721,7 @@ Expected: FAIL — `Cannot find module './batchRunner'`
 /**
  * 시나리오 ① "타임세일 가격·재고 반영 배치" (원인 ②)의 처리 순서. DB 접근은 deps로 주입한다.
  *
- * - fault(장애 모드): 상품 전체를 트랜잭션 하나로 묶고 상품당 1초씩 천천히 처리, 커밋은 마지막 1회.
+ * - fault(장애 모드): 상품 전체를 트랜잭션 하나로 묶고 상품당 1.5초씩 천천히 처리(1,200개에 약 30분), 커밋은 마지막 1회.
  *   처리한 행의 락을 끝날 때까지 쥐고 있어 그 상품의 checkout 재고 차감이 기다린다.
  * - safe(안전 모드): 2차 대처 Workflow가 세션 종료 직후 자동 실행. 50개씩 바로 커밋 + lock_timeout 2s.
  */
@@ -1741,7 +1743,7 @@ export interface BatchDeps {
 }
 
 export const SAFE_CHUNK_SIZE = 50;
-export const FAULT_ITEM_DELAY_MS = 1000;
+export const FAULT_ITEM_DELAY_MS = 1500;
 export const PROGRESS_EVERY = 25;
 export const SAFE_MAX_ATTEMPTS = 3;
 export const SALE_STOCK = 100000;
@@ -1862,7 +1864,7 @@ async function main(): Promise<void> {
             await tx.$executeRaw`UPDATE products SET price = ${salePrice(t.price)}, stock = ${SALE_STOCK} WHERE id = ${t.id}`;
           });
         },
-        // 장애 모드는 20분 넘게 트랜잭션을 연다 (Job activeDeadlineSeconds가 상한).
+        // 장애 모드는 약 30분 동안 트랜잭션을 연다 (Job activeDeadlineSeconds가 상한).
         { maxWait: 10_000, timeout: 40 * 60_000 },
       ),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -1901,7 +1903,7 @@ fail() { echo "FAIL: $*"; exit 1; }
 out=$(render_batch_job fault reg.example/ringdog-backend-api:abc123)
 echo "$out" | grep -q 'name: inventory-batch-fault' || fail "fault job name"
 echo "$out" | grep -q 'backoffLimit: 0' || fail "no retry after session kill"
-echo "$out" | grep -q 'activeDeadlineSeconds: 1980' || fail "fault deadline = 180s delay + 30min"
+echo "$out" | grep -q 'activeDeadlineSeconds: 2580' || fail "fault deadline = 180s delay + 40min"
 echo "$out" | grep -q 'sleep 180 ' || fail "fault starts 3 min after inject"
 echo "$out" | grep -q 'value: "fault"' || fail "BATCH_MODE fault"
 echo "$out" | grep -q 'application_name=inventory-batch' || fail "application_name"
@@ -1996,7 +1998,7 @@ render_batch_job() {
   local mode="$1" image="$2" delay deadline
   if [ "$mode" = "fault" ]; then
     delay=180
-    deadline=1980
+    deadline=2580
   else
     delay=0
     deadline=600
@@ -2332,7 +2334,7 @@ spec:
 
 Run: render-test.sh → Expected `ALL PASS`
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "docker run --rm -v /mnt/d/Demo/deploy/helm/charts/ringdog/files/traffic:/s grafana/k6:0.52.0 inspect /s/api.js && docker run --rm -v /mnt/d/Demo/deploy/helm/charts/ringdog/files/traffic:/s grafana/k6:0.52.0-with-browser inspect /s/browser.js"`
-Expected: 두 스크립트 모두 options JSON 출력. (docker가 없거나 사내 TLS로 pull이 실패하면 사용자에게 알리고 Task 14 실환경 확인으로 대체)
+Expected: 두 스크립트 모두 options JSON 출력. (docker가 없거나 사내 TLS로 pull이 실패하면 사용자에게 알리고 Task 15 실환경 확인으로 대체)
 
 - [ ] **Step 7: Commit**
 
@@ -2343,23 +2345,25 @@ git commit -m "feat(demo): k6 API/browser traffic generator with normal and spik
 
 ---
 
-### Task 11: 시연 조작 `demo-control` — SQL + 스크립트 + 워크플로 (F4, F6)
+### Task 11: 시연 조작 `demo-control` — SQL + 스크립트 + 워크플로 + cd 연결 (F4, F6)
 
 **Files:**
-- Create: `deploy/demo/sql/bulk-seed.sql`, `terminate-batch-blockers.sql`, `reset.sql`
+- Create: `deploy/demo/sql/bulk-seed.sql`, `terminate-batch-blockers.sql`, `apply-index.sql`, `reset.sql`
 - Modify: `deploy/demo/demo-control.sh` (나머지 동작 + main)
 - Modify: `deploy/demo/tests/render-test.sh`
 - Create: `.github/workflows/demo-control.yml`
+- Modify: `.github/workflows/cd.yml` (대량 시드 단계, 2차 Helm 배포에 평시 트래픽)
 
 **Interfaces:**
 - Consumes: `render_batch_job` (Task 9), Helm 값 `featureFlags.trendingWidget`(Task 8), `trafficGen.*`(Task 10), 시크릿 `ringdog-demo/rds/credentials`
-- Produces: GitHub Actions `demo-control` — inputs `action`(`seed|start|spike|inject|mitigate|reset|stop`), `target`(`widget|session`, mitigate에서만). Datadog Workflow(Task 17)가 `action=mitigate` + `target`으로 호출
+- Produces: GitHub Actions `demo-control` — inputs `action`(`seed|start|spike|inject|mitigate|fix-index|reset|stop`), `target`(`widget|session`, mitigate에서만). Datadog Workflow 1(Task 18)이 `mitigate`+`widget` → `fix-index`, Workflow 2가 `mitigate`+`session`으로 호출
+- Produces: cd.yml 완료 = 대량 시드 + 평시 트래픽까지 켜진 상태 (Task 12 `demo-up.sh`가 이것을 기다림)
 
 - [ ] **Step 1: 대량 시드 SQL**
 
 `deploy/demo/sql/bulk-seed.sql`:
 ```sql
--- 시나리오 ① 대량 데이터 (환경을 새로 만들 때마다 1회: demo-control seed). 이미 했으면 건너뛴다.
+-- 시나리오 ① 대량 데이터 (cd.yml이 마이그레이션 다음에 매번 실행, 수동: demo-control seed). 이미 했으면 건너뛴다.
 -- 상품 1,200개(기존 60 + 1,140), 주문 50만(최근 90일 분산), 주문 항목 150만(앞쪽 상품에 몰리게).
 SELECT EXISTS (SELECT 1 FROM users WHERE email = 'bulk-seed@ringdog.demo') AS seeded \gset
 \if :seeded
@@ -2436,6 +2440,23 @@ WHERE a.application_name = 'inventory-batch'
   AND now() - a.xact_start > interval '30 seconds';
 ```
 
+- [ ] **Step 2-1: 인덱스 적용 SQL (원인 ① 근본 수정)**
+
+`deploy/demo/sql/apply-index.sql`:
+```sql
+-- 원인 ① 근본 수정 적용. 시연 중 MCP가 만든 PR(demo/fix-index-*)과 같은 이름·같은 인덱스.
+-- PR은 main에 머지하지 않고, reset이 이 인덱스를 지운다.
+-- CONCURRENTLY를 쓰지 않는 이유: CONCURRENTLY는 열려 있는 모든 트랜잭션(= 세일가 반영 배치)이
+-- 끝날 때까지 기다려 멈춘다. 일반 CREATE INDEX는 orders·order_items 쓰기만 잠시 막고,
+-- 배치가 잡은 products 행 락과는 겹치지 않는다 (그 시점 결제는 어차피 실패 중).
+SET lock_timeout = '30s';
+CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders (created_at);
+CREATE INDEX IF NOT EXISTS order_items_order_id_idx ON order_items (order_id);
+ANALYZE orders;
+ANALYZE order_items;
+\echo 'fix-index: orders_created_at_idx, order_items_order_id_idx ready'
+```
+
 - [ ] **Step 3: 리셋 SQL**
 
 `deploy/demo/sql/reset.sql`:
@@ -2475,6 +2496,9 @@ echo "$args" | grep -q 'trafficGen.targetUrl=http://alb.example' || fail "target
 grep -q "pg_terminate_backend" "$DIR/sql/terminate-batch-blockers.sql" || fail "kill sql"
 grep -q "application_name = 'inventory-batch'" "$DIR/sql/terminate-batch-blockers.sql" || fail "kill only the batch"
 grep -q "to_regclass('public.demo_price_backup')" "$DIR/sql/reset.sql" || fail "reset guard for fresh env"
+grep -qi "create index concurrently" "$DIR/sql/apply-index.sql" && fail "fix-index must not use CONCURRENTLY (hangs behind the batch transaction)"
+grep -q "orders_created_at_idx" "$DIR/sql/apply-index.sql" || fail "fix-index creates the same index reset drops"
+grep -q "orders_created_at_idx" "$DIR/sql/reset.sql" || fail "reset drops fix-index index"
 ```
 Run: Task 9 Step 6 명령 → Expected: `traffic_args: command not found`로 FAIL
 
@@ -2537,6 +2561,19 @@ start_batch() {
   render_batch_job "$mode" "$(backend_image)" | kubectl apply -f -
 }
 
+# 시연 중 MCP가 만든 인덱스 PR(demo/fix-index-*)을 닫고 브랜치를 지운다. GH_TOKEN 필요 (워크플로가 넣어 줌).
+close_demo_prs() {
+  if [ -z "${GH_TOKEN:-}" ]; then
+    echo "GH_TOKEN 없음 — 시연 PR 정리를 건너뜁니다"
+    return 0
+  fi
+  gh pr list --state open --json number,headRefName \
+    --jq '.[] | select(.headRefName | startswith("demo/fix-index-")) | .number' |
+    while read -r pr; do
+      gh pr close "$pr" --delete-branch --comment "demo-control reset: 시연용 PR이라 머지하지 않고 닫습니다."
+    done
+}
+
 main() {
   local action="${1:?action required}" target="${2:-}"
   case "$action" in
@@ -2578,13 +2615,20 @@ main() {
           ;;
       esac
       ;;
+    fix-index)
+      psql_run "$DEMO_DIR/sql/apply-index.sql"
+      helm_set --set=featureFlags.trendingWidget=true
+      restart_backend
+      echo "원인 ① 근본 수정 적용: 인덱스 2개 생성 + 위젯 다시 ON (PR은 머지하지 않음)"
+      ;;
     reset)
       kubectl -n "$NS" delete job -l app=inventory-batch --ignore-not-found --wait=true
       psql_run "$DEMO_DIR/sql/reset.sql"
       mapfile -t args < <(traffic_args normal "$(alb_url)")
       helm_set "${args[@]}" --set=featureFlags.trendingWidget=false
       restart_backend
-      echo "리셋 완료: 인덱스 없음, 위젯 OFF, 배치 없음, 세일가 원복, 트래픽 평시"
+      close_demo_prs
+      echo "리셋 완료: 인덱스 없음, 위젯 OFF, 배치 없음, 세일가 원복, 시연 PR 닫음, 트래픽 평시"
       ;;
     stop)
       helm_set --set=trafficGen.enabled=false
@@ -2618,10 +2662,10 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "seed(대량 데이터, 환경당 1회) / start(평시 트래픽) / spike / inject / mitigate / reset / stop"
+        description: "inject / mitigate / fix-index / reset (시연) · seed / start / spike / stop (준비·점검용)"
         required: true
         type: choice
-        options: ["seed", "start", "spike", "inject", "mitigate", "reset", "stop"]
+        options: ["inject", "mitigate", "fix-index", "reset", "seed", "start", "spike", "stop"]
       target:
         description: "mitigate 대상: widget(1차) / session(2차)"
         required: false
@@ -2640,7 +2684,8 @@ env:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write        # reset: 시연 PR 브랜치 삭제
+  pull-requests: write   # reset: 시연 PR 닫기
 
 jobs:
   control:
@@ -2666,20 +2711,240 @@ jobs:
             echo "DB_PASS=${DB_PASS}"
           } >> "$GITHUB_ENV"
       - name: Run ${{ inputs.action }} ${{ inputs.action == 'mitigate' && inputs.target || '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash deploy/demo/demo-control.sh "${{ inputs.action }}" "${{ inputs.target }}"
 ```
 actionlint 실행 (Task 5 Step 4 명령) → 새 경고 없음
 
+- [ ] **Step 7-1: cd.yml에 대량 시드 + 평시 트래픽 연결**
+
+`demo-up.sh` 한 번으로 시연 직전 상태가 되도록 cd가 끝까지 준비한다.
+1. "Prepare Postgres for Datadog DBM" 단계 다음에 (조건 없이):
+```yaml
+      # 시나리오 ① 대량 데이터. 이미 했으면 SQL이 바로 건너뛴다 (첫 배포만 몇 분 더 걸림).
+      - name: Bulk seed for demo scenario 01
+        env:
+          DB_HOST: ${{ steps.resolve.outputs.db_host }}
+          DB_USER: ${{ steps.resolve.outputs.db_user }}
+          DB_PASS: ${{ steps.resolve.outputs.db_pass }}
+          DB_NAME: ${{ steps.resolve.outputs.db_name }}
+        run: |
+          kubectl -n ${{ env.K8S_NAMESPACE }} run ringdog-bulk-seed --rm -i --restart=Never \
+            --image=postgres:16-alpine --env="PGPASSWORD=${DB_PASS}" --command -- \
+            psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f - < deploy/demo/sql/bulk-seed.sql
+```
+(Task 5의 resolve 출력 `db_host`/`db_user`/`db_pass`/`db_name`은 `DD_API_KEY` 조건과 무관하게 항상 만들어진다)
+2. "Update RingDog apps with ALB hostname" 단계의 `--set ingress.host=...` 줄 뒤에:
+```yaml
+            --set trafficGen.enabled=true \
+            --set trafficGen.targetUrl="http://${ALB_HOSTNAME}"
+```
+(1차 Helm 배포는 `--reuse-values`가 없어 트래픽·플래그를 기본값(꺼짐)으로 되돌리고, 2차가 평시 트래픽을 다시 켠다. 위젯 플래그는 OFF 유지)
+
 - [ ] **Step 8: Commit**
 
 ```bash
-git add deploy/demo .github/workflows/demo-control.yml
-git commit -m "feat(demo): demo-control workflow (seed/start/spike/inject/mitigate/reset/stop)"
+git add deploy/demo .github/workflows/demo-control.yml .github/workflows/cd.yml
+git commit -m "feat(demo): demo-control workflow (inject/mitigate/fix-index/reset...), cd runs bulk seed and normal traffic"
 ```
 
 ---
 
-### Task 12: 운영 문서 — Datadog UI 설정 가이드 + 시나리오 문서 갱신
+### Task 12: 환경 올리기·내리기 스크립트 `demo-up` / `demo-down`
+
+**Files:**
+- Create: `scripts/lib-demo-env.sh`, `scripts/demo-up.sh`, `scripts/demo-down.sh`
+- Modify: `docs/setup/02-infra.md` (맨 위에 "한 번에 올리기/내리기" 절)
+
+**Interfaces:**
+- Consumes: cd.yml `workflow_dispatch`(Task 2), cd.yml의 대량 시드·평시 트래픽(Task 11 Step 7-1)
+- Produces: `bash scripts/demo-up.sh [--yes]` → 종료 코드 0 = 노드 3대 Ready + metrics-server + HPA + 트래픽 Pod 2개 Ready, 마지막 줄 `준비 완료: http://<ALB>`
+- Produces: `bash scripts/demo-down.sh [--yes]` → 종료 코드 0 = Terraform state 비어 있음 + EKS·RDS 없음 + ALB 없음
+
+- [ ] **Step 1: 공통 함수**
+
+`scripts/lib-demo-env.sh`:
+```bash
+#!/usr/bin/env bash
+# demo-up.sh / demo-down.sh 공통. WSL에서 실행한다 (aws/terraform/kubectl/gh/helm 필요).
+# Terraform은 /mnt/d가 아닌 WSL 내부 복사본에서 실행 (provider 로딩 timeout 회피).
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK="${TF_WORK_DIR:-$HOME/tf-work-ringdog}"
+TF_DIR="$WORK/infra/terraform/envs/demo"
+REGION=ap-northeast-2
+CLUSTER=ringdog-demo
+NS=ringdog
+
+fail() {
+  echo "실패: $*" >&2
+  exit 1
+}
+
+require_tools() {
+  local cmd
+  for cmd in aws terraform kubectl helm gh rsync jq; do
+    command -v "$cmd" >/dev/null || fail "필요한 명령이 없습니다: $cmd"
+  done
+  gh auth status >/dev/null 2>&1 || fail "gh 로그인 필요: gh auth login"
+}
+
+# confirm <질문> — 첫 인자가 --yes면 묻지 않는다 (호출 쪽에서 YES 변수 설정)
+confirm() {
+  [ "${YES:-}" = "--yes" ] && return 0
+  local answer
+  read -r -p "$1 [y/N] " answer
+  [ "$answer" = "y" ] || fail "취소했습니다"
+}
+
+# 소스(.tf, 잠금 파일, gitignore된 tfvars)만 복사. .terraform(provider 캐시)과 state는 그대로 둔다.
+sync_tf() {
+  mkdir -p "$WORK/infra/terraform"
+  rsync -a --delete --exclude .terraform --exclude '*.tfstate*' --exclude 'tfplan.out' \
+    "$REPO/infra/terraform/" "$WORK/infra/terraform/"
+  terraform -chdir="$TF_DIR" init -input=false >/dev/null
+}
+```
+
+- [ ] **Step 2: demo-up.sh**
+
+`scripts/demo-up.sh`:
+```bash
+#!/usr/bin/env bash
+# 시나리오 ① 환경 올리기: terraform apply → cd 배포(마이그레이션·대량 시드·DBM·Agent·앱·평시 트래픽) → 확인.
+# 사용 (WSL): bash scripts/demo-up.sh [--yes]   약 30~40분. 세션이 끊겨도 살도록 setsid nohup 권장.
+set -euo pipefail
+# shellcheck source=lib-demo-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib-demo-env.sh"
+YES="${1:-}"
+
+run_cd() {
+  local before run_id=""
+  before=$(gh run list --workflow cd.yml --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+  gh workflow run cd.yml --ref main
+  for _ in $(seq 1 30); do
+    run_id=$(gh run list --workflow cd.yml --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+    [ "$run_id" != "$before" ] && break
+    sleep 5
+  done
+  [ "$run_id" != "$before" ] || fail "cd 실행을 찾지 못했습니다"
+  echo "cd 실행 중: $(gh run view "$run_id" --json url --jq .url)"
+  gh run watch "$run_id" --exit-status --interval 30 || fail "cd 실패 — 위 링크에서 로그 확인"
+}
+
+verify() {
+  local ready host
+  ready=$(kubectl get nodes --no-headers | grep -c ' Ready ' || true)
+  [ "$ready" -ge 3 ] || fail "Ready 노드가 ${ready}대 (3대 필요)"
+  kubectl -n kube-system rollout status deployment/metrics-server --timeout=60s
+  kubectl -n "$NS" get hpa backend-api
+  kubectl -n "$NS" rollout status deployment/traffic-api --timeout=120s
+  kubectl -n "$NS" rollout status deployment/traffic-browser --timeout=300s
+  host=$(kubectl -n "$NS" get ingress ringdog -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  [ -n "$host" ] || fail "ALB 주소가 없습니다"
+  echo "준비 완료: http://${host}"
+}
+
+main() {
+  cd "$REPO"
+  require_tools
+  sync_tf
+  terraform -chdir="$TF_DIR" plan -input=false -out=tfplan.out
+  confirm "위 계획대로 환경을 만들까요? (EKS·RDS·MSK·OpenSearch 비용 발생)"
+  terraform -chdir="$TF_DIR" apply -input=false tfplan.out
+  aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION"
+  run_cd
+  verify
+}
+
+main
+```
+
+- [ ] **Step 3: demo-down.sh**
+
+`scripts/demo-down.sh`:
+```bash
+#!/usr/bin/env bash
+# 시나리오 ① 환경 내리기: 트래픽 끄기 → Ingress 삭제(ALB 정리 대기) → terraform destroy → 남은 리소스 확인.
+# Ingress가 만든 ALB는 Terraform 밖이라, 먼저 지우지 않으면 VPC 삭제가 막힌다.
+# 사용 (WSL): bash scripts/demo-down.sh [--yes]
+set -euo pipefail
+# shellcheck source=lib-demo-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib-demo-env.sh"
+YES="${1:-}"
+
+remove_alb() {
+  if ! aws eks describe-cluster --name "$CLUSTER" --region "$REGION" >/dev/null 2>&1; then
+    echo "클러스터가 없어 ALB 정리를 건너뜁니다"
+    return 0
+  fi
+  aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION" >/dev/null
+  helm upgrade ringdog "$REPO/deploy/helm/charts/ringdog" -n "$NS" --reset-then-reuse-values \
+    --set trafficGen.enabled=false >/dev/null 2>&1 || true
+  kubectl -n "$NS" delete ingress ringdog --ignore-not-found --wait=true
+  local left=""
+  for _ in $(seq 1 40); do
+    left=$(aws elbv2 describe-load-balancers --region "$REGION" \
+      --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-ringdog')].LoadBalancerName" --output text)
+    [ -z "$left" ] && return 0
+    echo "ALB 삭제 대기 중: $left"
+    sleep 15
+  done
+  fail "ALB가 10분 안에 지워지지 않았습니다: $left"
+}
+
+verify_gone() {
+  [ -z "$(terraform -chdir="$TF_DIR" state list)" ] || fail "Terraform state에 리소스가 남아 있습니다"
+  aws eks describe-cluster --name "$CLUSTER" --region "$REGION" >/dev/null 2>&1 && fail "EKS 클러스터가 남아 있습니다"
+  aws rds describe-db-instances --db-instance-identifier ringdog-demo --region "$REGION" >/dev/null 2>&1 && fail "RDS가 남아 있습니다"
+  echo "삭제 완료: EKS·RDS·ALB 없음, Terraform state 비어 있음 (bootstrap·team 스택은 유지)"
+}
+
+main() {
+  cd "$REPO"
+  require_tools
+  confirm "데모 환경을 삭제할까요? (되돌릴 수 없음)"
+  remove_alb
+  sync_tf
+  terraform -chdir="$TF_DIR" destroy -input=false -auto-approve
+  verify_gone
+}
+
+main
+```
+
+- [ ] **Step 4: 문법 검사**
+
+Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && bash -n scripts/lib-demo-env.sh scripts/demo-up.sh scripts/demo-down.sh && (command -v shellcheck >/dev/null && shellcheck -x scripts/*.sh || echo 'shellcheck 없음 — 건너뜀')"`
+Expected: 오류 없음. 실제 실행 검증은 Task 15 Step 2(`demo-up`)와 Task 19 Step 6(`demo-down`)
+
+- [ ] **Step 5: 문서**
+
+`docs/setup/02-infra.md` 맨 위(1절 앞)에:
+```markdown
+## 한 번에 올리기 / 내리기 (bootstrap·team 스택이 이미 있을 때)
+
+WSL에서 repo 폴더로 이동한 뒤 실행합니다. 둘 다 시작 전에 확인을 묻습니다.
+
+| 명령 | 하는 일 | 소요 |
+|---|---|---|
+| `bash scripts/demo-up.sh` | terraform apply → cd 실행(대량 시드·평시 트래픽 포함) → 노드·HPA·트래픽 확인 → ALB 주소 출력 | 약 30~40분 |
+| `bash scripts/demo-down.sh` | 트래픽 끄기 → Ingress 삭제(ALB 정리) → terraform destroy → 삭제 확인 | 약 20분 |
+
+아래 절은 같은 내용을 단계별로 직접 할 때의 설명입니다.
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts docs/setup/02-infra.md
+git commit -m "feat(demo): one-command demo-up/demo-down scripts"
+```
+
+---
+
+### Task 13: 운영 문서 — Datadog UI 설정 가이드 + 시나리오 문서 갱신
 
 **Files:**
 - Create: `docs/demo/01-flash-sale-db/datadog-setup.md`
@@ -2690,26 +2955,32 @@ git commit -m "feat(demo): demo-control workflow (seed/start/spike/inject/mitiga
 다음 절을 포함 (각 절은 클릭 경로 + 입력값 표, 실제 ID는 `<CONNECTION_ID>` 같은 자리표시):
 1. **Slack 연동** — Integrations → Slack → 워크스페이스 연결 → 데모 채널 `#<데모 채널>` 추가
 2. **GitHub Connection** — Workflow Automation → Connections → New → GitHub: repo `ringdog`에만 접근하는 fine-grained PAT(Actions: Read and write, Contents: Read). 토큰 값은 문서에 남기지 않음
-3. **1차 Workflow `ringdog 위젯 OFF`** — 트리거 Monitor:
+3. **1차 Workflow `ringdog 인기상품 장애 대응`** (완화 + 근본 수정, 승인 2번) — 트리거 Monitor:
    | # | 액션 | 설정 |
    |---|---|---|
    | 1 | Slack: Make a decision | 메시지 "`{{ Source.monitor.name }}` — 인기상품 위젯을 끌까요? 코드 버전은 그대로이고 기능 플래그만 끕니다.", 버튼 `위젯 OFF` / `무시`, timeout 10분 |
    | 2 | 분기 | `무시` 또는 timeout → Slack "수동 대응 필요" 후 종료 |
    | 3 | GitHub: Trigger workflow run | workflow `demo-control.yml`, ref `main`, inputs `{"action":"mitigate","target":"widget"}` |
    | 4 | Sleep | 180초 |
-   | 5 | Datadog: Query metric | RDS CPU(`aws.rds.cpuutilization{dbinstanceidentifier:ringdog-demo}`)와 trending p95 (Task 16에서 확정한 쿼리) |
-   | 6 | Slack: Send message | "위젯 OFF 완료. RDS CPU `{{...}}`%, 인기상품 p95 `{{...}}`s" |
-4. **2차 Workflow `ringdog 배치 세션 종료`** — 위와 같은 구조, 메시지 "`{{ Source.monitor.name }}` — 세일가 반영 배치 세션을 끊을까요? 진행 중이던 세일가 반영은 롤백되고, 안전 모드(50개씩 커밋)로 자동 재실행합니다.", 버튼 `블로킹 세션 종료` / `무시`, inputs `{"action":"mitigate","target":"session"}`, 5단계 checkout p95 + `ringdog.db.blocking_sessions` + 배치 완료 로그 수(`service:inventory-batch "세일가 반영 완료"`), 6단계 "결제 회복: checkout p95 `{{...}}`s, 블로킹 세션 `{{...}}`, 세일가 반영 완료"
+   | 5 | Datadog: Query metric | RDS CPU(`aws.rds.cpuutilization{dbinstanceidentifier:ringdog-demo}`)와 trending p95 (Task 17에서 확정한 쿼리) |
+   | 6 | Slack: Send message | "위젯 OFF 완료. RDS CPU `{{...}}`%, 인기상품 p95 `{{...}}`s. 근본 수정(인덱스) PR을 준비하세요" |
+   | 7 | Slack: Make a decision | 메시지 "인덱스 PR과 같은 인덱스(`orders_created_at_idx`, `order_items_order_id_idx`)를 적용하고 위젯을 다시 켤까요? PR은 머지하지 않습니다.", 버튼 `인덱스 적용 후 위젯 ON` / `나중에`, timeout 15분 |
+   | 8 | 분기 | `나중에` 또는 timeout → Slack "위젯 OFF 상태 유지" 후 종료 |
+   | 9 | GitHub: Trigger workflow run | inputs `{"action":"fix-index"}` |
+   | 10 | Sleep | 180초 |
+   | 11 | Datadog: Query metric | 5단계와 같은 쿼리 |
+   | 12 | Slack: Send message | "원인 ① 해결: 인덱스 적용 + 위젯 ON. 인기상품 p95 `{{...}}`s, RDS CPU `{{...}}`%" |
+4. **2차 Workflow `ringdog 배치 세션 종료`** — 1차의 1~6단계와 같은 구조, Slack 승인 timeout **30분**(알림이 11분 무렵 먼저 와서 27분 무렵 처리), 메시지 "`{{ Source.monitor.name }}` — 세일가 반영 배치 세션을 끊을까요? 진행 중이던 세일가 반영은 롤백되고, 안전 모드(50개씩 커밋)로 자동 재실행합니다.", 버튼 `블로킹 세션 종료` / `무시`, inputs `{"action":"mitigate","target":"session"}`, 5단계 checkout p95 + `ringdog.db.blocking_sessions` + 배치 완료 로그 수(`service:inventory-batch "세일가 반영 완료"`), 6단계 "결제 회복: checkout p95 `{{...}}`s, 블로킹 세션 `{{...}}`, 세일가 반영 완료"
 5. **Workflow 내보내기** — Export JSON → Connection ID·채널 ID·org ID를 자리표시로 바꿔 `datadog/workflows/mitigate-widget.json`, `mitigate-session.json`으로 커밋
-6. **Bits AI SRE** — Task 16 Step 3에서 확인한 켜는 방법
+6. **Bits AI SRE** — Task 17 Step 3에서 확인한 켜는 방법
 
 - [ ] **Step 2: README 갱신**
 
 `docs/demo/01-flash-sale-db/README.md`:
-- 4절 "환경 준비": "대량 주문 시드 Job 실행" → "GitHub Actions → **demo-control** → `seed` (환경당 1회, 약 5분)"
-- 4절 "당일": `reset` 실행을 "**demo-control** → `reset`", 트래픽 → "**demo-control** → `start`"
-- 3절 대본 3:00 행: "**demo-control** → `inject`"
-- 5절 리셋 절차 1번: "**demo-control** → `reset`", 마지막에 "환경을 바로 지우지 않으면 **demo-control** → `stop`"
+- 4절 "환경 준비": setup 1~4단계와 시드 항목을 "WSL에서 `bash scripts/demo-up.sh` (약 30~40분, 대량 시드·평시 트래픽까지 자동)"로 교체. bootstrap·team 스택·GitHub Secrets·Datadog 설정은 "최초 1회"로 분리
+- 4절 "당일": `reset` 실행을 "**demo-control** → `reset`", 트래픽 항목은 "demo-up이 평시 트래픽까지 켬 — 확인만"
+- 3절 대본 3:00 행: "**demo-control** → `inject`", 14:00 행: "Slack 두 번째 승인 **[인덱스 적용 후 위젯 ON]**"
+- 5절 리셋 절차: 1번 "**demo-control** → `reset`(시연 PR 자동으로 닫힘)", 환경을 끝낼 때 "WSL에서 `bash scripts/demo-down.sh`"
 - 진행 현황 표: 끝낸 Task 항목 ✅
 
 - [ ] **Step 3: 04-datadog.md 갱신**
@@ -2725,7 +2996,7 @@ git commit -m "docs(demo-01): Datadog UI setup guide and demo-control based chec
 
 ---
 
-### Task 13: 시나리오 ② 계획 정리 (② 전용 Task만 남기기)
+### Task 14: 시나리오 ② 계획 정리 (② 전용 Task만 남기기)
 
 **Files:**
 - Modify: `docs/design/plans/2026-10-13-demo-bad-deploy.md`
@@ -2746,27 +3017,27 @@ git commit -m "docs(demo-02): trim plan to scenario-02-only tasks after shared f
 
 ---
 
-### Task 14 (실환경, 사용자 확인 필요): 환경 생성 + 배포 + 수집 확인
+### Task 15 (실환경, 사용자 확인 필요): 환경 생성 + 배포 + 수집 확인
 
 > 💰 이 Task부터 AWS 환경이 필요합니다. 시작 전 사용자에게 `terraform apply`와 `git push` 진행 여부를 확인하고, 세션이 끝날 때 destroy 여부를 확인합니다.
 
 - [ ] **Step 1: team 스택** — Task 3 Step 8이 아직이면 수행 (사용자 확인)
-- [ ] **Step 2: 환경 생성** — `docs/setup/02-infra.md` 2-4 (WSL 내부 복사본, `setsid nohup`으로 세션 재시작에도 살아남게). 끝나면 `aws rds describe-db-instances --db-instance-identifier ringdog-demo --query 'DBInstances[0].[DBInstanceClass,DBParameterGroups[0].DBParameterGroupName]'` → `db.t3.small`, `ringdog-demo-pg16-dbm`
-- [ ] **Step 3: push + 배포** — WSL에서 `git push origin main` (사용자 확인) → cd.yml 완료 확인. `kubectl get nodes`(3대), `kubectl -n kube-system get deploy metrics-server`, `kubectl -n ringdog get hpa backend-api`(TARGETS가 `<unknown>`이 아닌 %), `kubectl -n ringdog get limitrange`
+- [ ] **Step 2: push** — WSL에서 `git push origin main` (사용자 확인). 원격 main에 `cd.yml`의 `workflow_dispatch`와 `demo-control.yml`이 있어야 `demo-up`이 cd를 실행할 수 있다. 환경이 없는 상태라 이 push로 시작된 cd는 실패한다 — 정상(취소해도 됨)
+- [ ] **Step 3: `demo-up`** — WSL에서 `setsid nohup bash scripts/demo-up.sh --yes > ~/demo-up-$(date +%Y%m%d-%H%M).log 2>&1 &` (사용자 확인 후, 세션 재시작에도 살아남게) → 로그 마지막 줄 `준비 완료: http://<ALB>`. 단계별 소요 시간 기록. 추가 확인: `aws rds describe-db-instances --db-instance-identifier ringdog-demo --query 'DBInstances[0].[DBInstanceClass,DBParameterGroups[0].DBParameterGroupName]'` → `db.t3.small`, `ringdog-demo-pg16-dbm`, `kubectl -n ringdog get hpa backend-api`(TARGETS가 `<unknown>`이 아닌 %), `kubectl -n ringdog get limitrange`
 - [ ] **Step 4: DBM 수집** — `kubectl -n ringdog exec deploy/datadog-agent-cluster-agent -- agent clusterchecks`에 `postgres` 체크 배정, 해당 노드 Agent `agent status`에 `postgres` `[OK]`. Datadog MCP(**org가 RingDog인지 먼저 확인**)로 `search_datadog_metrics` → `ringdog.db.blocking_sessions` 존재(값 0)
-- [ ] **Step 5: 대량 시드 + 평시 트래픽** — **demo-control** `seed` (소요 시간 기록) → `start` → 10분 뒤 MCP로 span `service:ringdog-backend-api env:demo`의 `version`이 sha, RUM 세션 존재, `service:inventory-batch`는 아직 없음 확인
+- [ ] **Step 5: 대량 시드 + 평시 트래픽 결과** — cd 로그의 "Bulk seed" 단계 소요 시간 기록, `psql`로 `SELECT count(*) FROM order_items` ≈ 150만. 10분 뒤 MCP로 span `service:ringdog-backend-api env:demo`의 `version`이 sha, RUM 세션 존재, `service:inventory-batch`는 아직 없음 확인. cd를 한 번 더 실행해 "bulk seed: already done, skipping"과 트래픽이 다시 켜지는 것 확인
 - [ ] **Step 6: reset 안전성 (Review Focus 4)** — 백업 테이블이 없는 상태에서 **demo-control** `reset` 두 번 연속 → 둘 다 성공
 
 ---
 
-### Task 15 (실환경): 장애 재현 + 튜닝
+### Task 16 (실환경): 장애 재현 + 튜닝
 
 - [ ] **Step 1: 원인 ①만** — **demo-control** `spike` 후 위젯만 켜기(`helm upgrade --reset-then-reuse-values --set featureFlags.trendingWidget=true` + rollout restart를 로컬 kubectl로) → 5분 동안 확인: DBM Top Query 1위가 trending 쿼리, Explain Plan `Seq Scan`, RDS CPU 80%+, HPA가 Pod를 늘림. 부족하면 조정 순서: `trafficGen.apiUsers`/`apiRatePerMin` ↑ → `backendApi.hpa.targetCPUUtilization` ↓ → 시드 데이터량 ↑
 - [ ] **Step 2: 원인 ②만** — `reset` → `spike` → 로컬에서 `render_batch_job fault <이미지>`의 `sleep 180`을 `sleep 0`으로 바꿔 apply → 1분 안에 DBM Blocking 트리에 `inventory-batch`(`idle in transaction`), checkout 트레이스의 postgres span이 약 5초 대기 후 `lock timeout` 에러, 배치 로그 "25/1,200 처리 중", `ringdog.db.blocking_sessions` ≥ 1
 - [ ] **Step 3: 상품 목록은 살아 있는지** — Step 2 상태에서 `/api/products` p95가 평시 수준인지 확인. 커넥션 풀 고갈(`P2024`)로 목록까지 느려지면 `checkoutRatio`를 낮추거나 `CHECKOUT_LOCK_TIMEOUT`을 3초로 줄인다 (설계 4.7 "목록은 빨라졌지만 결제는 실패" 장면 유지)
-- [ ] **Step 4: 전체 inject** — `reset` → **demo-control** `inject` → 설계 3장 타임라인대로 3분 뒤 배치 시작, 9분 무렵 위젯 OFF(`mitigate widget`) 후 RDS CPU 하락 + checkout은 여전히 실패 확인
+- [ ] **Step 4: 전체 inject + 원인 ① 해결** — `reset` → **demo-control** `inject` → 설계 3.2 타임라인대로 3분 뒤 배치 시작, 9분 무렵 `mitigate widget` → RDS CPU 하락, 14분 무렵 `fix-index` → **배치가 도는 중에도 1분 안에 끝나는지**(멈추면 `CONCURRENTLY`가 섞였거나 다른 긴 트랜잭션이 orders를 잡은 것), Explain Plan이 `Index Scan`, 인기상품 p95 < 500ms, 위젯 ON인데 RDS CPU 안정, checkout은 여전히 실패. 27분 무렵에도 배치가 아직 실행 중인지(로그 진행률) 확인 — 끝나 버렸으면 `FAULT_ITEM_DELAY_MS` ↑
 - [ ] **Step 5: 2차 대처** — **demo-control** `mitigate session` → 1분 안에 블로킹 0, checkout 201 회복, `inventory-batch-fault` Job `Failed`(재시작 없음, Review Focus 1), `inventory-batch-safe` 로그 "1,200/1,200 완료", 상품 가격이 세일가
-- [ ] **Step 6: reset 복원** — `reset` → 상품 가격·재고가 시드 값, 인덱스 없음, 배치 Job 없음
+- [ ] **Step 6: reset 복원** — 테스트용 PR(브랜치 `demo/fix-index-test`)을 하나 열어 둔 뒤 `reset` → 상품 가격·재고가 시드 값, 인덱스 없음, 배치 Job 없음, 그 PR이 닫히고 브랜치 삭제됨
 - [ ] **Step 7: 세션 종료 범위 (Review Focus 5)** — 로컬에서 `kubectl run`으로 psql Pod를 띄워 `SET application_name='manual-check'; BEGIN; UPDATE products SET stock = stock WHERE id = '<앞쪽 상품 id>'; SELECT pg_sleep(120);` 실행(다른 결제를 막는 블로커) → 40초 뒤 **demo-control** `mitigate session` → `manual-check` 세션은 살아 있어야 함(`terminated` 행 0개). 확인 후 그 Pod 삭제
 - [ ] **Step 8: 튜닝 값 반영 + Commit** — 바꾼 값(트래픽·HPA·lock_timeout)을 values/코드에 반영하고 설계 3장·운영 README에 실제 소요 시간 기록
 ```bash
@@ -2775,7 +3046,7 @@ git add -A deploy apps docs && git commit -m "chore(demo-01): tune fault intensi
 
 ---
 
-### Task 16 (실환경): 모니터 + 대시보드 + Bits AI SRE
+### Task 17 (실환경): 모니터 + 대시보드 + Bits AI SRE
 
 > Datadog MCP가 RingDog org에 연결되어 있고 MCP Write Access가 켜져 있어야 한다. 아니면 사용자에게 `/mcp`로 전환·설정을 요청.
 
@@ -2787,8 +3058,8 @@ git add -A deploy apps docs && git commit -m "chore(demo-01): tune fault intensi
   - `[RingDog demo] RUM 결제 지연` — RUM checkout resource p75 > 3s (5분)
   - `[RingDog demo] APM checkout p95` — `percentile(last_5m):p95:trace.<OP>{env:demo,service:ringdog-backend-api,resource_name:post_/api/orders/checkout} > 3`
   - `[RingDog demo] 결제 장애 (Composite)` — 위 두 모니터 AND. 메시지에 Slack 채널 핸들 (사람 알림 전용, Workflow 없음)
-  - `[RingDog demo] 인기상품 API 지연 지속` — `percentile(last_3m):p95:trace.<OP>{...,resource_name:get_/api/products/trending} > 2`. 메시지 `@workflow-<위젯 OFF>`는 Task 17 후 추가
-  - `[RingDog demo] DB 블로킹 세션 지속` — `min(last_5m):max:ringdog.db.blocking_sessions{env:demo} >= 1`. `@workflow-<세션 종료>`는 Task 17 후 추가. 리허설에서 샘플에 0이 섞여 알림이 끊기면 `avg(last_5m):max:... > 0.5`로 바꾼다
+  - `[RingDog demo] 인기상품 API 지연 지속` — `percentile(last_3m):p95:trace.<OP>{...,resource_name:get_/api/products/trending} > 2`. 메시지 `@workflow-<위젯 OFF>`는 Task 18 후 추가
+  - `[RingDog demo] DB 블로킹 세션 지속` — `min(last_5m):max:ringdog.db.blocking_sessions{env:demo} >= 1`. `@workflow-<세션 종료>`는 Task 18 후 추가. 리허설에서 샘플에 0이 섞여 알림이 끊기면 `avg(last_5m):max:... > 0.5`로 바꾼다
 - [ ] **Step 3: Bits AI SRE** — MCP `list_datadog_skills`(query "bits ai sre monitor") / 공식 문서로 "모니터 알림 시 자동 조사"를 켜는 정확한 방법 확인 → Composite 모니터에 적용, `datadog-setup.md` 6절에 기록
 - [ ] **Step 4: 대시보드** — MCP로 `[RingDog demo] 01 타임세일 DB 병목`: RDS CPU·CPU 크레딧, backend-api Pod 수(HPA), DB 커넥션 수(`postgresql.connections`), `ringdog.db.blocking_sessions`/`blocked_sessions`, trending p95, checkout p95·에러율, `/api/products` p95, 이벤트 오버레이(Kubernetes Job 이벤트 `inventory-batch`)
 - [ ] **Step 5: 정의 내보내기 + Commit** — JSON에서 `id`, `creator`, `org_id`, 타임스탬프 제거, `datadog/README.md`에 재생성 방법 한 단락
@@ -2798,11 +3069,11 @@ git add datadog && git commit -m "feat(datadog): scenario 01 monitors and dashbo
 
 ---
 
-### Task 17 (실환경, 사용자 UI 작업): Slack + Workflow 2개 (공통 기반 B5, F8)
+### Task 18 (실환경, 사용자 UI 작업): Slack + Workflow 2개 (공통 기반 B5, F8)
 
 - [ ] **Step 1:** 사용자가 `datadog-setup.md` 1~4절대로 Slack 연동, GitHub Connection, Workflow 2개 생성 (Claude는 화면별 안내·검토)
-- [ ] **Step 2:** 1차 Workflow 수동 실행 → Slack 승인 → **demo-control** `mitigate widget` 실행 → 결과 보고 메시지 확인 (평시에 실행해도 무해)
-- [ ] **Step 3:** 2차 Workflow 수동 실행 → 블로커가 없을 때 `mitigate session`은 아무도 끊지 않고 안전 모드 배치만 실행 → 보고 메시지 확인 → `reset`
+- [ ] **Step 2:** 1차 Workflow 수동 실행 → 첫 승인 → **demo-control** `mitigate widget` → 보고 → 두 번째 승인 → `fix-index` → 보고 메시지 확인 (평시에 실행해도 무해). 두 번째 승인에서 `나중에`를 눌러 종료 분기도 확인
+- [ ] **Step 3:** 2차 Workflow 수동 실행 → 블로커가 없을 때 `mitigate session`은 아무도 끊지 않고 안전 모드 배치만 실행 → 보고 메시지 확인. 승인 대기 30분 설정 확인 → `reset`
 - [ ] **Step 4:** MCP `update_datadog_monitor`로 두 원인별 모니터 메시지에 `@workflow-...` 핸들 추가
 - [ ] **Step 5:** 사용자가 Workflow JSON export → Claude가 마스킹 검토 → 커밋
 ```bash
@@ -2811,13 +3082,15 @@ git add datadog/workflows && git commit -m "feat(datadog): approval-gated mitiga
 
 ---
 
-### Task 18 (실환경): 전체 리허설 (R, F10)
+### Task 19 (실환경): 전체 리허설 (R, F10)
 
 - [ ] **Step 1:** 운영 README 4절 당일 체크리스트 수행
-- [ ] **Step 2:** 설계 3장 대본대로 진행하며 단계별 실제 시각 기록 (inject→Composite 알림, 알림→Bits AI 결론, 위젯 OFF→RDS CPU 하락, 세션 종료→checkout 회복). 성공 기준(설계 1장)과 비교
-- [ ] **Step 3:** MCP 근본 수정: 새 Claude Code 세션에서 대본 프롬프트 → Prisma 마이그레이션(`@@index([createdAt])` on Order, `@@index([orderId])` on OrderItem)이 담긴 PR 생성 확인. **머지하지 않고** 닫기
+- [ ] **Step 2:** 설계 3.2 대본대로 진행하며 단계별 실제 시각 기록 (inject→Composite 알림, 알림→Bits AI 결론, 위젯 OFF→RDS CPU 하락, fix-index→인기상품 p95 회복, 세션 종료→checkout 회복, 2차 알림 도착 시각). 성공 기준(설계 1장)과 비교
+- [ ] **Step 3:** 5단계 MCP 근본 수정은 대본 순서대로(위젯 OFF와 인덱스 적용 사이) 새 Claude Code 세션에서 프롬프트 → 브랜치 `demo/fix-index-<날짜>`에 Prisma 마이그레이션(`@@index([createdAt])` on Order, `@@index([orderId])` on OrderItem, 인덱스 이름이 `orders_created_at_idx`·`order_items_order_id_idx`인지)이 담긴 PR 생성 확인. **머지하지 않음**
 - [ ] **Step 4:** (선택) MCP 포스트모템 초안 프롬프트 확인
-- [ ] **Step 5:** 리셋 절차(README 5절) 수행 → Bits AI 결론 예시·실제 소요 시간을 대본/작업 로그에 반영, 진행 현황 표 ✅ → 사용자에게 destroy 여부 확인
+- [ ] **Step 5:** **demo-control** `reset` → 시연 PR이 자동으로 닫혔는지 확인 → Bits AI 결론 예시·실제 소요 시간을 대본/작업 로그에 반영, 진행 현황 표 ✅
+- [ ] **Step 6:** 사용자에게 환경 삭제 여부 확인 → 삭제하면 WSL에서 `setsid nohup bash scripts/demo-down.sh --yes > ~/demo-down-$(date +%Y%m%d-%H%M).log 2>&1 &` → 로그 마지막 줄 `삭제 완료` 확인
 ```bash
 git add docs/demo && git commit -m "docs(demo-01): rehearsal results"
 ```
+(Step 6의 삭제는 Step 5 커밋 뒤에 한다)
