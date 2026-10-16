@@ -2,6 +2,7 @@
 
 - 작성일: 2026-10-15
 - 상태: **초안 — 2026-10-16 부서 회의 검토용**. 회의 결과 반영 후 구현 계획(`docs/design/plans/`) 작성
+- 2026-10-16 보강: 원인 ② 배치의 실체와 7단계 발견 경로(4.6), 위젯 표시 규칙(4.7), "위젯 OFF는 롤백 아님", "인덱스는 원인 ①만 해결" 명시
 - 시나리오 운영 문서(대본·진행 현황): [`docs/demo/01-flash-sale-db/README.md`](../../demo/01-flash-sale-db/README.md)
 - 구축 순서: **이 시나리오 ①을 먼저 구축**하면서 데모 공통 기반(4.3)을 함께 만든다. 시나리오 ② [배포 후 결제 에러 급증](./2026-10-13-demo-bad-deploy-design.md)은 그 환경을 그대로 사용해 두 번째로 구축한다.
 
@@ -31,45 +32,49 @@
 ## 2. 시나리오 줄거리
 
 > 오늘 20시 타임세일. 마케팅팀이 이벤트용 **"실시간 인기상품" 위젯**을 상품 목록에 켰다.
-> 같은 시각 운영팀이 세일 가격 반영을 위해 **재고·가격 일괄 수정 배치**를 실행했다.
+> 세일 시작 직후 운영팀의 **"타임세일 가격·재고 반영 배치"**(`inventory-batch`)가 돌기 시작했다. 세일 상품의 가격을 세일가로 바꾸고 세일 물량을 재고에 넣는 배치다.
 > 세일 시작과 함께 트래픽이 평시의 5~10배로 늘었고, 고객센터에 "결제 버튼을 눌러도 계속 돌기만 한다"는 문의가 들어온다.
+> (청중에게는 위젯과 트래픽만 먼저 알려 주고, 배치는 7단계에서 Datadog으로 찾아낸다.)
 
 | 겹친 원인 | 실제 동작 | Datadog에서 보이는 것 |
 |---|---|---|
 | ① 인덱스 누락 집계 쿼리 | 위젯 API가 `order_items`를 `product_id`로 집계. 인덱스가 없어 대량 데이터 Seq Scan → 페이지마다 수백 ms~수 초 | DBM Top Query 1위, Explain Plan `Seq Scan`, RDS CPU 100% / CPU 크레딧 소진 |
-| ② 락 경합 | 일괄 수정 배치가 `products` 행을 잡은 채로 트랜잭션을 오래 유지 → checkout의 재고 차감 `UPDATE`가 대기 | DBM Blocking 트리, Wait Event `Lock:tuple/transactionid`, checkout 트레이스의 긴 postgres span |
+| ② 락 경합 | 세일가 반영 배치가 상품 전체를 **트랜잭션 하나**로 묶어 하나씩 처리하고 마지막에만 커밋 → 이미 수정한 세일 상품 행의 락을 계속 쥠 → 바로 그 상품을 사려는 checkout의 재고 차감 `UPDATE`가 대기 (4.6) | DBM Blocking 트리(블로커 `application_name=inventory-batch`, `idle in transaction`), Wait Event `Lock:tuple/transactionid`, checkout 트레이스의 긴 postgres span, 배치 진행 로그 |
 | (증폭) 트래픽 급증 + HPA | Pod가 늘수록 Prisma 커넥션 풀 총합이 늘어 DB 부하 가중 | Infra Pod 수 증가와 DBM 커넥션 수·대기 증가가 같은 시점 |
 
-## 3. 시연 진행 (약 27분)
+## 3. 시연 진행 (약 28분)
 
 대처를 **1차(위젯 OFF) → 2차(블로킹 세션 종료)** 로 나눈다. 1차 후 DB CPU는 내려가는데 결제는 계속 실패하는 장면으로 "원인이 하나가 아니다"를 보여주고, 다시 분석해서 두 번째 원인을 찾는다.
-이를 위해 `inject`는 **트래픽 급증 + 위젯 ON을 먼저**, **락 주입은 3분 뒤** 시작한다 (원인 ①이 먼저 드러나도록).
+이를 위해 `inject`는 **트래픽 급증 + 위젯 ON을 먼저**, **세일가 반영 배치는 3분 뒤** 시작한다 (원인 ①이 먼저 드러나도록).
+1차 대처 "위젯 OFF"는 **롤백이 아니다**. 이미지·코드 버전은 그대로 두고 기능 플래그만 끈다(시나리오 ②의 롤백과 구분).
 
 | 단계 | 시간 | 시연자 행동 | 사용 제품 | 화면 / 포인트 |
 |---|---|---|---|---|
 | 0. 평시 | 0:00 (3분) | 서비스 맵, RUM 대시보드, 데모 대시보드 소개 | Infra, APM, RUM | 정상 LCP·checkout p95·RDS CPU 기준선 |
-| 1. 장애 주입 | 3:00 (1분) | GitHub Actions `demo-control` → `action=inject` | — | k6 급증 + 위젯 ON 즉시, 락 주입 Job은 3분 뒤 자동 시작 |
+| 1. 장애 주입 | 3:00 (1분) | GitHub Actions `demo-control` → `action=inject` | — | k6 급증 + 위젯 ON 즉시, 세일가 반영 배치(`inventory-batch` Job)는 3분 뒤 자동 시작 |
 | 2. 탐지 + AI 1차 조사 | 4:00 (2분) | Slack 알림 확인 → 모니터의 **Bits AI SRE** 조사 결과 | Monitor (Composite), Bits AI SRE | **RUM 결제 지연 AND APM checkout p95 증가** 일 때만 알림. AI 결론은 비결정적이므로 "1차 방향"으로만 활용 |
 | 3. 첫 번째 원인 | 6:00 (3분) | DBM Query Metrics → Top Query → Explain Plan. Bits Chat Q1 | DBM, Bits AI Chat | **원인 ① 인기상품 쿼리 Seq Scan**, RDS CPU 100%. Q1 "이 쿼리가 왜 느려졌고 어떻게 개선해?" |
 | 4. 1차 대처 | 9:00 (2분) | Slack "인기상품 API 지연 지속" 알림의 **[위젯 OFF]** 승인 | Workflow Automation | 플래그 OFF → DB CPU 하락 확인. "이제 해결됐을까요?" |
 | 5. 그런데 결제는 여전히 실패 | 11:00 (2분) | RUM에서 결제 버튼 frustration 세션 → Session Replay | RUM | 여전히 무한 로딩, Rage Click. RUM → 연결된 APM 트레이스로 이동 |
 | 6. 서비스 지연 | 13:00 (3분) | checkout 트레이스 Flame Graph | APM, Log | postgres span이 CPU가 아니라 **대기**로 8초+. 같은 trace_id 로그 `P2024 connection pool timeout` |
-| 7. 두 번째 원인 | 16:00 (3분) | DBM Blocking 트리 / Wait Event. Bits Chat Q2 | DBM, Bits AI Chat | **원인 ② 배치 세션이 checkout을 막음**. Q2 "지금 checkout을 막고 있는 DB 세션이 뭐야?" |
-| 8. 인프라 확인 | 19:00 (2분) | Infra 대시보드에서 3:00~9:00 구간 그래프 | Infra | 4.5 "스케일 아웃 함정" 장면. Pod 수·DB 커넥션 증가, RDS CPU 100%·크레딧 소진, checkout 응답 시간은 그대로 |
-| 9. 2차 대처 | 21:00 (2분) | Slack "DB 블로킹 세션 지속" 알림의 **[블로킹 세션 종료]** 승인 | Workflow Automation | 세션 종료 → 3분 후 checkout p95 회복 자동 보고 |
-| 10. 근본 수정 | 23:00 (3분) | Claude Code + Datadog MCP | MCP Server | "DBM에서 가장 느린 쿼리와 Explain Plan 가져와서 인덱스 마이그레이션 만들어줘" → Prisma 마이그레이션 + PR(머지 안 함) |
-| 11. 정리 | 26:00 (1분) | (선택) MCP로 장애 타임라인 요약 → 포스트모템 초안 | MCP / Bits AI | 탐지~회복 시각, 원인 2개, 재발 방지(인덱스, 배치 시간대 분리) |
-| 리셋 | — | `demo-control` → `action=reset` | — | 인덱스 원복(삭제), 플래그 OFF, 락 Job 정리, k6 평시 |
+| 7. 두 번째 원인 | 16:00 (4분) | DBM Blocking 트리 → 블로커 세션 상세 → Kubernetes Explorer의 `inventory-batch` Job → 배치 로그 → checkout p95 그래프의 이벤트 오버레이. Bits Chat Q2 | DBM, Infra(Kubernetes), Log, Bits AI Chat | **원인 ② 세일가 반영 배치가 checkout을 막음**. 블로커가 `idle in transaction`으로 N분째 열려 있음 → 배치가 장애 주입 3분 뒤 시작 → 로그 "312/1,200 처리 중"(아직 안 끝남) → 배치 시작 시점 = 결제 지연 시작 시점. Q2 "지금 checkout을 막고 있는 DB 세션이 뭐야?" (4.6) |
+| 8. 인프라 확인 | 20:00 (2분) | Infra 대시보드에서 3:00~9:00 구간 그래프 | Infra | 4.5 "스케일 아웃 함정" 장면. Pod 수·DB 커넥션 증가, RDS CPU 100%·크레딧 소진, checkout 응답 시간은 그대로 |
+| 9. 2차 대처 | 22:00 (2분) | Slack "DB 블로킹 세션 지속" 알림의 **[블로킹 세션 종료]** 승인 | Workflow Automation | 세션 종료 → 3분 후 checkout p95 회복 자동 보고 |
+| 10. 원인 ① 근본 수정 | 24:00 (3분) | Claude Code + Datadog MCP | MCP Server | "DBM에서 가장 느린 쿼리와 Explain Plan 가져와서 인덱스 마이그레이션 만들어줘" → Prisma 마이그레이션 + PR(머지 안 함). **인덱스는 원인 ①만 해결**한다는 점을 짚는다 |
+| 11. 정리 | 27:00 (1분) | (선택) MCP로 장애 타임라인 요약 → 포스트모템 초안 | MCP / Bits AI | 탐지~회복 시각, 원인 2개, 재발 방지(원인 ①: 인덱스·캐시 / 원인 ②: 배치 시간대 분리·작은 단위 커밋·`lock_timeout`) |
+| 리셋 | — | `demo-control` → `action=reset` | — | 인덱스 원복(삭제), 플래그 OFF, 배치 Job 정리, k6 평시 |
 
 ### 대처 방법 정리 (대본 부록으로 사용)
 
 | 구분 | 조치 | 비고 |
 |---|---|---|
-| 1차 (완화) | 위젯 OFF (원인 ①) | Slack 승인 1회. DB CPU는 회복되지만 결제는 여전히 실패 → 추가 분석으로 이어짐 |
+| 1차 (완화) | 위젯 OFF (원인 ①) | Slack 승인 1회. 롤백이 아니라 기능 플래그 OFF(코드 버전 그대로). DB CPU는 회복되지만 결제는 여전히 실패 → 추가 분석으로 이어짐 |
 | 2차 (완화) | 블로킹 세션 종료 (원인 ②) | Slack 승인 1회. 트래픽(k6 급증)은 실제 상황처럼 유지한 채 회복을 보여줌 |
-| 단기 | `order_items(product_id)` 인덱스 생성, 위젯 결과 캐시(예: 60초) | MCP로 PR 생성 |
-| 운영 | 일괄 수정 배치를 세일 시간대 밖으로, 작은 단위 커밋 | 포스트모템 항목 |
-| 하지 말아야 할 것 | Pod 스케일 아웃만 하는 것 | 7단계 장면으로 근거 제시 |
+| 원인 ① 근본 해결 | `order_items(product_id)` 인덱스 생성, 위젯 결과 캐시(예: 60초) | MCP로 PR 생성 |
+| 원인 ② 근본 해결 | 세일가 반영 배치를 세일 시간대 밖으로, 작은 단위로 자주 커밋, 배치·checkout에 `lock_timeout` 설정 | 포스트모템 항목 (코드 PR이 아니라 운영 방식 변경) |
+| 하지 말아야 할 것 | Pod 스케일 아웃만 하는 것 | 8단계 장면으로 근거 제시 |
+
+> **인덱스 마이그레이션은 원인 ①만 해결한다.** 원인 ②는 느린 쿼리가 아니라 같은 행의 락을 기다리는 문제라서, 인덱스가 있어도 배치가 커밋할 때까지 checkout은 기다린다.
 
 ## 4. 환경 구조
 
@@ -90,7 +95,7 @@ flowchart LR
             fe["frontend<br/>(인기상품 위젯)"]
             api["backend-api<br/>+ HPA"]
             oc["order-consumer"]
-            lock["락 주입 Job<br/>(psql)"]
+            lock["inventory-batch Job<br/>(세일가 반영 배치)"]
             ag["Datadog Agent<br/>+ Cluster Agent<br/>(Postgres DBM cluster check)"]
         end
         rds[("RDS PostgreSQL 16<br/>pg_stat_statements<br/>datadog 사용자/스키마")]
@@ -122,12 +127,12 @@ flowchart LR
 | DBM 준비 SQL | `datadog` 사용자, `datadog` 스키마, `pg_monitor` 권한, `pg_stat_statements` 확장, `datadog.explain_statement` 함수 | CD의 migrate 단계 뒤에 실행. 비밀번호는 Secrets Manager |
 | Datadog Agent | Cluster Agent cluster check로 Postgres 체크 `dbm: true`, RDS 엔드포인트 직접 연결. 블로킹 지표용 `custom_queries` 추가(4.4) | `deploy/helm/datadog-agent/values.yaml` (`clusterChecks` 활성화) |
 | AWS 연동 | Datadog AWS Integration (CloudWatch: RDS·ALB·MSK, Resource Collection) | IAM Role은 비용이 없으므로 상시 유지 `infra/terraform/team/`에 배치 |
-| 앱 (backend-api) | `GET /api/products/trending` (인덱스 없는 집계), checkout 재고 차감 `UPDATE products` 트랜잭션 | main에 반영. 위젯 플래그 OFF가 기본 |
-| 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯 (플래그 ON일 때만 호출) | RUM에 위젯 로딩 시간 표시 |
-| 플래그 | ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET` (기본) / Datadog Feature Flags (선택) | 회의 결정 |
+| 앱 (backend-api) | `GET /api/products/trending` (인덱스 없는 집계, 플래그 OFF면 집계 없이 `{ enabled: false }` 반환), checkout 재고 차감 `UPDATE products` 트랜잭션 | main에 반영. 위젯 플래그 OFF가 기본 |
+| 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯. 표시 규칙은 4.7 | RUM에 위젯 로딩 시간 표시 |
+| 플래그 | ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET` (기본) / Datadog Feature Flags (선택). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | 회의 결정. ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
 | 데이터 | 대량 주문 시드 Job: 주문 약 50만 건, `order_items` 약 150만 건 | 환경 재생성마다 1회 실행 (약 10분 예상, 리허설로 확인) |
-| k8s | backend-api HPA(CPU 기준, 1→4), 락 주입 Job(`application_name=inventory-batch`, `inject` 3분 뒤 시작, 최대 30분) | 2차 대처 시점(약 18분 뒤)까지 락이 유지되어야 함 |
-| 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `spike` / `inject` / `mitigate` / `reset`) | 인덱스 삭제·생성, 플래그 토글, 락 Job 실행/삭제, 블로킹 세션 종료 |
+| k8s | backend-api HPA(CPU 기준, 1→4), 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 최대 30분, 동작은 4.6) | 2차 대처 시점(약 19분 뒤)까지 락이 유지되어야 함 |
+| 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `spike` / `inject` / `mitigate` / `reset`) | 인덱스 삭제·생성, 플래그 토글, 배치 Job 실행/삭제, 블로킹 세션 종료 |
 | Datadog 설정 | `datadog/` 에 JSON 보관: Composite 모니터(사람 알림), 인기상품 API 지연 지속 모니터, DB 블로킹 세션 지속 모니터, 완화 Workflow 2개(위젯 OFF / 세션 종료), 데모 대시보드 | 커밋 전 ID 마스킹(public repo) |
 
 ### 4.3 데모 공통 기반 (①에서 구축, ②·3단계에서 재사용)
@@ -176,13 +181,50 @@ RDS t3 계열은 기본 성능(t3.micro 약 10%, t3.small 약 20%)을 넘는 만
 
 멘트: "서버를 늘렸는데 응답 시간은 그대로입니다. 병목은 앱이 아니라 DB이고, DB 쪽 원인을 풀어야 합니다."
 
+### 4.6 세일가 반영 배치 `inventory-batch` (원인 ②의 실체, 7단계)
+
+단순한 "락 주입 장치"가 아니라, 청중이 Datadog 화면만 따라가도 "범인은 운영 배치"라는 결론에 도달할 수 있도록 **실제 배치처럼 보이게** 만든다.
+
+| 항목 | 내용 |
+|---|---|
+| 하는 일 | 세일 대상 상품 약 1,200개의 가격을 세일가로, 재고를 세일 물량으로 수정 (`UPDATE products SET price = …, stock = … WHERE id = …`) |
+| 문제가 된 구현 | 전체를 **트랜잭션 하나**로 묶어 상품을 하나씩 천천히 처리(상품당 약 1초, 외부 가격 확인을 흉내 낸 대기), **커밋은 맨 마지막 1회** → 처리한 행의 락을 끝날 때까지 유지 |
+| 처리 순서 | 세일 상품(= k6가 checkout하는 상품)을 먼저 처리 → 시작 몇 초 안에 checkout이 막히기 시작 |
+| 실행 형태 | K8s Job `inventory-batch`, Unified Service Tagging(`service:inventory-batch`, `env`, `version`), DB 연결 `application_name=inventory-batch` |
+| 로그 | 시작 "세일가 반영 시작: 대상 1,200개", 진행 "312/1,200 처리 중…"(일정 간격), 종료/중단 로그. Datadog Log로 수집 |
+| 이벤트 | Job 시작이 Kubernetes 이벤트로 수집되어 checkout p95 그래프에 오버레이로 표시 |
+| 종료 | 최대 30분(`activeDeadlineSeconds`) 후 자동 종료 → 트랜잭션 롤백. 2차 대처의 세션 종료로도 끝남 |
+
+**7단계 발견 경로**
+
+1. **DBM Blocking 트리** → 블로커 세션 상세: `application_name=inventory-batch`, 상태 `idle in transaction`, 마지막 쿼리 `UPDATE products SET price…`, 트랜잭션 N분째 열림
+2. **Kubernetes Explorer** → `inventory-batch` Job이 장애 주입 3분 뒤 시작됨
+3. **배치 로그** → "312/1,200 처리 중" — 아직 끝나지 않음
+4. **checkout p95 그래프의 이벤트 오버레이** → 배치 시작 시점과 결제 지연 시작 시점이 겹침
+5. **Bits Chat Q2** "지금 checkout을 막고 있는 DB 세션이 뭐야?" → 위 내용을 한 번에 확인
+
+멘트: "범인은 코드가 아니라 세일가를 반영하는 운영 배치였습니다. 커밋을 마지막에 한 번만 해서, 고객이 사려는 바로 그 상품을 계속 잠그고 있었습니다."
+
+### 4.7 인기상품 위젯 표시 규칙 (frontend)
+
+1차 대처로 위젯이 사라져도 화면이 깨지거나 어색하지 않도록 한다.
+
+| 규칙 | 내용 |
+|---|---|
+| 꺼지면 접기 | `enabled: false`면 영역을 통째로 렌더링하지 않음(빈 자리 없음). 꺼진 화면 = 기존 홈 화면 |
+| 보던 화면은 유지 | 플래그는 페이지 로드 시 1회만 확인. 보고 있는 화면에서 위젯이 갑자기 접혀 상품 목록이 밀려 올라가지 않게 함 |
+| 로딩 중 | 고정 높이 스켈레톤만 표시 → 위젯이 늦게 떠도 아래 목록이 밀리지 않음 |
+| 느리거나 실패 | 에러 문구 없이 위젯을 숨김(타임아웃 예: 5초). 장애 중 화면에 빨간 에러가 뜨지 않게 함 |
+| 상품 목록과 분리 | 상품 목록은 위젯 응답을 기다리지 않고 따로 그림 |
+| RUM | 위젯 로딩 시간을 RUM에 기록(커스텀 액션 또는 리소스) → 1차 대처 뒤 Replay에서 "위젯이 사라지고 목록은 빨라졌지만 결제는 여전히 실패"가 보임 |
+
 ## 5. AI / MCP 사용 장면
 
 | 단계 | 도구 | 프롬프트 예시 | 기대 결과 |
 |---|---|---|---|
 | 2 | Bits AI SRE (모니터 자동 조사) | (자동) | checkout 지연과 DB 대기 증가의 상관관계, 관련 트레이스·쿼리 근거 |
 | 3 | Bits AI Chat (Datadog UI) | "이 쿼리가 왜 느려졌고 어떻게 개선하면 돼?" | Seq Scan, 인덱스 생성 제안 |
-| 7 | Bits AI Chat | "지금 checkout 요청을 막고 있는 DB 세션이 뭐야?" | 배치 세션 PID·쿼리, 대기 시간 |
+| 7 | Bits AI Chat | "지금 checkout 요청을 막고 있는 DB 세션이 뭐야?" | `inventory-batch` 세션 PID·쿼리(`UPDATE products`), `idle in transaction` 지속 시간, 막힌 세션 수 |
 | 10 | Claude Code + MCP (`core,apm,dbm` toolset) | "Datadog DBM에서 ringdog DB의 가장 느린 쿼리와 Explain Plan을 가져와서, 개선할 Prisma 인덱스 마이그레이션을 만들어줘" | `@@index([productId])` 마이그레이션 + PR |
 | 11 | Claude Code + MCP | "방금 장애의 탐지~회복 타임라인과 원인을 포스트모템 초안으로 정리해줘" | 모니터·이벤트 시각 기반 초안 |
 
@@ -193,7 +235,7 @@ RDS t3 계열은 기본 성능(t3.micro 약 10%, t3.small 약 20%)을 넘는 만
 
 - **기준선 부족**: 환경을 상시 유지하지 않으므로 Watchdog·이상 탐지는 보조로만 사용. 탐지의 주 경로는 Composite 모니터
 - **RDS t3 CPU 크레딧**: 크레딧이 남아 있으면 장애가 약하게 재현될 수 있음 → 리허설로 데이터량·급증 배율 조정. 반대로 크레딧이 바닥나면 리셋 후에도 느릴 수 있으므로 시연 간격 확보
-- **락 주입 Job**: 최대 실행 시간 제한(30분) 후 자동 종료 → 시연자가 잊어도 환경이 계속 막히지 않음
+- **세일가 반영 배치 Job**: 최대 실행 시간 제한(30분) 후 자동 종료 → 시연자가 잊어도 환경이 계속 막히지 않음. 배치는 데모 전용이라 실제 데이터는 트랜잭션 롤백으로 원상태 유지
 - **인덱스 삭제/생성**: `reset`이 항상 "인덱스 없음 + 플래그 OFF" 상태로 되돌림. 근본 수정 PR은 머지하지 않음
 - **시나리오 ②와 공존**: 같은 환경·같은 Slack 채널 사용. 동시에 한 시나리오만 시연. ② 시연 전 ① `reset` 상태여야 함
 
