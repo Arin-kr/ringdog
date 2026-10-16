@@ -2,7 +2,7 @@
 
 - 작성일: 2026-10-15
 - 상태: **초안 — 2026-10-16 부서 회의 검토용**. 회의 결과 반영 후 구현 계획(`docs/design/plans/`) 작성
-- 2026-10-16 보강: 원인 ② 배치의 실체와 7단계 발견 경로(4.6), 위젯 표시 규칙(4.7), "위젯 OFF는 롤백 아님", "인덱스는 원인 ①만 해결" 명시
+- 2026-10-16 보강: 원인 ② 배치의 실체와 7단계 발견 경로(4.6), 위젯 표시 규칙(4.7), "위젯 OFF는 롤백 아님", "인덱스는 원인 ①만 해결" 명시. 2차 대처에 배치 안전 모드 자동 재실행 추가, EKS 내부 구조도(4.1.1)
 - 시나리오 운영 문서(대본·진행 현황): [`docs/demo/01-flash-sale-db/README.md`](../../demo/01-flash-sale-db/README.md)
 - 구축 순서: **이 시나리오 ①을 먼저 구축**하면서 데모 공통 기반(4.3)을 함께 만든다. 시나리오 ② [배포 후 결제 에러 급증](./2026-10-13-demo-bad-deploy-design.md)은 그 환경을 그대로 사용해 두 번째로 구축한다.
 
@@ -26,7 +26,7 @@
 ### 성공 기준
 - `demo-control inject` 실행 후 **5분 이내** Composite 모니터 알림
 - 시연자가 RUM → APM → DBM → Infra → Log 순서로 원인 2개(인덱스 누락, 락 경합)를 **10분 이내** 특정
-- 대처를 **2번에 나눠** 보여준다: 1차(위젯 OFF) 후 DB CPU는 회복되지만 결제는 여전히 실패 → 2차(블로킹 세션 종료) 후 **3분 이내** checkout p95 정상화
+- 대처를 **2번에 나눠** 보여준다: 1차(위젯 OFF) 후 DB CPU는 회복되지만 결제는 여전히 실패 → 2차(블로킹 세션 종료 + 배치 안전 모드 재실행) 후 **3분 이내** checkout p95 정상화, 세일가 반영 완료
 - `demo-control reset` 1회로 다음 시연자가 같은 상태에서 시작 가능
 
 ## 2. 시나리오 줄거리
@@ -42,7 +42,7 @@
 | ② 락 경합 | 세일가 반영 배치가 상품 전체를 **트랜잭션 하나**로 묶어 하나씩 처리하고 마지막에만 커밋 → 이미 수정한 세일 상품 행의 락을 계속 쥠 → 바로 그 상품을 사려는 checkout의 재고 차감 `UPDATE`가 대기 (4.6) | DBM Blocking 트리(블로커 `application_name=inventory-batch`, `idle in transaction`), Wait Event `Lock:tuple/transactionid`, checkout 트레이스의 긴 postgres span, 배치 진행 로그 |
 | (증폭) 트래픽 급증 + HPA | Pod가 늘수록 Prisma 커넥션 풀 총합이 늘어 DB 부하 가중 | Infra Pod 수 증가와 DBM 커넥션 수·대기 증가가 같은 시점 |
 
-## 3. 시연 진행 (약 28분)
+## 3. 시연 진행 (약 29분)
 
 대처를 **1차(위젯 OFF) → 2차(블로킹 세션 종료)** 로 나눈다. 1차 후 DB CPU는 내려가는데 결제는 계속 실패하는 장면으로 "원인이 하나가 아니다"를 보여주고, 다시 분석해서 두 번째 원인을 찾는다.
 이를 위해 `inject`는 **트래픽 급증 + 위젯 ON을 먼저**, **세일가 반영 배치는 3분 뒤** 시작한다 (원인 ①이 먼저 드러나도록).
@@ -59,17 +59,17 @@
 | 6. 서비스 지연 | 13:00 (3분) | checkout 트레이스 Flame Graph | APM, Log | postgres span이 CPU가 아니라 **대기**로 8초+. 같은 trace_id 로그 `P2024 connection pool timeout` |
 | 7. 두 번째 원인 | 16:00 (4분) | DBM Blocking 트리 → 블로커 세션 상세 → Kubernetes Explorer의 `inventory-batch` Job → 배치 로그 → checkout p95 그래프의 이벤트 오버레이. Bits Chat Q2 | DBM, Infra(Kubernetes), Log, Bits AI Chat | **원인 ② 세일가 반영 배치가 checkout을 막음**. 블로커가 `idle in transaction`으로 N분째 열려 있음 → 배치가 장애 주입 3분 뒤 시작 → 로그 "312/1,200 처리 중"(아직 안 끝남) → 배치 시작 시점 = 결제 지연 시작 시점. Q2 "지금 checkout을 막고 있는 DB 세션이 뭐야?" (4.6) |
 | 8. 인프라 확인 | 20:00 (2분) | Infra 대시보드에서 3:00~9:00 구간 그래프 | Infra | 4.5 "스케일 아웃 함정" 장면. Pod 수·DB 커넥션 증가, RDS CPU 100%·크레딧 소진, checkout 응답 시간은 그대로 |
-| 9. 2차 대처 | 22:00 (2분) | Slack "DB 블로킹 세션 지속" 알림의 **[블로킹 세션 종료]** 승인 | Workflow Automation | 세션 종료 → 3분 후 checkout p95 회복 자동 보고 |
-| 10. 원인 ① 근본 수정 | 24:00 (3분) | Claude Code + Datadog MCP | MCP Server | "DBM에서 가장 느린 쿼리와 Explain Plan 가져와서 인덱스 마이그레이션 만들어줘" → Prisma 마이그레이션 + PR(머지 안 함). **인덱스는 원인 ①만 해결**한다는 점을 짚는다 |
-| 11. 정리 | 27:00 (1분) | (선택) MCP로 장애 타임라인 요약 → 포스트모템 초안 | MCP / Bits AI | 탐지~회복 시각, 원인 2개, 재발 방지(원인 ①: 인덱스·캐시 / 원인 ②: 배치 시간대 분리·작은 단위 커밋·`lock_timeout`) |
-| 리셋 | — | `demo-control` → `action=reset` | — | 인덱스 원복(삭제), 플래그 OFF, 배치 Job 정리, k6 평시 |
+| 9. 2차 대처 | 22:00 (3분) | Slack "DB 블로킹 세션 지속" 알림의 **[블로킹 세션 종료]** 승인 (승인 메시지에 "진행 중이던 세일가 반영은 롤백되고, 안전 모드로 자동 재실행합니다" 안내) | Workflow Automation, Log | 세션 종료 → 같은 Workflow가 배치를 **안전 모드**(50개씩 커밋, `lock_timeout` 2초)로 자동 재실행 → 배치 로그 "1,200/1,200 완료" → 3분 후 checkout p95 회복·블로킹 0·세일가 반영 완료 자동 보고. 멘트: "재발 방지 방식으로 다시 돌린 배치는 결제를 막지 않습니다" |
+| 10. 원인 ① 근본 수정 | 25:00 (3분) | Claude Code + Datadog MCP | MCP Server | "DBM에서 가장 느린 쿼리와 Explain Plan 가져와서 인덱스 마이그레이션 만들어줘" → Prisma 마이그레이션 + PR(머지 안 함). **인덱스는 원인 ①만 해결**한다는 점을 짚는다 |
+| 11. 정리 | 28:00 (1분) | (선택) MCP로 장애 타임라인 요약 → 포스트모템 초안 | MCP / Bits AI | 탐지~회복 시각, 원인 2개, 재발 방지(원인 ①: 인덱스·캐시 / 원인 ②: 배치 시간대 분리·작은 단위 커밋·`lock_timeout`) |
+| 리셋 | — | `demo-control` → `action=reset` | — | 인덱스 원복(삭제), 플래그 OFF, 배치 Job 정리, **세일가를 정상가로 원복**(안전 모드 재실행이 커밋한 값), k6 평시 |
 
 ### 대처 방법 정리 (대본 부록으로 사용)
 
 | 구분 | 조치 | 비고 |
 |---|---|---|
 | 1차 (완화) | 위젯 OFF (원인 ①) | Slack 승인 1회. 롤백이 아니라 기능 플래그 OFF(코드 버전 그대로). DB CPU는 회복되지만 결제는 여전히 실패 → 추가 분석으로 이어짐 |
-| 2차 (완화) | 블로킹 세션 종료 (원인 ②) | Slack 승인 1회. 트래픽(k6 급증)은 실제 상황처럼 유지한 채 회복을 보여줌 |
+| 2차 (완화) | 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (원인 ②) | Slack 승인 1회. 세션을 끊으면 배치 트랜잭션이 롤백되어 세일가 반영이 0개가 됨(커밋 전 변경은 원래 고객에게 보이지 않았으므로 상황이 나빠지지는 않음) → 같은 Workflow가 50개씩 커밋하는 안전 모드로 다시 실행해 세일가 반영까지 끝냄. 트래픽(k6 급증)은 그대로 유지 |
 | 원인 ① 근본 해결 | `order_items(product_id)` 인덱스 생성, 위젯 결과 캐시(예: 60초) | MCP로 PR 생성 |
 | 원인 ② 근본 해결 | 세일가 반영 배치를 세일 시간대 밖으로, 작은 단위로 자주 커밋, 배치·checkout에 `lock_timeout` 설정 | 포스트모템 항목 (코드 PR이 아니라 운영 방식 변경) |
 | 하지 말아야 할 것 | Pod 스케일 아웃만 하는 것 | 8단계 장면으로 근거 제시 |
@@ -118,6 +118,94 @@ flowchart LR
     ide <-->|MCP| dd
 ```
 
+### 4.1.1 EKS 내부 구조 (Node · Pod · Container)
+
+```mermaid
+flowchart TB
+    alb["ALB<br/>Ingress: / · /api · /api/chat"]
+    rds[("RDS PostgreSQL 16")]
+    ddsaas[("Datadog")]
+    gha["GitHub Actions<br/>demo-control (kubectl)"]
+
+    subgraph eks["EKS ringdog-demo · 관리형 노드 그룹 ringdog-demo-nodes (t3.medium, 평시 2대 · 최대 3대)"]
+        direction LR
+        subgraph n1["Node 1 · t3.medium (2 vCPU / 4 GiB)"]
+            direction TB
+            subgraph n1ds["Pod datadog-agent (DaemonSet)"]
+                n1a["agent<br/>로그·지표 수집<br/>Postgres DBM 클러스터 체크"]
+                n1t["trace-agent :8126"]
+                n1p["process-agent"]
+            end
+            subgraph pdca["Pod datadog-cluster-agent"]
+                cdca["cluster-agent<br/>클러스터 체크 배정 · Admission Controller"]
+            end
+            subgraph pfe["Pod frontend"]
+                cfe["frontend :3000<br/>Next.js · 인기상품 위젯 · RUM SDK"]
+            end
+            subgraph papi1["Pod backend-api (기본 1개)"]
+                capi1["backend-api :4000<br/>dd-trace · Prisma 커넥션 풀"]
+            end
+            subgraph pbatch["Pod inventory-batch (Job, 신규)"]
+                cbatch["inventory-batch<br/>세일가 반영 배치<br/>장애: 트랜잭션 1개 / 안전 모드: 50개씩 커밋"]
+            end
+        end
+        subgraph n2["Node 2 · t3.medium (2 vCPU / 4 GiB)"]
+            direction TB
+            subgraph n2ds["Pod datadog-agent (DaemonSet)"]
+                n2a["agent · trace-agent · process-agent"]
+            end
+            subgraph papi2["Pod backend-api ×3 (HPA 확장분)"]
+                capi2["backend-api :4000<br/>Pod마다 커넥션 풀 별도"]
+            end
+            subgraph poc["Pod order-consumer"]
+                coc["order-consumer"]
+            end
+            subgraph pchat["Pod chatbot-service"]
+                cchat["chatbot-service :4001"]
+            end
+            subgraph pk6["Pod k6 (신규)"]
+                ck6["k6<br/>API 평시 / 급증"]
+            end
+            subgraph pk6b["Pod k6-browser (신규)"]
+                ck6b["k6 browser<br/>Chromium · RUM 세션"]
+            end
+            subgraph pjob["Pod demo-control Job (일회성, 신규)"]
+                cjob["psql<br/>세션 종료 · 인덱스 · 세일가 원복"]
+            end
+        end
+        subgraph ks["kube-system Pod (노드에 분산)"]
+            ksc["CoreDNS · aws-node(VPC CNI) · kube-proxy<br/>aws-load-balancer-controller<br/>metrics-server (신규, HPA용)"]
+        end
+    end
+
+    ck6 --> alb
+    ck6b --> alb
+    alb --> cfe
+    alb --> capi1
+    alb --> capi2
+    alb --> cchat
+    capi1 --> rds
+    capi2 --> rds
+    coc --> rds
+    cbatch -->|장애: 장시간 트랜잭션| rds
+    cjob --> rds
+    capi1 -.->|트레이스| n1t
+    capi2 -.->|트레이스| n2a
+    cdca -.->|클러스터 체크 배정| n1a
+    n1a -->|DBM 쿼리 샘플 · Explain| rds
+    n1a -.-> ddsaas
+    n2a -.-> ddsaas
+    gha -->|Job 생성| cbatch
+    gha -->|Job 생성| cjob
+```
+
+- Pod 배치는 예시다. 실제 노드는 스케줄러가 정하고, `datadog-agent`(DaemonSet)만 노드마다 1개씩 뜬다. MSK·OpenSearch 연결은 4.1 참고
+- 앱 Pod는 컨테이너 1개(사이드카 없음). dd-trace는 앱 컨테이너 안의 라이브러리이고, Cluster Agent의 Admission Controller가 `DD_AGENT_HOST` 등을 주입해 **같은 노드의 trace-agent**로 트레이스를 보낸다
+- DBM은 Cluster Agent가 Postgres 체크를 노드 Agent 하나에 배정해, 그 Agent가 RDS 엔드포인트에 직접 연결해 수집한다
+- **확인 필요 (현재 환경에 없음)**:
+  - **metrics-server**: 없으면 CPU 기준 HPA가 동작하지 않는다 → 신규 설치 대상
+  - **노드 자동 확장**: Cluster Autoscaler·Karpenter가 없어 노드 수는 2대로 고정. backend-api 4개 + k6 browser(Chromium) + Agent를 2대에 올릴 수 있는지 리허설에서 확인하고, 부족하면 시연 전 `desired_size` 3으로 올린다
+
 ### 4.2 시나리오 ① 전용 추가·변경 항목
 
 | 구분 | 내용 | 비고 |
@@ -131,8 +219,8 @@ flowchart LR
 | 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯. 표시 규칙은 4.7 | RUM에 위젯 로딩 시간 표시 |
 | 플래그 | ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET` (기본) / Datadog Feature Flags (선택). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | 회의 결정. ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
 | 데이터 | 대량 주문 시드 Job: 주문 약 50만 건, `order_items` 약 150만 건 | 환경 재생성마다 1회 실행 (약 10분 예상, 리허설로 확인) |
-| k8s | backend-api HPA(CPU 기준, 1→4), 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 최대 30분, 동작은 4.6) | 2차 대처 시점(약 19분 뒤)까지 락이 유지되어야 함 |
-| 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `spike` / `inject` / `mitigate` / `reset`) | 인덱스 삭제·생성, 플래그 토글, 배치 Job 실행/삭제, 블로킹 세션 종료 |
+| k8s | backend-api HPA(CPU 기준, 1→4) + metrics-server, 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 최대 30분, 동작은 4.6) | 2차 대처 시점(약 19분 뒤)까지 락이 유지되어야 함. 노드 용량은 4.1.1 |
+| 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `spike` / `inject` / `mitigate` / `reset`) | 인덱스 삭제·생성, 플래그 토글, 배치 Job 실행(장애 모드 / 안전 모드)·삭제, 블로킹 세션 종료, 세일가 원복 |
 | Datadog 설정 | `datadog/` 에 JSON 보관: Composite 모니터(사람 알림), 인기상품 API 지연 지속 모니터, DB 블로킹 세션 지속 모니터, 완화 Workflow 2개(위젯 OFF / 세션 종료), 데모 대시보드 | 커밋 전 ID 마스킹(public repo) |
 
 ### 4.3 데모 공통 기반 (①에서 구축, ②·3단계에서 재사용)
@@ -156,9 +244,9 @@ Composite 모니터는 사람에게 알리는 용도로만 쓰고 조치를 트�
 | 트리거 모니터 | **"인기상품 API 지연 지속"** — APM `GET /api/products/trending` p95 > 2초가 3분 지속 (대안: DBM 쿼리 지연 지표) | **"DB 블로킹 세션 지속"** — 30초 이상 다른 세션을 막는 세션 ≥ 1 이 **5분** 지속 |
 | 알림 연결 | 알림 메시지에 `@workflow-<위젯 OFF 워크플로>` | 알림 메시지에 `@workflow-<세션 종료 워크플로>` |
 | 지표 | APM 트레이스 지표 (서비스·리소스 기준이라 결정적) | Postgres 체크 `custom_queries`로 `pg_blocking_pids()` 기반 지표(예: `ringdog.db.blocked_sessions`) 직접 생성. 대안: 체크 기본 지표(`postgresql.locks` 등) — 정확한 지표명은 환경 기동 후 확인 |
-| Slack 버튼 | [위젯 OFF] [무시] | [블로킹 세션 종료] [무시] |
-| 조치 | `demo-control mitigate target=widget` → 플래그 OFF | `demo-control mitigate target=session` → psql Job으로 세션 종료 |
-| 결과 보고 | 3분 후 RDS CPU·trending p95 조회 → Slack 보고 | 3분 후 checkout p95·블로킹 지표 조회 → Slack 보고 |
+| Slack 버튼 | [위젯 OFF] [무시] | [블로킹 세션 종료] [무시]. 승인 메시지에 영향 안내: "진행 중이던 세일가 반영은 롤백되고, 안전 모드로 자동 재실행합니다" |
+| 조치 | `demo-control mitigate target=widget` → 플래그 OFF | `demo-control mitigate target=session` → psql Job으로 세션 종료 → **이어서 자동으로** 배치를 안전 모드(`BATCH_MODE=safe`)로 재실행. 승인은 1회 |
+| 결과 보고 | 3분 후 RDS CPU·trending p95 조회 → Slack 보고 | 3분 후 checkout p95·블로킹 지표·배치 완료 여부(세일가 반영 1,200/1,200) 조회 → Slack 보고 |
 
 - **알림 순서**: 락은 `inject` 3분 뒤 시작하고 블로킹 모니터는 5분 지속 조건이라, 2차 알림은 1차 대처 무렵(장애 주입 후 약 8분)에 도착한다. 대본상 2차 알림은 "두 번째 원인을 DBM으로 확인한 뒤" 처리한다. 도착 시점은 리허설로 조정
 - **조치 실행 방식**: **A (기본안)** Workflow가 GitHub Actions `demo-control` `action=mitigate` 실행 → 러너가 `kubectl`로 클러스터 내부에서 조치. 시나리오 ②의 롤백과 같은 GitHub Connection 사용, 추가 구성 요소 없음. **B (대안)** EKS에 Datadog Private Action Runner 설치 → Workflow의 PostgreSQL/Kubernetes 액션으로 직접 실행. Datadog 단독으로 끝나지만 설치·권한 구성 추가 (회의 결정)
@@ -193,7 +281,9 @@ RDS t3 계열은 기본 성능(t3.micro 약 10%, t3.small 약 20%)을 넘는 만
 | 실행 형태 | K8s Job `inventory-batch`, Unified Service Tagging(`service:inventory-batch`, `env`, `version`), DB 연결 `application_name=inventory-batch` |
 | 로그 | 시작 "세일가 반영 시작: 대상 1,200개", 진행 "312/1,200 처리 중…"(일정 간격), 종료/중단 로그. Datadog Log로 수집 |
 | 이벤트 | Job 시작이 Kubernetes 이벤트로 수집되어 checkout p95 그래프에 오버레이로 표시 |
-| 종료 | 최대 30분(`activeDeadlineSeconds`) 후 자동 종료 → 트랜잭션 롤백. 2차 대처의 세션 종료로도 끝남 |
+| 종료 | 최대 30분(`activeDeadlineSeconds`) 후 자동 종료 → 트랜잭션 롤백. 2차 대처의 세션 종료로도 끝남(이때도 롤백되어 세일가 반영 0개) |
+| 안전 모드 (`BATCH_MODE=safe`) | 2차 대처 Workflow가 세션 종료 직후 자동 실행. 50개씩 처리하고 그때마다 커밋, `SET lock_timeout = '2s'`, 상품당 대기 없음 → 1분 안팎에 1,200개 완료. 행 락을 아주 짧게만 쥐어 트래픽 급증 중에도 checkout을 막지 않음. 로그 "50/1,200 커밋 … 1,200/1,200 완료". 원인 ② 재발 방지책과 같은 방식 |
+| 원복 | 안전 모드는 실제로 커밋하므로, `reset`이 세일 상품 가격·재고를 정상값으로 되돌림 |
 
 **7단계 발견 경로**
 
