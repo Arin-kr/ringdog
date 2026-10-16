@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 0 | 설계 초안 작성 | ✅ 완료 | 2026-10-15 |
 | 1 | 결정 항목 반영, 설계 확정 | ✅ 완료 | 2026-10-16, 설계 8장 |
-| 2 | 구현 계획 작성 | 🔄 진행 중 | ② 계획의 공통 기반 Task를 흡수 |
+| 2 | 구현 계획 작성 | ✅ 완료 | `docs/design/plans/2026-10-16-demo-flash-sale-db.md` (Task 1~18) |
 | **공통 기반** | | | ②·3단계에서 재사용 |
 | B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ⬜ 대기 | |
 | B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ⬜ 대기 | `infra/terraform/team` |
@@ -29,9 +29,9 @@
 | F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ⬜ 대기 | |
 | F2 | Datadog AWS Integration (RDS·ALB·MSK) | ⬜ 대기 | |
 | F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ⬜ 대기 | 위젯 표시 규칙: 설계 4.7 |
-| F4 | 대량 주문 시드 Job | ⬜ 대기 | |
+| F4 | 대량 시드 SQL (`demo-control seed`) | ⬜ 대기 | |
 | F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ⬜ 대기 | 설계 4.1.1·4.6 |
-| F6 | `demo-control.yml` (spike / inject / mitigate / reset) | ⬜ 대기 | reset은 세일가 원복 포함 |
+| F6 | `demo-control.yml` (seed / start / spike / inject / mitigate / reset / stop) | ⬜ 대기 | reset은 세일가 원복 포함 |
 | F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
 | F8 | Workflow 2개: 1차 위젯 OFF / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (Slack 승인 각 1회) | ⬜ 대기 | |
 | F9 | 데모 대시보드 | ⬜ 대기 | |
