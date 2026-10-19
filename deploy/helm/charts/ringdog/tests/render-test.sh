@@ -23,4 +23,20 @@ out=$(helm template ringdog "$CHART" "${BASE[@]}")
 echo "$out" | grep -q 'kind: LimitRange' || fail "LimitRange rendered"
 echo "$out" | grep -A12 'kind: LimitRange' | grep -q 'memory: 512Mi' || fail "LimitRange default memory limit 512Mi"
 
+# 4) 플래그 ConfigMap + backend-api가 읽음, 기본 OFF
+out=$(helm template ringdog "$CHART" "${BASE[@]}")
+echo "$out" | grep -q 'name: ringdog-feature-flags' || fail "feature flag configmap"
+echo "$out" | grep -q 'FEATURE_TRENDING_WIDGET: "false"' || fail "flag off by default"
+echo "$out" | grep -A3 'name: FEATURE_TRENDING_WIDGET' | grep -q 'configMapKeyRef' || fail "backend-api reads flag from configmap"
+out=$(helm template ringdog "$CHART" "${BASE[@]}" --set featureFlags.trendingWidget=true)
+echo "$out" | grep -q 'FEATURE_TRENDING_WIDGET: "true"' || fail "flag on"
+
+# 5) HPA 1→4, HPA가 켜지면 Deployment에 replicas를 두지 않음 (helm upgrade가 HPA를 덮어쓰지 않게)
+out=$(helm template ringdog "$CHART" "${BASE[@]}")
+echo "$out" | grep -q 'kind: HorizontalPodAutoscaler' || fail "hpa rendered"
+echo "$out" | grep -q 'maxReplicas: 4' || fail "hpa max 4"
+echo "$out" | awk '/^kind: Deployment/{d=0} /name: backend-api$/{d=1} d&&/replicas:/{print; exit}' | grep -q . && fail "backend-api replicas must be omitted with HPA"
+out=$(helm template ringdog "$CHART" "${BASE[@]}" --set backendApi.hpa.enabled=false)
+echo "$out" | grep -q 'kind: HorizontalPodAutoscaler' && fail "hpa off"
+
 echo "ALL PASS"

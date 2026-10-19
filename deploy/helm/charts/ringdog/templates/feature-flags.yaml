@@ -1,0 +1,9 @@
+# 시나리오 ① 기능 플래그. 값을 바꾼 뒤 backend-api를 rollout restart 해야 반영된다
+# (deploy/demo/demo-control.sh). cd.yml 1차 helm upgrade는 기본값(false)으로 되돌린다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ringdog-feature-flags
+  namespace: {{ .Values.namespace }}
+data:
+  FEATURE_TRENDING_WIDGET: {{ .Values.featureFlags.trendingWidget | quote }}

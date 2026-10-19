@@ -37,6 +37,12 @@ backendApi:
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 512Mi }
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    # DB 대기 중에는 CPU가 크게 오르지 않으므로 낮게 잡는다. 리허설(Task 16)에서 조정.
+    targetCPUUtilization: 50
   env:
     NODE_ENV: production
     CORS_ORIGIN: ""
@@ -90,3 +96,7 @@ datadog:
 limitRange:
   defaultRequest: { cpu: 50m, memory: 64Mi }
   default: { memory: 512Mi }
+
+# 시나리오 ① 기능 플래그 (문자열 "true"/"false")
+featureFlags:
+  trendingWidget: "false"

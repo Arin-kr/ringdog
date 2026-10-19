@@ -17,7 +17,9 @@ metadata:
     app: backend-api
     {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-backend-api" "version" $version) | nindent 4 }}
 spec:
+  {{- if not .Values.backendApi.hpa.enabled }}
   replicas: {{ .Values.backendApi.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       app: backend-api
@@ -63,6 +65,11 @@ spec:
               value: "true"
             - name: DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED
               value: "true"
+            - name: FEATURE_TRENDING_WIDGET
+              valueFrom:
+                configMapKeyRef:
+                  name: ringdog-feature-flags
+                  key: FEATURE_TRENDING_WIDGET
             {{- range $key, $value := .Values.backendApi.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
