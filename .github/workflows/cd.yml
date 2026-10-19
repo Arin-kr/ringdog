@@ -90,17 +90,6 @@ jobs:
           helm repo add datadog https://helm.datadoghq.com
           helm repo update
 
-      # Deferred until the app itself is done — enable by adding DD_API_KEY /
-      # DD_APP_KEY as repository secrets (no other change needed).
-      - name: Deploy / upgrade Datadog Agent
-        if: ${{ env.DD_API_KEY != '' }}
-        run: |
-          helm upgrade --install datadog-agent datadog/datadog \
-            -n ${{ env.K8S_NAMESPACE }} --create-namespace \
-            -f deploy/helm/datadog-agent/values.yaml \
-            --set datadog.apiKey=${{ secrets.DD_API_KEY }} \
-            --set datadog.appKey=${{ secrets.DD_APP_KEY }}
-
       # All of these are recreated with new values every destroy/apply cycle
       # (this is a cost-gated demo env, torn down between sessions), so none
       # of it lives in GitHub Secrets — resolved here by fixed resource name
@@ -127,6 +116,7 @@ jobs:
           DB_HOST=$(jq -r .host <<<"$DB_JSON")
           DB_PORT=$(jq -r .port <<<"$DB_JSON")
           DB_NAME=$(jq -r .dbname <<<"$DB_JSON")
+          DD_DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/rds/datadog --query SecretString --output text | jq -r .password)
           DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public"
 
           JWT_SECRET=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/app/jwt-secret --query SecretString --output text)
@@ -144,6 +134,7 @@ jobs:
 
           # Mask before these can appear in any later log line.
           echo "::add-mask::${DB_PASS}"
+          echo "::add-mask::${DD_DB_PASSWORD}"
           echo "::add-mask::${DATABASE_URL}"
           echo "::add-mask::${JWT_SECRET}"
 
@@ -157,6 +148,11 @@ jobs:
             echo "jwt_secret=${JWT_SECRET}"
             echo "kafka_brokers=${KAFKA_BROKERS}"
             echo "opensearch_endpoint=${OPENSEARCH_ENDPOINT}"
+            echo "db_host=${DB_HOST}"
+            echo "db_user=${DB_USER}"
+            echo "db_pass=${DB_PASS}"
+            echo "db_name=${DB_NAME}"
+            echo "dd_db_password=${DD_DB_PASSWORD}"
           } >> "$GITHUB_OUTPUT"
 
       # RDS starts schema-less on every fresh `terraform apply` (this demo env
@@ -178,6 +174,41 @@ jobs:
             --env="DATABASE_URL=${DATABASE_URL}" \
             --command -- sh -c "node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma && node_modules/.bin/ts-node packages/db/prisma/seed.ts"
 
+      # Datadog DBM용 계정·스키마·explain 함수. 매 배포 실행해도 안전(idempotent).
+      - name: Prepare Postgres for Datadog DBM
+        if: ${{ env.DD_API_KEY != '' }}
+        env:
+          DB_HOST: ${{ steps.resolve.outputs.db_host }}
+          DB_USER: ${{ steps.resolve.outputs.db_user }}
+          DB_PASS: ${{ steps.resolve.outputs.db_pass }}
+          DB_NAME: ${{ steps.resolve.outputs.db_name }}
+          DD_DB_PASSWORD: ${{ steps.resolve.outputs.dd_db_password }}
+        run: |
+          kubectl -n ${{ env.K8S_NAMESPACE }} run ringdog-dbm-setup --rm -i --restart=Never \
+            --image=postgres:16-alpine --env="PGPASSWORD=${DB_PASS}" --command -- \
+            psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 \
+              -v dd_password="${DD_DB_PASSWORD}" -f - < deploy/dbm/datadog-setup.sql
+
+      # Deferred until the app itself is done — enable by adding DD_API_KEY /
+      # DD_APP_KEY as repository secrets (no other change needed).
+      - name: Deploy / upgrade Datadog Agent
+        if: ${{ env.DD_API_KEY != '' }}
+        env:
+          DB_HOST: ${{ steps.resolve.outputs.db_host }}
+          DD_DB_PASSWORD: ${{ steps.resolve.outputs.dd_db_password }}
+        run: |
+          set -euo pipefail
+          PG_VALUES="${RUNNER_TEMP}/postgres-values.yaml"
+          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DD_DB_PASSWORD__|${DD_DB_PASSWORD}|g" \
+            deploy/helm/datadog-agent/postgres-values.tmpl.yaml > "${PG_VALUES}"
+          helm upgrade --install datadog-agent datadog/datadog \
+            -n ${{ env.K8S_NAMESPACE }} --create-namespace \
+            -f deploy/helm/datadog-agent/values.yaml \
+            -f "${PG_VALUES}" \
+            --set datadog.apiKey=${{ secrets.DD_API_KEY }} \
+            --set datadog.appKey=${{ secrets.DD_APP_KEY }}
+          rm -f "${PG_VALUES}"
+
       # Cluster add-on, not a RingDog app — watches Ingress/Service resources
       # and provisions the actual ALB behind them. Idempotent `upgrade
       # --install`, safe to run every deploy. Must exist before the Ingress
@@ -198,6 +229,15 @@ jobs:
             --set serviceAccount.name=aws-load-balancer-controller \
             --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="${ALB_CONTROLLER_IRSA_ARN}"
           kubectl -n kube-system rollout status deployment/aws-load-balancer-controller --timeout=120s
+
+      # HPA(backend-api CPU 기준)에 필요. EKS에는 기본 설치되어 있지 않다.
+      - name: Install/upgrade metrics-server
+        run: |
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+          helm repo update
+          helm upgrade --install metrics-server metrics-server/metrics-server \
+            -n kube-system --version 3.12.2
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=120s
 
       # First pass: deploy/update all app workloads + the Ingress. ALB-dependent
       # fields (CORS_ORIGIN, ingress.host) are left unset here — the ALB

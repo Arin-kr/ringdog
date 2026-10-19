@@ -1,0 +1,40 @@
+# cd.yml이 __DB_HOST__ / __DD_DB_PASSWORD__ 를 치환해 임시 파일로 만들어 -f로 추가한다 (값은 커밋하지 않음).
+# Cluster Agent가 이 체크를 노드 Agent 하나에 배정하고, 그 Agent가 RDS에 직접 접속한다.
+clusterAgent:
+  confd:
+    postgres.yaml: |-
+      cluster_check: true
+      init_config:
+      instances:
+        - dbm: true
+          host: __DB_HOST__
+          port: 5432
+          username: datadog
+          password: "__DD_DB_PASSWORD__"
+          dbname: ringdog
+          aws:
+            instance_endpoint: __DB_HOST__
+            region: ap-northeast-2
+          tags:
+            - "env:demo"
+            - "dbinstanceidentifier:ringdog-demo"
+          # 시나리오 ① 2차 대처 트리거. "다른 세션을 막고 있고, 자기 트랜잭션이 30초 넘게 열린 세션" 수.
+          # deploy/demo/sql/terminate-batch-blockers.sql과 같은 판정(+ application_name 조건)을 쓴다.
+          custom_queries:
+            - metric_prefix: ringdog.db
+              query: |
+                WITH blockers AS (
+                  SELECT DISTINCT unnest(pg_blocking_pids(pid)) AS pid
+                  FROM pg_stat_activity
+                  WHERE wait_event_type = 'Lock'
+                )
+                SELECT
+                  count(*) FILTER (WHERE now() - a.xact_start > interval '30 seconds') AS blocking_sessions,
+                  (SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock') AS blocked_sessions
+                FROM blockers b
+                JOIN pg_stat_activity a ON a.pid = b.pid
+              columns:
+                - name: blocking_sessions
+                  type: gauge
+                - name: blocked_sessions
+                  type: gauge
