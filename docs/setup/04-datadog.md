@@ -43,6 +43,9 @@ Application ID와 Client Token을 GitHub Secrets(`DD_RUM_APPLICATION_ID`, `DD_RU
 | Logs | `service:ringdog-backend-api` 로그, 로그에서 트레이스로 이동 가능 |
 | Digital Experience → RUM | 쇼핑몰 접속 후 세션과 Session Replay 표시 |
 | Data Streams Monitoring | `backend-api` → `ringdog.orders` → `order-consumer` 흐름 (주문 1건 이상 후) |
+| Database Monitoring → Databases | `ringdog-demo` 표시, Query Metrics에 쿼리 목록 (시나리오 ①, Agent의 Postgres 체크) |
+| Infrastructure (Metrics/Kubernetes) | `kube_deployment:backend-api`의 HPA 지표 (시나리오 ①) |
+| Metrics → Explorer (AWS 연동) | `aws.rds.cpuutilization` 수신 (Datadog AWS Integration 설정 후) |
 
 데이터가 없으면 `kubectl get pods -n ringdog`에서 `datadog-agent` Pod가 Running인지,
 GitHub Actions 로그에서 "Deploy / upgrade Datadog Agent" 단계가 실행되었는지(`DD_API_KEY` 등록 여부) 확인합니다.
@@ -51,5 +54,7 @@ GitHub Actions 로그에서 "Deploy / upgrade Datadog Agent" 단계가 실행되
 
 모니터, Workflow Automation, 대시보드 같은 시나리오별 설정은 각 시나리오 문서에 정리합니다.
 → [데모 시나리오 목록](../demo/README.md)
+
+시나리오 ① 설정(Slack 연동, GitHub Connection, Workflow 2개, Bits AI SRE)은 [`docs/demo/01-flash-sale-db/datadog-setup.md`](../demo/01-flash-sale-db/datadog-setup.md)를 따릅니다.
 
 다음 단계: [5. 데모 시나리오](../demo/README.md)

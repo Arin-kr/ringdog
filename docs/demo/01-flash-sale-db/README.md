@@ -20,25 +20,25 @@
 | 1 | 결정 항목 반영, 설계 확정 | ✅ 완료 | 2026-10-16, 설계 8장 |
 | 2 | 구현 계획 작성 | ✅ 완료 | `docs/design/plans/2026-10-16-demo-flash-sale-db.md` (Task 1~19) |
 | **공통 기반** | | | ②·3단계에서 재사용 |
-| B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ⬜ 대기 | |
-| B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ⬜ 대기 | `infra/terraform/team` |
-| B3 | Unified Service Tagging + 에러 로그 보강 | ⬜ 대기 | |
-| B4 | 트래픽 생성기 (k6 API + k6 browser), 평시/급증 프로필 | ⬜ 대기 | |
-| B5 | Slack 연동 + GitHub Connection | ⬜ 대기 | |
+| B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ✅ 코드 | 실환경 검증 대기 |
+| B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ✅ 코드 | `infra/terraform/team`. apply는 demo-up 전에 사용자가 1회 수동 실행, 실환경 검증 대기 |
+| B3 | Unified Service Tagging + 에러 로그 보강 | ✅ 코드 | 실환경 검증 대기 |
+| B4 | 트래픽 생성기 (k6 API + k6 browser), 평시/급증 프로필 | ✅ 코드 | 실환경 검증 대기 |
+| B5 | Slack 연동 + GitHub Connection | ⬜ 대기 | 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), UI 설정은 실환경에서 |
 | **시나리오 ① 전용** | | | |
-| F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ⬜ 대기 | |
-| F2 | Datadog AWS Integration (RDS·ALB·MSK) | ⬜ 대기 | |
-| F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ⬜ 대기 | 위젯 표시 규칙: 설계 4.7 |
-| F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ⬜ 대기 | |
-| F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ⬜ 대기 | 설계 4.1.1·4.6 |
-| F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | ⬜ 대기 | reset은 세일가 원복·시연 PR 닫기 포함 |
+| F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ✅ 코드 | 실환경 검증 대기 |
+| F2 | Datadog AWS Integration (RDS·ALB·MSK) | ⬜ 대기 | Role 코드는 B2에 포함, Datadog 타일 설정은 실환경에서 |
+| F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ✅ 코드 | 위젯 표시 규칙: 설계 4.7 |
+| F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ✅ 코드 | 실환경 검증 대기 |
+| F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ✅ 코드 | 설계 4.1.1·4.6 |
+| F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | ✅ 코드 | reset은 세일가 원복·시연 PR 닫기 포함 |
 | F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
-| F8 | Workflow 2개: 1차 위젯 OFF → 인덱스 적용 + 위젯 ON (승인 2번) / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (승인 1번, 대기 30분) | ⬜ 대기 | |
+| F8 | Workflow 2개: 1차 위젯 OFF → 인덱스 적용 + 위젯 ON (승인 2번) / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (승인 1번, 대기 30분) | ⬜ 대기 | 설정 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), 실제 생성은 실환경에서 |
 | F9 | 데모 대시보드 | ⬜ 대기 | |
 | F10 | MCP 근본 수정 시연 리허설 | ⬜ 대기 | |
 | R | 전체 리허설 (타이밍·장애 강도 조정) | ⬜ 대기 | RDS CPU 크레딧 영향 확인 |
 
-상태 표기: ⬜ 대기 / 🔄 진행 중 / ✅ 완료 / ⚠️ 이슈
+상태 표기: ⬜ 대기 / 🔄 진행 중 / ✅ 완료 / ✅ 코드 (코드·문서 작성 완료, 실환경 검증 대기) / ⚠️ 이슈
 
 ## 3. 데모 대본 (약 31분)
 
@@ -86,6 +86,7 @@
 - [ ] 직전 시연 흔적이 있으면 **demo-control** → `reset` (인덱스 없음, 위젯 OFF, 배치 Job 없음, 시연 PR 닫힘)
 - [ ] 평시 트래픽 확인만: APM 요청량, RUM 세션, DBM 쿼리 수신 (demo-up이 켜 둠)
 - [ ] 모니터 상태 OK, 열린 알람 없음
+- [ ] ⚠️ **시연 중에는 main에 push하지 않기** — cd.yml이 Helm을 기본값으로 다시 배포해 위젯 플래그·트래픽 설정이 초기화됨
 - [ ] Datadog 탭(대시보드·RUM·APM·DBM·Infra·Bits AI), Slack, GitHub Actions, Claude Code 미리 열기
 
 ## 5. 리셋 절차
