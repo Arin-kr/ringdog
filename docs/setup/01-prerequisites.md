@@ -18,8 +18,6 @@
 
 ### 팀원 추가·제거 (repo 관리자용)
 
-> ⚠️ IAM 그룹은 구현 항목 C0-2(`infra/terraform/team`)가 반영된 뒤에 존재합니다.
-
 ```bash
 # 입사: 사용자 생성 → 그룹 추가 → 액세스 키 발급 (키는 메신저 평문이 아닌 안전한 경로로 전달)
 aws iam create-user --user-name <이름>

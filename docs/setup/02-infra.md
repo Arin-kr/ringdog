@@ -21,12 +21,17 @@ terraform init && terraform apply
 ## 2-2. team 스택 (계정당 최초 1회, repo 관리자)
 
 팀원 권한을 관리하는 IAM 그룹 `ringdog-demo-team`과 EKS 관리자 Role `ringdog-demo-eks-admin`을 만듭니다.
-비용이 없으므로 **삭제하지 않고 유지**합니다. 팀원은 건너뜁니다. (구현 항목 C0-2 반영 후 사용 가능)
-
+비용이 없으므로 **삭제하지 않고 유지**합니다. 팀원은 건너뜁니다.
 ```bash
 cd infra/terraform/team
 terraform init && terraform apply
 ```
+
+apply한 관리자 본인도 `aws iam add-user-to-group --user-name <본인> --group-name ringdog-demo-team`으로 그룹에 넣습니다.
+
+**Datadog AWS 연동 Role (선택, 최초 1회):** Datadog → Integrations → AWS → Add AWS Account → Manually에서
+External ID를 받아 `infra/terraform/team/terraform.tfvars`(git에 올라가지 않음)에 `datadog_external_id = "<값>"`으로 적고
+team 스택을 다시 apply합니다. 그 다음 Datadog 화면에 계정 ID와 Role 이름 `ringdog-datadog-integration`을 입력합니다.
 팀원 추가·제거는 [사전 준비 1-1](./01-prerequisites.md#팀원-추가제거-repo-관리자용)을 참고하세요.
 
 ## 2-3. 변수 파일 (최초 1회)
@@ -57,8 +62,6 @@ aws eks update-kubeconfig --name ringdog-demo --region ap-northeast-2 \
   --role-arn arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-eks-admin
 kubectl get nodes   # 노드 2대 Ready
 ```
-
-> ⚠️ 공용 Role 접속은 구현 항목 C0-2가 반영된 뒤부터 동작합니다. 그 전에는 `--role-arn` 없이 실행하며, `terraform apply`를 실행한 사람만 접속할 수 있습니다.
 
 다음 단계: [3. 서비스 배포](./03-deploy.md)
 
@@ -92,4 +95,5 @@ ECR 이미지도 함께 삭제되므로, 다음에 환경을 만들면 이미지
 | `timeout while waiting for plugin to start` | WSL에서 `/mnt/c`·`/mnt/d` 경로로 실행. WSL 내부 경로로 clone해서 실행 |
 | `x509: certificate signed by unknown authority` | 사내 TLS 검사. [사전 준비 1-4](./01-prerequisites.md#1-4-사내망tls-검사-환경인-경우) 참고 |
 | destroy가 VPC/서브넷에서 멈춤 | Ingress(ALB)를 먼저 지우지 않음. AWS 콘솔에서 `k8s-ringdog-*` ALB와 대상 그룹을 삭제 후 다시 `terraform destroy` |
+| `no IAM Role found` (`data.aws_iam_role.team_eks_admin`) | team 스택이 아직 없음. 2-2절 team 스택 apply 후 다시 실행 |
 | 실행이 중간에 끊김 | 출력이 없어도 리소스는 생성/삭제되고 있었을 수 있음. 위 "삭제 후 확인" 명령으로 실제 상태 확인 후 다시 실행 |

@@ -125,3 +125,29 @@ module "secrets" {
   environment  = var.environment
   tags         = local.common_tags
 }
+
+# --- Team kubectl access (infra/terraform/team) ------------------------
+
+# team 스택이 없으면 여기서 "no IAM Role found" 오류로 실패한다 →
+# docs/setup/02-infra.md 2-2절(team 스택 apply)을 먼저 수행.
+data "aws_iam_role" "team_eks_admin" {
+  name = var.team_eks_admin_role_name
+}
+
+resource "aws_eks_access_entry" "team_eks_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_iam_role.team_eks_admin.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "team_eks_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_iam_role.team_eks_admin.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.team_eks_admin]
+}

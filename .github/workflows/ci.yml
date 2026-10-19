@@ -113,3 +113,9 @@ jobs:
 
       - name: Terraform validate
         run: terraform -chdir=infra/terraform/envs/demo validate
+
+      - name: Terraform fmt/validate (team)
+        run: |
+          terraform -chdir=infra/terraform/team init -backend=false
+          terraform -chdir=infra/terraform/team fmt -check
+          terraform -chdir=infra/terraform/team validate

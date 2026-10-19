@@ -154,3 +154,9 @@ variable "bedrock_model_id" {
   type        = string
   default     = "anthropic.claude-3-haiku-20240307-v1:0"
 }
+
+variable "team_eks_admin_role_name" {
+  description = "infra/terraform/team이 만든 EKS 관리자 Role 이름. 이 스택보다 먼저 team 스택이 apply되어 있어야 함."
+  type        = string
+  default     = "ringdog-demo-eks-admin"
+}
