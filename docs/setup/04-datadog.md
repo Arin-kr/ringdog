@@ -38,7 +38,7 @@ Application ID와 Client Token을 GitHub Secrets(`DD_RUM_APPLICATION_ID`, `DD_RU
 
 | 확인 위치 | 정상 상태 |
 |---|---|
-| Infrastructure → Kubernetes | 클러스터 `ringdog-demo`, 노드 2대, `ringdog` 네임스페이스 Pod |
+| Infrastructure → Kubernetes | 클러스터 `ringdog-demo`, 노드 3대, `ringdog` 네임스페이스 Pod |
 | APM → Service Catalog | `ringdog-backend-api`, `ringdog-chatbot-service`, `ringdog-order-consumer` (env: `demo`) |
 | Logs | `service:ringdog-backend-api` 로그, 로그에서 트레이스로 이동 가능 |
 | Digital Experience → RUM | 쇼핑몰 접속 후 세션과 Session Replay 표시 |

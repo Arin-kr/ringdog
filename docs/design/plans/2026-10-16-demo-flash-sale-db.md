@@ -15,7 +15,8 @@
 
 - 서비스명: `ringdog-backend-api`, `ringdog-frontend`, `ringdog-chatbot-service`, `ringdog-order-consumer`, 배치 `inventory-batch` / env: `demo`
 - 배치 DB 연결 `application_name = 'inventory-batch'`. 세션 종료는 이 이름 + "다른 세션을 막고 있음" + "트랜잭션이 30초 넘게 열려 있음" 세 조건을 모두 만족하는 세션만
-- 배치 Job 이름 `inventory-batch-fault`(장애 모드) / `inventory-batch-safe`(안전 모드), `backoffLimit: 0`. 장애 모드: 대상 1,200개, 상품당 1.5초(약 30분), 커밋 1회, 시작 지연 180초, `activeDeadlineSeconds` 2580. 안전 모드: 50개씩 커밋, `lock_timeout` 2초, 지연 0, `activeDeadlineSeconds` 600
+- 배치 Job 이름 `inventory-batch`(장애 모드) / `inventory-batch-safe`(안전 모드), `backoffLimit: 0`. 장애 모드: 대상 1,200개, 상품당 1.5초(약 30분), 커밋 1회, 시작 지연 180초, `activeDeadlineSeconds` 2580. 안전 모드: 50개씩 커밋, `lock_timeout` 2초, 지연 0, `activeDeadlineSeconds` 600
+  - 구현 중 변경(설계 4.6): 장애 모드 Job 이름은 원인을 드러내지 않도록 `-fault` 없이 `inventory-batch`로 바꿨고, 장애 모드 시작 로그도 모드 힌트 없이 "세일가 반영 시작: 대상 1,200개"로 바꿨다(모드는 로그 `mode` 필드에만). 아래 Task 9 코드 조각의 "(장애 모드: …)" 문구는 이 규칙으로 대체된다
 - checkout 재고 차감 트랜잭션 `lock_timeout` 5초
 - 위젯 플래그: ConfigMap `ringdog-feature-flags`, 키 `FEATURE_TRENDING_WIDGET`, Helm 값 `featureFlags.trendingWidget`(`"true"`/`"false"`, 기본 `"false"`). 플래그는 backend-api만 읽는다
 - 원인 ① 근본 수정 인덱스: `orders(created_at)` = `orders_created_at_idx`, `order_items(order_id)` = `order_items_order_id_idx`. 시연 중 MCP가 만드는 PR(브랜치 `demo/fix-index-<날짜>`)은 **절대 main에 머지하지 않음**. DB에는 `demo-control fix-index`가 같은 인덱스를 `CONCURRENTLY` 없이 직접 만들고(배치의 긴 트랜잭션 때문에 `CONCURRENTLY`는 멈춤), `reset`이 지우고 PR을 닫는다
@@ -1901,7 +1902,7 @@ source "$DIR/demo-control.sh"
 fail() { echo "FAIL: $*"; exit 1; }
 
 out=$(render_batch_job fault reg.example/ringdog-backend-api:abc123)
-echo "$out" | grep -q 'name: inventory-batch-fault' || fail "fault job name"
+echo "$out" | grep -qx '  name: inventory-batch' || fail "fault job name must be exactly inventory-batch"
 echo "$out" | grep -q 'backoffLimit: 0' || fail "no retry after session kill"
 echo "$out" | grep -q 'activeDeadlineSeconds: 2580' || fail "fault deadline = 180s delay + 40min"
 echo "$out" | grep -q 'sleep 180 ' || fail "fault starts 3 min after inject"
@@ -2605,7 +2606,7 @@ main() {
         session)
           psql_run "$DEMO_DIR/sql/terminate-batch-blockers.sql"
           # 끊긴 배치 Pod가 남아 있으면 정리 (backoffLimit 0이라 다시 뜨지는 않음)
-          kubectl -n "$NS" delete job inventory-batch-fault --ignore-not-found --wait=true
+          kubectl -n "$NS" delete job inventory-batch --ignore-not-found --wait=true
           start_batch safe
           echo "2차 대처 완료: 배치 세션 종료 → 안전 모드(50개씩 커밋)로 재실행"
           ;;
@@ -3024,7 +3025,7 @@ git commit -m "docs(demo-02): trim plan to scenario-02-only tasks after shared f
 - [ ] **Step 1: team 스택** — Task 3 Step 8이 아직이면 수행 (사용자 확인)
 - [ ] **Step 2: push** — WSL에서 `git push origin main` (사용자 확인). 원격 main에 `cd.yml`의 `workflow_dispatch`와 `demo-control.yml`이 있어야 `demo-up`이 cd를 실행할 수 있다. 환경이 없는 상태라 이 push로 시작된 cd는 실패한다 — 정상(취소해도 됨)
 - [ ] **Step 3: `demo-up`** — WSL에서 `setsid nohup bash scripts/demo-up.sh --yes > ~/demo-up-$(date +%Y%m%d-%H%M).log 2>&1 &` (사용자 확인 후, 세션 재시작에도 살아남게) → 로그 마지막 줄 `준비 완료: http://<ALB>`. 단계별 소요 시간 기록. 추가 확인: `aws rds describe-db-instances --db-instance-identifier ringdog-demo --query 'DBInstances[0].[DBInstanceClass,DBParameterGroups[0].DBParameterGroupName]'` → `db.t3.small`, `ringdog-demo-pg16-dbm`, `kubectl -n ringdog get hpa backend-api`(TARGETS가 `<unknown>`이 아닌 %), `kubectl -n ringdog get limitrange`
-- [ ] **Step 4: DBM 수집** — `kubectl -n ringdog exec deploy/datadog-agent-cluster-agent -- agent clusterchecks`에 `postgres` 체크 배정, 해당 노드 Agent `agent status`에 `postgres` `[OK]`. Datadog MCP(**org가 RingDog인지 먼저 확인**)로 `search_datadog_metrics` → `ringdog.db.blocking_sessions` 존재(값 0)
+- [ ] **Step 4: DBM 수집** — `kubectl -n ringdog exec deploy/datadog-agent-cluster-agent -- datadog-cluster-agent clusterchecks`(Cluster Agent 파드에서 실행)에 `postgres` 체크 배정, 해당 노드 Agent `agent status`에 `postgres` `[OK]`. Datadog MCP(**org가 RingDog인지 먼저 확인**)로 `search_datadog_metrics` → `ringdog.db.blocking_sessions` 존재(값 0)
 - [ ] **Step 5: 대량 시드 + 평시 트래픽 결과** — cd 로그의 "Bulk seed" 단계 소요 시간 기록, `psql`로 `SELECT count(*) FROM order_items` ≈ 150만. 10분 뒤 MCP로 span `service:ringdog-backend-api env:demo`의 `version`이 sha, RUM 세션 존재, `service:inventory-batch`는 아직 없음 확인. cd를 한 번 더 실행해 "bulk seed: already done, skipping"과 트래픽이 다시 켜지는 것 확인
 - [ ] **Step 6: reset 안전성 (Review Focus 4)** — 백업 테이블이 없는 상태에서 **demo-control** `reset` 두 번 연속 → 둘 다 성공
 
@@ -3036,7 +3037,7 @@ git commit -m "docs(demo-02): trim plan to scenario-02-only tasks after shared f
 - [ ] **Step 2: 원인 ②만** — `reset` → `spike` → 로컬에서 `render_batch_job fault <이미지>`의 `sleep 180`을 `sleep 0`으로 바꿔 apply → 1분 안에 DBM Blocking 트리에 `inventory-batch`(`idle in transaction`), checkout 트레이스의 postgres span이 약 5초 대기 후 `lock timeout` 에러, 배치 로그 "25/1,200 처리 중", `ringdog.db.blocking_sessions` ≥ 1
 - [ ] **Step 3: 상품 목록은 살아 있는지** — Step 2 상태에서 `/api/products` p95가 평시 수준인지 확인. 커넥션 풀 고갈(`P2024`)로 목록까지 느려지면 `checkoutRatio`를 낮추거나 `CHECKOUT_LOCK_TIMEOUT`을 3초로 줄인다 (설계 4.7 "목록은 빨라졌지만 결제는 실패" 장면 유지)
 - [ ] **Step 4: 전체 inject + 원인 ① 해결** — `reset` → **demo-control** `inject` → 설계 3.2 타임라인대로 3분 뒤 배치 시작, 9분 무렵 `mitigate widget` → RDS CPU 하락, 14분 무렵 `fix-index` → **배치가 도는 중에도 1분 안에 끝나는지**(멈추면 `CONCURRENTLY`가 섞였거나 다른 긴 트랜잭션이 orders를 잡은 것), Explain Plan이 `Index Scan`, 인기상품 p95 < 500ms, 위젯 ON인데 RDS CPU 안정, checkout은 여전히 실패. 27분 무렵에도 배치가 아직 실행 중인지(로그 진행률) 확인 — 끝나 버렸으면 `FAULT_ITEM_DELAY_MS` ↑
-- [ ] **Step 5: 2차 대처** — **demo-control** `mitigate session` → 1분 안에 블로킹 0, checkout 201 회복, `inventory-batch-fault` Job `Failed`(재시작 없음, Review Focus 1), `inventory-batch-safe` 로그 "1,200/1,200 완료", 상품 가격이 세일가
+- [ ] **Step 5: 2차 대처** — **demo-control** `mitigate session` → 1분 안에 블로킹 0, checkout 201 회복, `inventory-batch` Job `Failed`(재시작 없음, Review Focus 1), `inventory-batch-safe` 로그 "1,200/1,200 완료", 상품 가격이 세일가
 - [ ] **Step 6: reset 복원** — 테스트용 PR(브랜치 `demo/fix-index-test`)을 하나 열어 둔 뒤 `reset` → 상품 가격·재고가 시드 값, 인덱스 없음, 배치 Job 없음, 그 PR이 닫히고 브랜치 삭제됨
 - [ ] **Step 7: 세션 종료 범위 (Review Focus 5)** — 로컬에서 `kubectl run`으로 psql Pod를 띄워 `SET application_name='manual-check'; BEGIN; UPDATE products SET stock = stock WHERE id = '<앞쪽 상품 id>'; SELECT pg_sleep(120);` 실행(다른 결제를 막는 블로커) → 40초 뒤 **demo-control** `mitigate session` → `manual-check` 세션은 살아 있어야 함(`terminated` 행 0개). 확인 후 그 Pod 삭제
 - [ ] **Step 8: 튜닝 값 반영 + Commit** — 바꾼 값(트래픽·HPA·lock_timeout)을 values/코드에 반영하고 설계 3장·운영 README에 실제 소요 시간 기록

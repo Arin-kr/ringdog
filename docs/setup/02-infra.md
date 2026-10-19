@@ -79,7 +79,7 @@ terraform apply     # 약 25분 (MSK가 가장 오래 걸림)
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 aws eks update-kubeconfig --name ringdog-demo --region ap-northeast-2 \
   --role-arn arn:aws:iam::${ACCOUNT_ID}:role/ringdog-demo-eks-admin
-kubectl get nodes   # 노드 2대 Ready
+kubectl get nodes   # 노드 3대 Ready
 ```
 
 다음 단계: [3. 서비스 배포](./03-deploy.md)
