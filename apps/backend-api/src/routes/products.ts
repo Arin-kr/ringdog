@@ -2,7 +2,10 @@ import { Router } from "express";
 import { prisma } from "@ringdog/db";
 import { DEFAULT_PAGE, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, logger } from "@ringdog/shared";
 
+import { env } from "../config/env";
 import { searchProducts as opensearchSearch } from "../lib/opensearch";
+import { queryTrending } from "../lib/trending";
+import { createTrendingHandler } from "./trending";
 
 export const productsRouter: Router = Router();
 
@@ -37,7 +40,13 @@ productsRouter.get("/", async (req, res, next) => {
   }
 });
 
-/** GET /api/products/search — FR-SEARCH-001 (OpenSearch with Prisma fallback) */
+/** GET /api/products/trending — 시나리오 ① 인기상품 위젯 */
+productsRouter.get(
+  "/trending",
+  createTrendingHandler({ isEnabled: () => env.featureTrendingWidget, fetchTrending: queryTrending }),
+);
+
+/** GET /api/products/search— FR-SEARCH-001 (OpenSearch with Prisma fallback) */
 productsRouter.get("/search", async (req, res, next) => {
   try {
     const q = typeof req.query.q === "string" ? req.query.q : "";

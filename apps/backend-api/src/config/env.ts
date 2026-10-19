@@ -35,6 +35,8 @@ export const env = {
   opensearchIndexProducts: optional("OPENSEARCH_INDEX_PRODUCTS", "products"),
 
   demoCouponCode: optional("DEMO_COUPON_CODE", "RINGDOG100"),
+  // 시나리오 ① 인기상품 위젯. ConfigMap ringdog-feature-flags에서 주입, 바꾸면 rollout restart 필요.
+  featureTrendingWidget: optional("FEATURE_TRENDING_WIDGET", "false") === "true",
 
   corsOrigin: optional("CORS_ORIGIN", "http://localhost:3000"),
 };

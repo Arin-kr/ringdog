@@ -8,6 +8,7 @@ import { OrderPlacedEvent, OrderStatus, logger } from "@ringdog/shared";
 import { requireAuth } from "../middleware/auth";
 import { calculateOrderTotal } from "../lib/orderTotal";
 import { publishOrderPlaced } from "../lib/kafka";
+import { reserveStock } from "../lib/stock";
 
 export const ordersRouter: Router = Router();
 
@@ -43,31 +44,40 @@ ordersRouter.post(
         couponCode,
       );
 
-      // FR-ORDER-001: order + order items are persisted in a single transaction.
+      // FR-ORDER-001: stock reservation + order + order items in a single transaction.
       // Status defaults to PENDING; order-consumer asynchronously flips it to
       // PAID after consuming the OrderPlaced event below (simulated payment
       // completion) — this holds for the demo coupon's 0-amount orders too
-      // per FR-ORDER-003.
-      const order = await prisma.$transaction(async (tx) => {
-        const created = await tx.order.create({
-          data: {
-            userId,
-            totalAmount,
-            couponCode: isDemoCoupon ? couponCode : null,
-            items: {
-              create: cartItems.map((item) => ({
-                productId: item.productId,
-                quantity: item.quantity,
-                unitPrice: item.product.price,
-              })),
+      // per FR-ORDER-003. timeout(10s) > lock_timeout(5s) so a lock wait
+      // surfaces as Postgres' own lock-timeout error, not Prisma's.
+      const order = await prisma.$transaction(
+        async (tx) => {
+          await reserveStock(
+            tx,
+            cartItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+          );
+
+          const created = await tx.order.create({
+            data: {
+              userId,
+              totalAmount,
+              couponCode: isDemoCoupon ? couponCode : null,
+              items: {
+                create: cartItems.map((item) => ({
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  unitPrice: item.product.price,
+                })),
+              },
             },
-          },
-        });
+          });
 
-        await tx.cartItem.deleteMany({ where: { userId } });
+          await tx.cartItem.deleteMany({ where: { userId } });
 
-        return created;
-      });
+          return created;
+        },
+        { maxWait: 5000, timeout: 10000 },
+      );
 
       const event: OrderPlacedEvent = {
         eventId: randomUUID(),
