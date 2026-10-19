@@ -222,7 +222,8 @@ jobs:
           PG_VALUES="${RUNNER_TEMP}/postgres-values.yaml"
           sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_NAME__|${DB_NAME}|g" \
             deploy/helm/datadog-agent/postgres-values.tmpl.yaml > "${PG_VALUES}"
-          helm upgrade --install datadog-agent datadog/datadog \
+          # Chart pinned: secretBackend.enableGlobalPermissions/roles verified on 3.230.0.
+          helm upgrade --install datadog-agent datadog/datadog --version 3.230.0 \
             -n ${{ env.K8S_NAMESPACE }} --create-namespace \
             -f deploy/helm/datadog-agent/values.yaml \
             -f "${PG_VALUES}" \
