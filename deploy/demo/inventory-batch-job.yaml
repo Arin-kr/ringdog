@@ -1,0 +1,58 @@
+# 시나리오 ① 세일가 반영 배치. deploy/demo/demo-control.sh의 render_batch_job이 자리표시자(JOB_NAME·MODE·IMAGE·VERSION·DELAY·DEADLINE)를 치환한다.
+# backoffLimit 0: 2차 대처로 세션을 끊으면 재시도 없이 Failed로 끝나야 한다 (다시 떠서 락을 또 잡으면 안 됨).
+# Job 이름: 장애 모드는 원인을 암시하지 않도록 inventory-batch, 안전 모드는 inventory-batch-safe. 모드는 batch-mode 라벨로 구분한다.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __JOB_NAME__
+  namespace: ringdog
+  labels:
+    app: inventory-batch
+    batch-mode: __MODE__
+    tags.datadoghq.com/env: "demo"
+    tags.datadoghq.com/service: "inventory-batch"
+    tags.datadoghq.com/version: "__VERSION__"
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: __DEADLINE__
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: inventory-batch
+        batch-mode: __MODE__
+        tags.datadoghq.com/env: "demo"
+        tags.datadoghq.com/service: "inventory-batch"
+        tags.datadoghq.com/version: "__VERSION__"
+      annotations:
+        ad.datadoghq.com/inventory-batch.logs: '[{"source":"nodejs","service":"inventory-batch"}]'
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: inventory-batch
+          image: __IMAGE__
+          command: ["sh", "-c", "sleep __DELAY__ && exec node dist/jobs/inventoryBatch.js"]
+          env:
+            - name: BATCH_MODE
+              value: "__MODE__"
+            - name: BASE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ringdog-app-secrets
+                  key: databaseUrl
+            # 시크릿 URL은 "?schema=public"으로 끝나므로 &로 이어 붙인다.
+            - name: DATABASE_URL
+              value: "$(BASE_DATABASE_URL)&application_name=inventory-batch"
+            - name: DD_ENV
+              value: "demo"
+            - name: DD_SERVICE
+              value: "inventory-batch"
+            - name: DD_VERSION
+              value: "__VERSION__"
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 256Mi }
