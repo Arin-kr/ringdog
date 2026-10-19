@@ -36,9 +36,6 @@ resource "aws_iam_role" "eks_admin" {
 
 # --- Datadog AWS integration (CloudWatch: RDS·ALB·MSK, Resource Collection) ---
 # 464622532012 = Datadog US1(datadoghq.com)의 AWS 계정. External ID로 우리 org만 assume 가능.
-# 권한은 데모 단순화를 위해 AWS 관리형 ReadOnlyAccess (Datadog 문서의 최소 권한 정책 대신).
-# ReadOnlyAccess에는 S3 객체·시크릿·파라미터·로그 이벤트·큐 메시지 등 데이터 평면 읽기가 포함되므로,
-# 아래 인라인 정책(datadog_deny_data_reads)으로 해당 읽기를 명시적으로 Deny한다.
 data "aws_iam_policy_document" "datadog_trust" {
   count = var.datadog_external_id == "" ? 0 : 1
 
@@ -65,50 +62,55 @@ resource "aws_iam_role" "datadog_integration" {
   assume_role_policy = data.aws_iam_policy_document.datadog_trust[0].json
 }
 
-resource "aws_iam_role_policy_attachment" "datadog_readonly" {
-  count      = var.datadog_external_id == "" ? 0 : 1
-  role       = aws_iam_role.datadog_integration[0].name
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
-}
-
-# ReadOnlyAccess가 허용하는 데이터 평면 읽기(tfstate 버킷의 시크릿 등)를 Deny — 명시적 Deny가 Allow보다 우선.
-data "aws_iam_policy_document" "datadog_deny_data_reads" {
+# Datadog 문서의 AWS 통합 권한 목록 기반 allow-only 인라인 정책.
+# 데모에서 쓰는 서비스(EKS/EC2/ELB/RDS/MSK/OpenSearch/ECR/S3 메타데이터)로 한정했고,
+# 데이터 평면 읽기(S3 객체, 시크릿, 로그 내용 등)는 포함하지 않는다.
+# Datadog 타일이 권한 부족을 알리면 여기에 액션을 추가한다.
+data "aws_iam_policy_document" "datadog_permissions" {
   count = var.datadog_external_id == "" ? 0 : 1
 
   statement {
-    effect = "Deny"
+    effect = "Allow"
     actions = [
-      "s3:GetObject*",
-      "secretsmanager:GetSecretValue",
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:GetParametersByPath",
-      "kms:Decrypt",
-      "dynamodb:GetItem",
-      "dynamodb:BatchGetItem",
-      "dynamodb:Query",
-      "dynamodb:Scan",
-      "ssm:GetParameterHistory",
-      "lambda:GetFunction",
-      "ec2:GetPasswordData",
-      "dynamodb:PartiQLSelect",
-      "dynamodb:ExecuteStatement",
-      "dynamodb:BatchExecuteStatement",
-      "logs:GetLogEvents",
-      "logs:StartQuery",
-      "codecommit:GetFile",
-      "codecommit:GetBlob",
-      "athena:GetQueryResults",
-      "kinesis:GetRecords",
-      "sqs:ReceiveMessage",
+      "cloudwatch:Get*",
+      "cloudwatch:List*",
+      "cloudwatch:Describe*",
+      "ec2:Describe*",
+      "autoscaling:Describe*",
+      "elasticloadbalancing:Describe*",
+      "rds:Describe*",
+      "rds:List*",
+      "kafka:Describe*",
+      "kafka:List*",
+      "es:Describe*",
+      "es:List*",
+      "eks:Describe*",
+      "eks:List*",
+      "ecr:Describe*",
+      "s3:ListAllMyBuckets",
+      "s3:GetBucketLocation",
+      "s3:GetBucketTagging",
+      "s3:GetBucketLogging",
+      "s3:GetBucketNotification",
+      "logs:DescribeLogGroups",
+      "logs:DescribeLogStreams",
+      "logs:DescribeSubscriptionFilters",
+      "tag:GetResources",
+      "tag:GetTagKeys",
+      "tag:GetTagValues",
+      "health:DescribeEvents",
+      "health:DescribeEventDetails",
+      "health:DescribeAffectedEntities",
+      "budgets:ViewBudget",
+      "support:DescribeTrustedAdvisor*",
     ]
     resources = ["*"]
   }
 }
 
-resource "aws_iam_role_policy" "datadog_deny_data_reads" {
+resource "aws_iam_role_policy" "datadog_permissions" {
   count  = var.datadog_external_id == "" ? 0 : 1
-  name   = "deny-data-plane-reads"
+  name   = "datadog-integration-permissions"
   role   = aws_iam_role.datadog_integration[0].id
-  policy = data.aws_iam_policy_document.datadog_deny_data_reads[0].json
+  policy = data.aws_iam_policy_document.datadog_permissions[0].json
 }
