@@ -65,8 +65,8 @@ resource "aws_vpc_security_group_ingress_rule" "postgres" {
 
 resource "aws_vpc_security_group_egress_rule" "all_out" {
   security_group_id = aws_security_group.rds.id
-  cidr_ipv4          = "0.0.0.0/0"
-  ip_protocol        = "-1"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
 }
 
 resource "random_password" "master" {
@@ -101,7 +101,7 @@ resource "aws_db_parameter_group" "this" {
 
   parameter {
     name         = "pg_stat_statements.track"
-    value        = "ALL"
+    value        = "all"
     apply_method = "immediate"
   }
 
@@ -144,7 +144,7 @@ resource "aws_db_instance" "this" {
   parameter_group_name = aws_db_parameter_group.this.name
 
   allocated_storage = var.allocated_storage
-  storage_type       = "gp3"
+  storage_type      = "gp3"
 
   db_name  = var.db_name
   username = var.username

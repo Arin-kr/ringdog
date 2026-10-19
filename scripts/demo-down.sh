@@ -20,15 +20,17 @@ cluster_exists() {
 }
 
 # Ingress가 만든 ALB·target group·security group 중 남은 것을 출력한다 (없으면 빈 문자열).
+# $(...) 안에서는 errexit가 꺼지므로 aws 실패를 return 1로 넘기고, 호출부가 fail한다
+# (실패를 빈 문자열 = "다 지워짐"으로 오판하지 않게).
 lb_leftovers() {
   local lbs tgs sgs
   lbs=$(aws elbv2 describe-load-balancers --region "$REGION" \
-    --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-ringdog')].LoadBalancerName" --output text)
+    --query "LoadBalancers[?starts_with(LoadBalancerName, 'k8s-ringdog')].LoadBalancerName" --output text) || return 1
   tgs=$(aws elbv2 describe-target-groups --region "$REGION" \
-    --query "TargetGroups[?starts_with(TargetGroupName, 'k8s-ringdog')].TargetGroupName" --output text)
+    --query "TargetGroups[?starts_with(TargetGroupName, 'k8s-ringdog')].TargetGroupName" --output text) || return 1
   sgs=$(aws ec2 describe-security-groups --region "$REGION" \
     --filters "Name=tag:elbv2.k8s.aws/cluster,Values=$CLUSTER" \
-    --query "SecurityGroups[].GroupId" --output text)
+    --query "SecurityGroups[].GroupId" --output text) || return 1
   echo "${lbs} ${tgs} ${sgs}" | xargs
 }
 
@@ -44,7 +46,7 @@ remove_alb() {
     || echo "경고: Ingress 삭제가 5분 안에 끝나지 않았습니다. ALB 삭제 여부를 직접 확인하며 계속합니다"
   local left=""
   for _ in $(seq 1 40); do
-    left=$(lb_leftovers)
+    left=$(lb_leftovers) || fail "ALB·target group·보안 그룹 조회에 실패했습니다 (자격 증명·throttling 확인)"
     [ -z "$left" ] && return 0
     echo "ALB·target group·보안 그룹 삭제 대기 중: $left"
     sleep 15
@@ -52,10 +54,24 @@ remove_alb() {
   fail "ALB 관련 리소스가 10분 안에 지워지지 않았습니다: $left"
 }
 
+rds_exists() {
+  local err
+  if err=$(aws rds describe-db-instances --db-instance-identifier ringdog-demo --region "$REGION" 2>&1 >/dev/null); then
+    return 0
+  fi
+  case "$err" in
+    *DBInstanceNotFound*) return 1 ;;
+    *) fail "RDS 상태를 확인하지 못했습니다 (자격 증명·throttling 확인): $err" ;;
+  esac
+}
+
 verify_gone() {
-  [ -z "$(terraform -chdir="$TF_DIR" state list)" ] || fail "Terraform state에 리소스가 남아 있습니다"
-  aws eks describe-cluster --name "$CLUSTER" --region "$REGION" >/dev/null 2>&1 && fail "EKS 클러스터가 남아 있습니다"
-  aws rds describe-db-instances --db-instance-identifier ringdog-demo --region "$REGION" >/dev/null 2>&1 && fail "RDS가 남아 있습니다"
+  local state
+  state=$(terraform -chdir="$TF_DIR" state list) || fail "Terraform state를 읽지 못했습니다"
+  [ -z "$state" ] || fail "Terraform state에 리소스가 남아 있습니다"
+  # 조회 오류를 "없음"으로 오판하지 않게 NotFound만 삭제 완료로 본다
+  if cluster_exists; then fail "EKS 클러스터가 남아 있습니다"; fi
+  if rds_exists; then fail "RDS가 남아 있습니다"; fi
   echo "삭제 완료: EKS·RDS·ALB 없음, Terraform state 비어 있음 (bootstrap·team 스택은 유지)"
 }
 
