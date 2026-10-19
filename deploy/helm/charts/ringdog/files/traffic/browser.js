@@ -74,29 +74,29 @@ export default async function () {
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
-    // 폼 로그인은 하이드레이션 전 fill이 빈 state로 제출돼 400이 나므로, http로 토큰을 받아 localStorage에 주입한다.
+    // 폼 로그인은 하이드레이션 전 fill이 400을 내므로 http로 토큰을 받아, 페이지 스크립트보다 먼저 localStorage에 주입한다.
+    // (goto 후 evaluate + 재이동은 RUM remote config fetch를 중단시켜 SDK가 시작되지 않음)
     const token = login((__VU - 1) % USERS);
-    await page.goto(`${BASE}/`);
-    await page.evaluate(({ k, t }) => localStorage.setItem(k, t), { k: TOKEN_KEY, t: token });
-    await page.goto(`${BASE}/`); // 토큰을 가진 채로 실제 페이지 로드 (RUM 뷰)
+    await context.addInitScript(`localStorage.setItem(${JSON.stringify(TOKEN_KEY)}, ${JSON.stringify(token)});`);
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
     const addButton = page.locator('(//button[normalize-space()="장바구니"])[1]');
     await addButton.waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(3000); // 인기상품 위젯 로딩이 Replay에 남도록 + 하이드레이션 대기
     await addButton.click();
     await page.waitForTimeout(2500); // 장바구니 요청 완료 대기 (0.52 browser에 waitForResponse 없음)
 
-    await page.goto(`${BASE}/cart`);
+    await page.goto(`${BASE}/cart`, { waitUntil: "networkidle" });
     const coupon = page.locator('input[placeholder="RINGDOG100"]');
     try {
       await coupon.waitFor({ state: "visible", timeout: 8000 });
     } catch (e) {
       // 장바구니가 비어 있으면(클릭이 하이드레이션 전에 유실) 한 번 더 담고 재시도
-      await page.goto(`${BASE}/`);
+      await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
       await addButton.waitFor({ state: "visible", timeout: 15000 });
       await page.waitForTimeout(3000);
       await addButton.click();
       await page.waitForTimeout(2500);
-      await page.goto(`${BASE}/cart`);
+      await page.goto(`${BASE}/cart`, { waitUntil: "networkidle" });
       await coupon.waitFor({ state: "visible", timeout: 15000 });
     }
     if (Math.random() >= COUPON_RATIO) {
@@ -116,7 +116,7 @@ export default async function () {
         // 버튼이 없어짐 — rage click 생략
       }
     }
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(3000); // 마지막 뷰·액션(rage click)이 RUM intake로 flush되도록 대기
   } finally {
     await page.close();
     await context.close();
