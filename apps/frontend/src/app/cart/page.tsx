@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { Header } from "@/components/Header";
 import { apiFetch, ApiError } from "@/lib/apiClient";
@@ -41,6 +41,8 @@ export default function CartPage(): JSX.Element {
   const [couponCode, setCouponCode] = useState("RINGDOG100");
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
+  // state는 다음 렌더 전까지 갱신되지 않으므로 연타 차단은 ref로 즉시 판정한다.
+  const checkingOutRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [orderResult, setOrderResult] = useState<CheckoutResponse | null>(null);
 
@@ -78,6 +80,10 @@ export default function CartPage(): JSX.Element {
 
   async function handleCheckout(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    // 결제 중 재클릭(연타)은 무시해 중복 주문을 막는다. 버튼은 enabled로 둬야
+    // 브라우저가 click을 발생시키고 RUM이 Rage Click을 잡는다.
+    if (checkingOutRef.current) return;
+    checkingOutRef.current = true;
     setCheckingOut(true);
     setError(null);
 
@@ -92,6 +98,7 @@ export default function CartPage(): JSX.Element {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "결제에 실패했습니다.");
     } finally {
+      checkingOutRef.current = false;
       setCheckingOut(false);
     }
   }
@@ -159,8 +166,8 @@ export default function CartPage(): JSX.Element {
               </label>
               <button
                 type="submit"
-                className="rounded-full bg-primary-500 px-4 py-2.5 font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
-                disabled={checkingOut}
+                className="rounded-full bg-primary-500 px-4 py-2.5 font-medium text-white transition hover:bg-primary-600 aria-busy:opacity-50"
+                aria-busy={checkingOut}
               >
                 {checkingOut ? "결제 처리 중..." : "결제하기"}
               </button>

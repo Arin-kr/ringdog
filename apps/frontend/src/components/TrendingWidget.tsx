@@ -46,11 +46,11 @@ export function TrendingWidget(): JSX.Element | null {
   }
 
   if (state.status === "loading") {
-    return <div aria-hidden className="mb-6 h-40 animate-pulse rounded-2xl bg-cream" />;
+    return <div aria-hidden className="mb-6 h-56 animate-pulse rounded-2xl bg-cream" />;
   }
 
   return (
-    <section aria-label="실시간 인기상품" className="mb-6 h-40 rounded-2xl bg-white p-4 shadow-soft">
+    <section aria-label="실시간 인기상품" className="mb-6 h-56 rounded-2xl bg-white p-4 shadow-soft">
       <h2 className="font-heading text-lg text-stone-800">실시간 인기상품</h2>
       <ol className="mt-2 flex gap-3 overflow-x-auto">
         {state.items.map((item, index) => (

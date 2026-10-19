@@ -57,16 +57,16 @@ export default async function () {
     }
     const pay = page.locator('button[type="submit"]');
     await pay.click();
-    await page.waitForTimeout(3000);
-    // 시나리오 ① 장애 중 결제가 늦으면 다시 누르는 사용자 → RUM frustration(rage click)
-    // 결제 중에는 버튼이 disabled(checkingOut)이므로 force로 enabled 검사를 건너뛰어,
-    // 결제가 멈춘 동안 비활성 버튼에 연타가 들어가게 한다 → RUM Rage Click 신호.
-    // 첫 클릭 후 페이지가 이동했으면(정상 결제) 버튼이 사라지므로 짧은 timeout + try/catch로 건너뜀
-    try {
-      await pay.click({ force: true, timeout: 1000 });
-      await pay.click({ force: true, timeout: 1000 });
-    } catch (e) {
-      // navigation으로 버튼이 없어짐 — rage click 생략
+    // 시나리오 ① 장애 중 결제가 멈추면 연타하는 사용자 → RUM frustration(Rage Click).
+    // Rage Click 조건: 같은 요소를 1초 안에 3회 이상 클릭. 그래서 첫 클릭 직후 간격 없이 3회 더 누른다.
+    // 결제 중에도 버튼은 enabled(프런트 핸들러가 재진입만 막음)라 click 이벤트가 실제로 발생한다.
+    // 정상 결제로 버튼이 사라지면(주문 완료 화면) 짧은 timeout + try/catch로 해당 클릭을 건너뜀
+    for (let i = 0; i < 3; i++) {
+      try {
+        await pay.click({ force: true, timeout: 300 });
+      } catch (e) {
+        // 버튼이 없어짐 — rage click 생략
+      }
     }
     await page.waitForTimeout(3000);
   } finally {
