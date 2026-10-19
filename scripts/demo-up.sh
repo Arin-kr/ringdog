@@ -29,7 +29,12 @@ verify() {
   kubectl -n "$NS" get hpa backend-api
   kubectl -n "$NS" rollout status deployment/traffic-api --timeout=120s
   kubectl -n "$NS" rollout status deployment/traffic-browser --timeout=300s
-  host=$(kubectl -n "$NS" get ingress ringdog -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  host=""
+  for _ in $(seq 1 30); do
+    host=$(kubectl -n "$NS" get ingress ringdog -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+    [ -n "$host" ] && break
+    sleep 10
+  done
   [ -n "$host" ] || fail "ALB 주소가 없습니다"
   echo "준비 완료: http://${host}"
 }
