@@ -31,6 +31,24 @@ function signup(i) {
   });
 }
 
+// apps/frontend/src/lib/auth.ts의 TOKEN_KEY
+const TOKEN_KEY = "ringdog_token";
+
+// 401이면 계정이 없는 것이므로 signup 1회 후 재로그인
+function login(i) {
+  const doLogin = () =>
+    http.post(`${BASE}/api/auth/login`, JSON.stringify({ email: email(i), password: PASSWORD }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  let res = doLogin();
+  if (res.status === 401) {
+    signup(i);
+    res = doLogin();
+  }
+  if (res.status !== 200) throw new Error(`login ${email(i)} failed: ${res.status} ${res.body}`);
+  return res.json("token");
+}
+
 const SETUP_DEADLINE_S = 600;
 const RETRY_SLEEP_S = 10;
 
@@ -56,26 +74,31 @@ export default async function () {
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
-    await page.goto(`${BASE}/login`);
-    // 헤더(검색)·챗 위젯에도 submit 버튼이 있으므로 <main> 안의 해당 form으로 한정 (strict mode 위반 방지)
-    const emailInput = page.locator('main input[type="email"]');
-    await emailInput.waitFor({ state: "visible", timeout: 30000 });
-    await page.waitForTimeout(1000); // 하이드레이션 대기 (React 핸들러 연결 전 fill 방지)
-    await emailInput.fill(email((__VU - 1) % USERS));
-    await page.locator('main input[type="password"]').fill(PASSWORD);
-    await page.locator('main form:has(input[type="password"]) button[type="submit"]').click();
-    await page.waitForTimeout(2000); // 클라이언트 라우팅(router.push)이라 navigation 이벤트가 없음
-
+    // 폼 로그인은 하이드레이션 전 fill이 빈 state로 제출돼 400이 나므로, http로 토큰을 받아 localStorage에 주입한다.
+    const token = login((__VU - 1) % USERS);
     await page.goto(`${BASE}/`);
+    await page.evaluate(({ k, t }) => localStorage.setItem(k, t), { k: TOKEN_KEY, t: token });
+    await page.goto(`${BASE}/`); // 토큰을 가진 채로 실제 페이지 로드 (RUM 뷰)
     const addButton = page.locator('(//button[normalize-space()="장바구니"])[1]');
     await addButton.waitFor({ state: "visible", timeout: 15000 });
-    await page.waitForTimeout(2000); // 인기상품 위젯 로딩이 Replay에 남도록
+    await page.waitForTimeout(3000); // 인기상품 위젯 로딩이 Replay에 남도록 + 하이드레이션 대기
     await addButton.click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2500); // 장바구니 요청 완료 대기 (0.52 browser에 waitForResponse 없음)
 
     await page.goto(`${BASE}/cart`);
     const coupon = page.locator('input[placeholder="RINGDOG100"]');
-    await coupon.waitFor({ state: "visible", timeout: 15000 });
+    try {
+      await coupon.waitFor({ state: "visible", timeout: 8000 });
+    } catch (e) {
+      // 장바구니가 비어 있으면(클릭이 하이드레이션 전에 유실) 한 번 더 담고 재시도
+      await page.goto(`${BASE}/`);
+      await addButton.waitFor({ state: "visible", timeout: 15000 });
+      await page.waitForTimeout(3000);
+      await addButton.click();
+      await page.waitForTimeout(2500);
+      await page.goto(`${BASE}/cart`);
+      await coupon.waitFor({ state: "visible", timeout: 15000 });
+    }
     if (Math.random() >= COUPON_RATIO) {
       await coupon.fill("");
     }
