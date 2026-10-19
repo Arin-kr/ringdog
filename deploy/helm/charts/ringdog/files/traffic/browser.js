@@ -116,8 +116,16 @@ export default async function () {
         // 버튼이 없어짐 — rage click 생략
       }
     }
-    await page.waitForTimeout(3000); // 마지막 뷰·액션(rage click)이 RUM intake로 flush되도록 대기
+    await page.waitForTimeout(3000); // 결제 응답·rage click 액션이 RUM에 기록되도록 대기
   } finally {
+    // context.close()는 브라우저를 바로 끝내서 RUM이 아직 보내지 않은 batch가 버려진다.
+    // 다른 페이지로 이동하면 pagehide에서 SDK가 남은 이벤트를 sendBeacon으로 flush하므로, 이동 후 잠시 기다린다.
+    try {
+      await page.goto("about:blank");
+      await page.waitForTimeout(5000);
+    } catch (e) {
+      // 정리 단계 실패는 무시
+    }
     await page.close();
     await context.close();
   }
