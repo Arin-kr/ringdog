@@ -6,6 +6,7 @@ metadata:
   labels:
     app: frontend
     {{- include "ringdog.labels" . | nindent 4 }}
+    {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-frontend" "version" .Values.image.tag) | nindent 4 }}
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
@@ -15,6 +16,7 @@ spec:
     metadata:
       labels:
         app: frontend
+        {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-frontend" "version" .Values.image.tag) | nindent 8 }}
     spec:
       containers:
         - name: frontend
@@ -39,6 +41,8 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /

@@ -6,6 +6,8 @@ metadata:
   annotations:
     eks.amazonaws.com/role-arn: {{ .Values.backendApi.irsaRoleArn | default "" | quote }}
 ---
+{{- $tag := .Values.backendApi.imageTag | default .Values.image.tag }}
+{{- $version := .Values.backendApi.version | default $tag }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +15,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: backend-api
+    {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-backend-api" "version" $version) | nindent 4 }}
 spec:
   replicas: {{ .Values.backendApi.replicaCount }}
   selector:
@@ -22,13 +25,14 @@ spec:
     metadata:
       labels:
         app: backend-api
+        {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-backend-api" "version" $version) | nindent 8 }}
       annotations:
         ad.datadoghq.com/backend-api.logs: '[{"source":"nodejs","service":"ringdog-backend-api"}]'
     spec:
       serviceAccountName: {{ .Values.backendApi.serviceAccountName }}
       containers:
         - name: backend-api
-          image: {{ include "ringdog.image" (dict "Values" .Values "repo" "ringdog-backend-api") }}
+          image: {{ include "ringdog.image" (dict "Values" .Values "repo" "ringdog-backend-api" "tag" $tag) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.backendApi.port }}
@@ -49,6 +53,8 @@ spec:
               value: {{ .Values.datadog.env | quote }}
             - name: DD_SERVICE
               value: ringdog-backend-api
+            - name: DD_VERSION
+              value: {{ $version | quote }}
             - name: DD_AGENT_HOST
               valueFrom:
                 fieldRef:
@@ -61,6 +67,8 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          resources:
+            {{- toYaml .Values.backendApi.resources | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /health

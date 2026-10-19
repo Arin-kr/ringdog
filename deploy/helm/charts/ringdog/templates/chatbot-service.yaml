@@ -13,6 +13,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: chatbot-service
+    {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-chatbot-service" "version" .Values.image.tag) | nindent 4 }}
 spec:
   replicas: {{ .Values.chatbotService.replicaCount }}
   selector:
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: chatbot-service
+        {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-chatbot-service" "version" .Values.image.tag) | nindent 8 }}
       annotations:
         ad.datadoghq.com/chatbot-service.logs: '[{"source":"nodejs","service":"ringdog-chatbot-service"}]'
     spec:
@@ -49,6 +51,8 @@ spec:
               value: {{ .Values.datadog.env | quote }}
             - name: DD_SERVICE
               value: ringdog-chatbot-service
+            - name: DD_VERSION
+              value: {{ .Values.image.tag | quote }}
             - name: DD_AGENT_HOST
               valueFrom:
                 fieldRef:
@@ -65,6 +69,8 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          resources:
+            {{- toYaml .Values.chatbotService.resources | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /health

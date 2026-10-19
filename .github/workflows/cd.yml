@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+  # 환경을 새로 만든 뒤 빈 커밋 없이 배포하기 위한 수동 실행. OIDC 신뢰 조건상
+  # main 브랜치에서 실행해야 함 (Actions 화면의 "Use workflow from: main").
+  workflow_dispatch:
 
 concurrency:
   # Never cancel an in-flight deploy - let it finish (or fail) before the next one starts.

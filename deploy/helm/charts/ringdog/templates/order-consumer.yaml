@@ -13,6 +13,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: order-consumer
+    {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-order-consumer" "version" .Values.image.tag) | nindent 4 }}
 spec:
   replicas: {{ .Values.orderConsumer.replicaCount }}
   selector:
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: order-consumer
+        {{- include "ringdog.ddLabels" (dict "env" .Values.datadog.env "service" "ringdog-order-consumer" "version" .Values.image.tag) | nindent 8 }}
       annotations:
         ad.datadoghq.com/order-consumer.logs: '[{"source":"nodejs","service":"ringdog-order-consumer"}]'
     spec:
@@ -42,6 +44,8 @@ spec:
               value: {{ .Values.datadog.env | quote }}
             - name: DD_SERVICE
               value: ringdog-order-consumer
+            - name: DD_VERSION
+              value: {{ .Values.image.tag | quote }}
             - name: DD_AGENT_HOST
               valueFrom:
                 fieldRef:
@@ -54,6 +58,8 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          resources:
+            {{- toYaml .Values.orderConsumer.resources | nindent 12 }}
 ---
 apiVersion: v1
 kind: Secret

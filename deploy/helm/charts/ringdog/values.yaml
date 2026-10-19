@@ -21,11 +21,22 @@ frontend:
   env:
     NEXT_PUBLIC_API_BASE_URL: ""
     NEXT_PUBLIC_CHATBOT_API_BASE_URL: ""
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
 
 backendApi:
   replicaCount: 1
   port: 4000
   serviceAccountName: backend-api
+  # 시나리오 ② demo-deploy.yml이 --set으로 지정. 비우면 전역 image.tag(sha) 사용.
+  # cd.yml 1차 helm upgrade는 --reuse-values가 없어 이 값을 다시 비운다.
+  imageTag: ""
+  version: ""
+  # HPA는 CPU 사용률 기준이므로 requests.cpu가 반드시 있어야 한다 (Task 8).
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
   env:
     NODE_ENV: production
     CORS_ORIGIN: ""
@@ -44,6 +55,9 @@ chatbotService:
     NODE_ENV: production
     BEDROCK_MOCK_MODE: "false"
     CORS_ORIGIN: ""
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 384Mi }
 
 orderConsumer:
   replicaCount: 1
@@ -53,6 +67,9 @@ orderConsumer:
     NODE_ENV: production
     # Same MSK bootstrap brokers as backendApi.env.KAFKA_BROKERS above.
     KAFKA_BROKERS: ""
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 384Mi }
 
 # Non-secret runtime config — wire Secrets Manager via External Secrets in production.
 secrets:
@@ -69,3 +86,7 @@ datadog:
   rumApplicationId: ""
   rumClientToken: ""
   rumRemoteConfigurationId: ""
+
+limitRange:
+  defaultRequest: { cpu: 50m, memory: 64Mi }
+  default: { memory: 512Mi }

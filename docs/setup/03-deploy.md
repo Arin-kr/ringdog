@@ -18,16 +18,8 @@ DB 접속 정보·Kafka 주소·OpenSearch 주소 등 환경마다 바뀌는 값
 
 ## 3-2. 배포 실행
 
-**현재 `cd.yml`은 `main` 브랜치에 push할 때만 실행됩니다.**
-환경을 새로 만든 직후에는 아래처럼 빈 커밋을 push해서 배포를 시작합니다.
-
-```bash
-git checkout main && git pull
-git commit --allow-empty -m "chore: deploy to fresh demo env"
-git push origin main
-```
-
-> 수동 실행 버튼(`workflow_dispatch`) 추가는 데모 구현 계획에 포함되어 있습니다. 추가되면 이 절을 갱신합니다.
+GitHub → Actions → **cd** → **Run workflow** (브랜치: `main`) 를 누릅니다.
+main에 push해도 자동으로 실행됩니다.
 
 GitHub → Actions → `cd`에서 진행 상황을 확인합니다. 약 15분 걸리며 아래 순서로 실행됩니다.
 1. 이미지 4개 빌드 → ECR push
@@ -57,6 +49,6 @@ kubectl get ingress ringdog -n ringdog -o jsonpath='{.status.loadBalancer.ingres
 | `Configure AWS credentials` 단계 실패 | 환경이 없거나(`terraform apply` 전) `AWS_ROLE_ARN`이 잘못됨. OIDC는 `main` 브랜치와 PR에서만 허용됨 |
 | `x509: certificate signed by unknown authority` (Ingress 적용 중) | ALB Controller 시작 직후 일시적 오류. 워크플로가 자동으로 최대 5회 재시도 |
 | ALB 주소로 접속 불가 | DNS 전파 대기 (2~3분). `kubectl get ingress -n ringdog`에 ADDRESS가 있는지 확인 |
-| GitHub에서 Re-run 불가 | 30일이 지난 실행은 re-run이 안 됨. 3-2의 빈 커밋 push로 새로 실행 |
+| GitHub에서 Re-run 불가 | 30일이 지난 실행은 re-run이 안 됨. Run workflow로 새로 실행 |
 
 다음 단계: [4. Datadog 설정](./04-datadog.md)
