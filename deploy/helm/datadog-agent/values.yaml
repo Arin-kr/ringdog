@@ -59,15 +59,41 @@ datadog:
   # Kubernetes State Metrics feeds EKS cluster-level dashboards (Infrastructure Monitoring).
   kubeStateMetricsEnabled: true
 
-  # Demo-sized resource footprint for the Node Agent DaemonSet - intentionally small
-  # since this is a demo cluster, not a production sizing.
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 200m
-      memory: 512Mi
+# 노드 Agent DaemonSet 리소스. 차트에 `datadog.resources` 키는 없어(이전 값은 무시됐음) 컨테이너별
+# `agents.containers.<name>.resources`로 지정한다. 지정하지 않으면 ringdog 네임스페이스 LimitRange
+# 기본값(요청 64Mi / 한도 512Mi)이 붙어 DBM(postgres 체크)을 도는 Agent가 OOM 날 수 있다.
+# CPU 한도는 두지 않는다(LimitRange에도 CPU 기본 한도 없음). t3 노드에 맞춘 데모 규모.
+agents:
+  containers:
+    agent:
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+    traceAgent:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+    # 차트 3.230 기준 프로세스 수집은 core agent 안에서 돌아 process-agent 컨테이너가 없을 수 있다(있으면 적용)
+    processAgent:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+    systemProbe:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
 
 # --- Cluster Agent + Admission Controller ---
 # Cluster-level metrics API and consistent auto-injection of dd-trace/tracer config

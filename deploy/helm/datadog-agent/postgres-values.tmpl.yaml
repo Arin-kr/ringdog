@@ -6,6 +6,8 @@
 datadog:
   secretBackend:
     command: "/readsecret_multiple_providers.sh"
+    # 기본값(true)은 모든 네임스페이스 Secret get 권한(ClusterRole)을 준다. 끄고 아래 roles만 쓴다.
+    enableGlobalPermissions: false
     roles:
       - namespace: ringdog
         secrets:

@@ -185,10 +185,12 @@ jobs:
           DD_DB_PASSWORD: ${{ steps.resolve.outputs.dd_db_password }}
         run: |
           kubectl -n ${{ env.K8S_NAMESPACE }} delete pod ringdog-dbm-setup --ignore-not-found
+          # datadog 비밀번호는 파드 인자(프로세스 목록·Live Processes에 보임)가 아니라 env(DD_PW)로 넘기고,
+          # 작은따옴표 안의 "$DD_PW"·"$1".."$3"은 러너가 아닌 파드 안 sh가 펼친다.
           kubectl -n ${{ env.K8S_NAMESPACE }} run ringdog-dbm-setup --rm -i --restart=Never \
-            --image=postgres:16-alpine --env="PGPASSWORD=${DB_PASS}" --command -- \
-            psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 \
-              -v dd_password="${DD_DB_PASSWORD}" -f - < deploy/dbm/datadog-setup.sql
+            --image=postgres:16-alpine --env="PGPASSWORD=${DB_PASS}" --env="DD_PW=${DD_DB_PASSWORD}" --command -- \
+            sh -c 'exec psql -h "$1" -U "$2" -d "$3" -v ON_ERROR_STOP=1 -v dd_password="$DD_PW" -f -' \
+              sh "${DB_HOST}" "${DB_USER}" "${DB_NAME}" < deploy/dbm/datadog-setup.sql
 
       # 시나리오 ① 대량 데이터. 이미 했으면 SQL이 바로 건너뛴다 (첫 배포만 몇 분 더 걸림).
       - name: Bulk seed for demo scenario 01
