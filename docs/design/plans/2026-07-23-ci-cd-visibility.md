@@ -21,7 +21,7 @@
 
 ---
 
-### Task 1: `backend-api` real unit tests (order total calculation)
+### Task 1: `backend-api` real unit tests (order total calculation) (2026-10-16 main에 cherry-pick됨)
 
 **Files:**
 - Create: `apps/backend-api/src/lib/orderTotal.ts`
