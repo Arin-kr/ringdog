@@ -1,0 +1,100 @@
+{{- if and .Values.trafficGen.enabled .Values.trafficGen.targetUrl }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traffic-gen-scripts
+  namespace: {{ .Values.namespace }}
+data:
+{{ (.Files.Glob "files/traffic/*.js").AsConfig | indent 2 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: traffic-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-api
+  template:
+    metadata:
+      labels:
+        app: traffic-api
+      annotations:
+        checksum/scripts: {{ (.Files.Glob "files/traffic/*.js").AsConfig | sha256sum }}
+        # k6 자체 로그는 데모 로그 검색을 어지럽히므로 수집 제외
+        ad.datadoghq.com/k6.logs: '[{"source":"k6","service":"ringdog-traffic-gen","log_processing_rules":[{"type":"exclude_at_match","name":"drop_all","pattern":".*"}]}]'
+    spec:
+      containers:
+        - name: k6
+          image: {{ .Values.trafficGen.image }}
+          args: ["run", "--quiet", "/scripts/api.js"]
+          env:
+            - name: TARGET_URL
+              value: {{ .Values.trafficGen.targetUrl | quote }}
+            - name: RATE_PER_MIN
+              value: {{ .Values.trafficGen.apiRatePerMin | quote }}
+            - name: USERS
+              value: {{ .Values.trafficGen.apiUsers | quote }}
+            - name: CHECKOUT_RATIO
+              value: {{ .Values.trafficGen.checkoutRatio | quote }}
+            - name: COUPON_RATIO
+              value: {{ .Values.trafficGen.couponRatio | quote }}
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts }
+      volumes:
+        - name: scripts
+          configMap:
+            name: traffic-gen-scripts
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-browser
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: traffic-browser
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-browser
+  template:
+    metadata:
+      labels:
+        app: traffic-browser
+      annotations:
+        checksum/scripts: {{ (.Files.Glob "files/traffic/*.js").AsConfig | sha256sum }}
+        ad.datadoghq.com/k6.logs: '[{"source":"k6","service":"ringdog-traffic-gen","log_processing_rules":[{"type":"exclude_at_match","name":"drop_all","pattern":".*"}]}]'
+    spec:
+      containers:
+        - name: k6
+          image: {{ .Values.trafficGen.browserImage }}
+          args: ["run", "--quiet", "/scripts/browser.js"]
+          env:
+            - name: TARGET_URL
+              value: {{ .Values.trafficGen.targetUrl | quote }}
+            - name: RATE_PER_MIN
+              value: {{ .Values.trafficGen.browserRatePerMin | quote }}
+            - name: COUPON_RATIO
+              value: {{ .Values.trafficGen.couponRatio | quote }}
+            - name: K6_BROWSER_HEADLESS
+              value: "true"
+            - name: K6_BROWSER_ARGS
+              value: "no-sandbox"
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { memory: 1536Mi }
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts }
+      volumes:
+        - name: scripts
+          configMap:
+            name: traffic-gen-scripts
+{{- end }}

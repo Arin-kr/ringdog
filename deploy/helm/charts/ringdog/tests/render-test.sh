@@ -39,4 +39,19 @@ echo "$out" | awk '/^kind: Deployment/{d=0} /name: backend-api$/{d=1} d&&/replic
 out=$(helm template ringdog "$CHART" "${BASE[@]}" --set backendApi.hpa.enabled=false)
 echo "$out" | grep -q 'kind: HorizontalPodAutoscaler' && fail "hpa off"
 
+# 6) 트래픽 생성기: 기본 꺼짐, targetUrl 없으면 켜도 렌더링 안 함
+out=$(helm template ringdog "$CHART" "${BASE[@]}")
+echo "$out" | grep -q 'name: traffic-api' && fail "traffic off by default"
+out=$(helm template ringdog "$CHART" "${BASE[@]}" --set trafficGen.enabled=true)
+echo "$out" | grep -q 'name: traffic-api' && fail "no render without targetUrl"
+out=$(helm template ringdog "$CHART" "${BASE[@]}" --set trafficGen.enabled=true --set trafficGen.targetUrl=http://alb.example \
+  --set trafficGen.apiRatePerMin=240 --set trafficGen.apiUsers=40 --set trafficGen.checkoutRatio=0.25)
+echo "$out" | grep -q 'name: traffic-api' || fail "traffic-api rendered"
+echo "$out" | grep -q 'name: traffic-browser' || fail "traffic-browser rendered"
+echo "$out" | grep -q 'value: "http://alb.example"' || fail "TARGET_URL env"
+echo "$out" | grep -A1 'name: RATE_PER_MIN' | grep -q 'value: "240"' || fail "spike rate"
+echo "$out" | grep -A1 'name: USERS' | grep -q 'value: "40"' || fail "spike users"
+echo "$out" | grep -A1 'name: CHECKOUT_RATIO' | grep -q 'value: "0.25"' || fail "checkout ratio"
+echo "$out" | grep -q 'api.js: |' || fail "script configmap"
+
 echo "ALL PASS"

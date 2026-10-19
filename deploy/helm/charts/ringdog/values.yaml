@@ -100,3 +100,17 @@ limitRange:
 # 시나리오 ① 기능 플래그 (문자열 "true"/"false")
 featureFlags:
   trendingWidget: "false"
+
+# 데모 트래픽 생성기 (k6). deploy/demo/demo-control.sh가 켜고 끄고 프로필을 바꾼다.
+# targetUrl은 ALB 주소 — RUM은 브라우저가 Datadog으로 직접 보내므로 실제 외부 경로를 써야 함.
+# 평시: rate 30 / users 5 / checkout 1, 급증(시나리오 ①): rate 240 / users 40 / checkout 0.25
+trafficGen:
+  enabled: false
+  targetUrl: ""
+  apiRatePerMin: 30
+  apiUsers: 5
+  checkoutRatio: "1"
+  couponRatio: "0"
+  browserRatePerMin: 1
+  image: grafana/k6:0.52.0
+  browserImage: grafana/k6:0.52.0-with-browser
