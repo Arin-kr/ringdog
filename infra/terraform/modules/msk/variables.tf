@@ -20,9 +20,9 @@ variable "allowed_security_group_ids" {
 }
 
 variable "kafka_version" {
-  description = "Apache Kafka version."
+  description = "Apache Kafka version. MSK no longer accepts 3.6.0 for standard brokers (2026-10); 3.8.x auto-picks the latest 3.8 patch."
   type        = string
-  default     = "3.6.0"
+  default     = "3.8.x"
 }
 
 variable "number_of_broker_nodes" {
