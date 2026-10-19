@@ -190,6 +190,19 @@ jobs:
             psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 \
               -v dd_password="${DD_DB_PASSWORD}" -f - < deploy/dbm/datadog-setup.sql
 
+      # 시나리오 ① 대량 데이터. 이미 했으면 SQL이 바로 건너뛴다 (첫 배포만 몇 분 더 걸림).
+      - name: Bulk seed for demo scenario 01
+        env:
+          DB_HOST: ${{ steps.resolve.outputs.db_host }}
+          DB_USER: ${{ steps.resolve.outputs.db_user }}
+          DB_PASS: ${{ steps.resolve.outputs.db_pass }}
+          DB_NAME: ${{ steps.resolve.outputs.db_name }}
+        run: |
+          kubectl -n ${{ env.K8S_NAMESPACE }} delete pod ringdog-bulk-seed --ignore-not-found
+          kubectl -n ${{ env.K8S_NAMESPACE }} run ringdog-bulk-seed --rm -i --restart=Never \
+            --image=postgres:16-alpine --env="PGPASSWORD=${DB_PASS}" --command -- \
+            psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f - < deploy/demo/sql/bulk-seed.sql
+
       # Deferred until the app itself is done — enable by adding DD_API_KEY /
       # DD_APP_KEY as repository secrets (no other change needed).
       - name: Deploy / upgrade Datadog Agent
@@ -329,7 +342,9 @@ jobs:
             -n ${{ env.K8S_NAMESPACE }} --reuse-values \
             --set backendApi.env.CORS_ORIGIN="http://${ALB_HOSTNAME}" \
             --set chatbotService.env.CORS_ORIGIN="http://${ALB_HOSTNAME}" \
-            --set ingress.host="${ALB_HOSTNAME}"
+            --set ingress.host="${ALB_HOSTNAME}" \
+            --set trafficGen.enabled=true \
+            --set trafficGen.targetUrl="http://${ALB_HOSTNAME}"
 
       # NFR-OBS-003: correlate deploy events with APM error-rate spikes by posting a
       # deployment marker to the Datadog Events API.

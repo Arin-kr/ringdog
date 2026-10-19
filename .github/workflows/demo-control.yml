@@ -1,0 +1,63 @@
+name: demo-control
+
+# 시나리오 ① 시연 조작. 사람이 Actions 화면에서 실행하거나, Datadog Workflow가
+# GitHub Connection으로 action=mitigate + target을 넣어 실행한다. 반드시 main에서 실행 (OIDC).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "inject / mitigate / fix-index / reset (시연) · seed / start / spike / stop (준비·점검용)"
+        required: true
+        type: choice
+        options: ["inject", "mitigate", "fix-index", "reset", "seed", "start", "spike", "stop"]
+      target:
+        description: "mitigate 대상: widget(1차) / session(2차)"
+        required: false
+        type: choice
+        default: "widget"
+        options: ["widget", "session"]
+
+concurrency:
+  group: demo-control   # 같은 helm 릴리스·DB를 건드리므로 직렬화
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: ringdog-demo
+  K8S_NAMESPACE: ringdog
+
+permissions:
+  id-token: write
+  contents: write        # reset: 시연 PR 브랜치 삭제
+  pull-requests: write   # reset: 시연 PR 닫기
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+      - uses: azure/setup-helm@v4
+      - name: Resolve DB credentials
+        run: |
+          set -euo pipefail
+          DB_JSON=$(aws secretsmanager get-secret-value --secret-id ringdog-demo/rds/credentials --query SecretString --output text)
+          DB_PASS=$(jq -r .password <<<"$DB_JSON")
+          echo "::add-mask::${DB_PASS}"
+          {
+            echo "DB_HOST=$(jq -r .host <<<"$DB_JSON")"
+            echo "DB_USER=$(jq -r .username <<<"$DB_JSON")"
+            echo "DB_NAME=$(jq -r .dbname <<<"$DB_JSON")"
+            echo "DB_PASS=${DB_PASS}"
+          } >> "$GITHUB_ENV"
+      - name: Run ${{ inputs.action }} ${{ inputs.action == 'mitigate' && inputs.target || '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # 입력값은 env로 넘긴다 (run 스크립트에 ${{ }}를 직접 넣지 않음)
+          ACTION: ${{ inputs.action }}
+          TARGET: ${{ inputs.target }}
+        run: bash deploy/demo/demo-control.sh "$ACTION" "$TARGET"

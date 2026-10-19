@@ -28,6 +28,8 @@ spec:
         ad.datadoghq.com/inventory-batch.logs: '[{"source":"nodejs","service":"inventory-batch"}]'
     spec:
       restartPolicy: Never
+      # sh -c가 PID 1이라 SIGTERM을 무시한다 → reset/mitigate의 Job 삭제가 기본 30초를 기다리지 않게
+      terminationGracePeriodSeconds: 5
       containers:
         - name: inventory-batch
           image: __IMAGE__
