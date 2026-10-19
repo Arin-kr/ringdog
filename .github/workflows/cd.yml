@@ -184,6 +184,7 @@ jobs:
           DB_NAME: ${{ steps.resolve.outputs.db_name }}
           DD_DB_PASSWORD: ${{ steps.resolve.outputs.dd_db_password }}
         run: |
+          kubectl -n ${{ env.K8S_NAMESPACE }} delete pod ringdog-dbm-setup --ignore-not-found
           kubectl -n ${{ env.K8S_NAMESPACE }} run ringdog-dbm-setup --rm -i --restart=Never \
             --image=postgres:16-alpine --env="PGPASSWORD=${DB_PASS}" --command -- \
             psql -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 \
@@ -195,11 +196,16 @@ jobs:
         if: ${{ env.DD_API_KEY != '' }}
         env:
           DB_HOST: ${{ steps.resolve.outputs.db_host }}
+          DB_NAME: ${{ steps.resolve.outputs.db_name }}
           DD_DB_PASSWORD: ${{ steps.resolve.outputs.dd_db_password }}
         run: |
           set -euo pipefail
+          # 비밀번호는 Secret으로만 두고 Agent가 ENC[k8s_secret@...]로 읽는다 (ConfigMap/Helm release에 남기지 않음).
+          kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n ${{ env.K8S_NAMESPACE }} create secret generic datadog-postgres \
+            --from-literal=password="${DD_DB_PASSWORD}" --dry-run=client -o yaml | kubectl apply -f -
           PG_VALUES="${RUNNER_TEMP}/postgres-values.yaml"
-          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DD_DB_PASSWORD__|${DD_DB_PASSWORD}|g" \
+          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_NAME__|${DB_NAME}|g" \
             deploy/helm/datadog-agent/postgres-values.tmpl.yaml > "${PG_VALUES}"
           helm upgrade --install datadog-agent datadog/datadog \
             -n ${{ env.K8S_NAMESPACE }} --create-namespace \

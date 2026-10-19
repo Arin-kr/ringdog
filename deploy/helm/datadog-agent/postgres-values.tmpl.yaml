@@ -1,5 +1,15 @@
-# cd.yml이 __DB_HOST__ / __DD_DB_PASSWORD__ 를 치환해 임시 파일로 만들어 -f로 추가한다 (값은 커밋하지 않음).
+# cd.yml이 __DB_HOST__ / __DB_NAME__ 을 치환해 임시 파일로 만들어 -f로 추가한다 (값은 커밋하지 않음).
 # Cluster Agent가 이 체크를 노드 Agent 하나에 배정하고, 그 Agent가 RDS에 직접 접속한다.
+# 비밀번호는 ConfigMap/Helm release에 넣지 않는다. cd.yml이 만든 k8s Secret(ringdog/datadog-postgres)을
+# Agent의 secret backend가 ENC[...]로 읽는다. secretBackend는 차트가 모든 Agent 컴포넌트(노드 Agent,
+# Cluster Agent, 클러스터 체크 러너)에 적용하고, roles로 해당 Secret 하나에만 RBAC를 부여한다.
+datadog:
+  secretBackend:
+    command: "/readsecret_multiple_providers.sh"
+    roles:
+      - namespace: ringdog
+        secrets:
+          - datadog-postgres
 clusterAgent:
   confd:
     postgres.yaml: |-
@@ -10,8 +20,8 @@ clusterAgent:
           host: __DB_HOST__
           port: 5432
           username: datadog
-          password: "__DD_DB_PASSWORD__"
-          dbname: ringdog
+          password: "ENC[k8s_secret@ringdog/datadog-postgres/password]"
+          dbname: __DB_NAME__
           aws:
             instance_endpoint: __DB_HOST__
             region: ap-northeast-2
