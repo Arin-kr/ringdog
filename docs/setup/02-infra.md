@@ -6,6 +6,25 @@
 > 💰 **과금 리소스**입니다. 데모 직전에 만들고, 끝나면 바로 [삭제](#2-6-환경-삭제-데모-종료-후-필수)합니다.
 > 환경은 1개 공용입니다. 만들기 전에 Slack 데모 채널에서 다른 사람이 쓰고 있지 않은지 확인하세요.
 
+## 한 번에 올리기 / 내리기 (bootstrap·team 스택이 이미 있을 때)
+
+WSL에서 repo 폴더로 이동한 뒤 실행합니다. 둘 다 시작 전에 확인을 묻습니다.
+
+| 명령 | 하는 일 | 소요 |
+|---|---|---|
+| `bash scripts/demo-up.sh` | terraform apply → cd 실행(대량 시드·평시 트래픽 포함) → 노드·HPA·트래픽 확인 → ALB 주소 출력 | 약 30~40분 |
+| `bash scripts/demo-down.sh` | 트래픽 끄기 → Ingress 삭제(ALB 정리) → terraform destroy → 삭제 확인 | 약 20분 |
+
+자동화 세션(에이전트 등)에서 시작할 때는 세션이 끊겨도 살도록 로그 파일과 함께 백그라운드로 실행합니다. 확인 질문은 `--yes`로 건너뜁니다.
+```bash
+setsid nohup bash scripts/demo-up.sh --yes > ~/demo-up.log 2>&1 &
+tail -f ~/demo-up.log
+```
+
+kubeconfig는 팀 공용 역할 `ringdog-demo-eks-admin`이 있으면 그 역할로, 없으면 현재 자격 증명으로 만듭니다(후자는 클러스터 생성자만 접근 가능).
+
+아래 절은 같은 내용을 단계별로 직접 할 때의 설명입니다.
+
 ## 2-1. bootstrap (계정당 최초 1회)
 
 Terraform state를 저장할 S3 버킷(`ringdog-tfstate-demo`)과 락 테이블(`ringdog-tfstate-lock`)입니다.
