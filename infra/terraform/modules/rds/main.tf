@@ -108,7 +108,8 @@ resource "aws_db_parameter_group" "this" {
   parameter {
     name         = "track_io_timing"
     value        = "1"
-    apply_method = "immediate"
+    # RDS stores this as pending-reboot at create time; "immediate" causes a perpetual plan diff.
+    apply_method = "pending-reboot"
   }
 
   tags = var.tags
