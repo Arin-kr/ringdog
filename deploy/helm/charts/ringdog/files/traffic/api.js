@@ -1,7 +1,7 @@
 // RingDog API 트래픽: 로그인 → 상품 목록 + 인기상품(홈 화면과 같은 호출) → 검색 → 장바구니 → (일부) 주문 → 주문 내역.
 // 시나리오 ① 급증 프로필은 둘러보기 위주(CHECKOUT_RATIO 0.25), 시나리오 ②는 COUPON_RATIO 0.5.
 import http from "k6/http";
-import { check } from "k6";
+import { check, sleep } from "k6";
 
 const BASE = __ENV.TARGET_URL;
 const PASSWORD = "demo-traffic-pw";
@@ -12,6 +12,7 @@ const JSON_HEADERS = { headers: { "Content-Type": "application/json" } };
 const QUERIES = ["고양이", "가죽", "별", "keyring"];
 
 export const options = {
+  setupTimeout: "12m", // setup()이 ALB DNS 전파를 최대 10분 기다림 (기본 60s로는 부족)
   scenarios: {
     shop: {
       executor: "constant-arrival-rate",
@@ -26,21 +27,44 @@ export const options = {
 
 const email = (i) => `demo-traffic-${i}@ringdog.demo`;
 
+function signup(i) {
+  return http.post(`${BASE}/api/auth/signup`, JSON.stringify({ email: email(i), password: PASSWORD }), JSON_HEADERS);
+}
+
+function login(i) {
+  return http.post(`${BASE}/api/auth/login`, JSON.stringify({ email: email(i), password: PASSWORD }), JSON_HEADERS);
+}
+
+const SETUP_DEADLINE_S = 600;
+const RETRY_SLEEP_S = 10;
+
+// ALB를 막 만든 직후엔 DNS가 아직 풀리지 않아 네트워크 에러(status 0)가 난다.
+// HTTP 응답(201 생성 / 409 이미 존재 등)을 받을 때까지 재시도한다.
 export function setup() {
+  const start = Date.now();
   for (let i = 0; i < USERS; i++) {
-    // 이미 있으면 409 — 무시
-    http.post(`${BASE}/api/auth/signup`, JSON.stringify({ email: email(i), password: PASSWORD }), JSON_HEADERS);
+    for (;;) {
+      const res = signup(i);
+      if (res.status !== 0 && !res.error) break;
+      if ((Date.now() - start) / 1000 > SETUP_DEADLINE_S) {
+        throw new Error(`setup: signup for ${email(i)} got no HTTP response for ${SETUP_DEADLINE_S}s (${res.error}) - is ${BASE} reachable?`);
+      }
+      console.warn(`setup: signup ${email(i)} network error (${res.error}); retrying in ${RETRY_SLEEP_S}s`);
+      sleep(RETRY_SLEEP_S);
+    }
   }
 }
 
 export default function () {
-  const login = http.post(
-    `${BASE}/api/auth/login`,
-    JSON.stringify({ email: email((__VU - 1) % USERS), password: PASSWORD }),
-    JSON_HEADERS,
-  );
-  if (!check(login, { "login 200": (r) => r.status === 200 })) return;
-  const auth = { headers: { "Content-Type": "application/json", Authorization: `Bearer ${login.json("token")}` } };
+  const idx = (__VU - 1) % USERS;
+  let res = login(idx);
+  if (res.status === 401) {
+    // 안전망: 사용자가 아직 없을 수 있음 → 가입 1회 후 재로그인 (401일 때만)
+    signup(idx);
+    res = login(idx);
+  }
+  if (!check(res, { "login 200": (r) => r.status === 200 })) return;
+  const auth = { headers: { "Content-Type": "application/json", Authorization: `Bearer ${res.json("token")}` } };
 
   const list = http.get(`${BASE}/api/products?limit=20`);
   http.get(`${BASE}/api/products/trending`, { tags: { name: "trending" } });

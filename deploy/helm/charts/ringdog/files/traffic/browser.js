@@ -1,6 +1,7 @@
 // 실제 Chromium으로 쇼핑 여정 → RUM 세션·Session Replay·인기상품 위젯 로딩·결제 화면 데이터 생성.
 import { browser } from "k6/browser";
 import http from "k6/http";
+import { sleep } from "k6";
 
 const BASE = __ENV.TARGET_URL;
 const PASSWORD = "demo-traffic-pw";
@@ -8,6 +9,7 @@ const USERS = 2;
 const COUPON_RATIO = Number(__ENV.COUPON_RATIO || 0);
 
 export const options = {
+  setupTimeout: "12m", // setup()이 ALB DNS 전파를 최대 10분 기다림 (기본 60s로는 부족)
   scenarios: {
     ui: {
       executor: "constant-arrival-rate",
@@ -23,11 +25,29 @@ export const options = {
 
 const email = (i) => `demo-browser-${i}@ringdog.demo`;
 
+function signup(i) {
+  return http.post(`${BASE}/api/auth/signup`, JSON.stringify({ email: email(i), password: PASSWORD }), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+const SETUP_DEADLINE_S = 600;
+const RETRY_SLEEP_S = 10;
+
+// ALB를 막 만든 직후엔 DNS가 아직 풀리지 않아 네트워크 에러(status 0)가 난다.
+// HTTP 응답(201 생성 / 409 이미 존재 등)을 받을 때까지 재시도한다.
 export function setup() {
+  const start = Date.now();
   for (let i = 0; i < USERS; i++) {
-    http.post(`${BASE}/api/auth/signup`, JSON.stringify({ email: email(i), password: PASSWORD }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    for (;;) {
+      const res = signup(i);
+      if (res.status !== 0 && !res.error) break;
+      if ((Date.now() - start) / 1000 > SETUP_DEADLINE_S) {
+        throw new Error(`setup: signup for ${email(i)} got no HTTP response for ${SETUP_DEADLINE_S}s (${res.error}) - is ${BASE} reachable?`);
+      }
+      console.warn(`setup: signup ${email(i)} network error (${res.error}); retrying in ${RETRY_SLEEP_S}s`);
+      sleep(RETRY_SLEEP_S);
+    }
   }
 }
 
@@ -37,9 +57,13 @@ export default async function () {
   const page = await context.newPage();
   try {
     await page.goto(`${BASE}/login`);
-    await page.locator('input[type="email"]').fill(email((__VU - 1) % USERS));
-    await page.locator('input[type="password"]').fill(PASSWORD);
-    await page.locator('button[type="submit"]').click();
+    // 헤더(검색)·챗 위젯에도 submit 버튼이 있으므로 <main> 안의 해당 form으로 한정 (strict mode 위반 방지)
+    const emailInput = page.locator('main input[type="email"]');
+    await emailInput.waitFor({ state: "visible", timeout: 30000 });
+    await page.waitForTimeout(1000); // 하이드레이션 대기 (React 핸들러 연결 전 fill 방지)
+    await emailInput.fill(email((__VU - 1) % USERS));
+    await page.locator('main input[type="password"]').fill(PASSWORD);
+    await page.locator('main form:has(input[type="password"]) button[type="submit"]').click();
     await page.waitForTimeout(2000); // 클라이언트 라우팅(router.push)이라 navigation 이벤트가 없음
 
     await page.goto(`${BASE}/`);
@@ -55,7 +79,8 @@ export default async function () {
     if (Math.random() >= COUPON_RATIO) {
       await coupon.fill("");
     }
-    const pay = page.locator('button[type="submit"]');
+    // 헤더 검색·챗 위젯 버튼과 구분: 쿠폰 입력이 있는 결제 form의 submit만
+    const pay = page.locator('main form:has(input[placeholder="RINGDOG100"]) button[type="submit"]');
     await pay.click();
     // 시나리오 ① 장애 중 결제가 멈추면 연타하는 사용자 → RUM frustration(Rage Click).
     // Rage Click 조건: 같은 요소를 1초 안에 3회 이상 클릭. 그래서 첫 클릭 직후 간격 없이 3회 더 누른다.
