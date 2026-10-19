@@ -59,8 +59,13 @@ export default async function () {
     await pay.click();
     await page.waitForTimeout(3000);
     // 시나리오 ① 장애 중 결제가 늦으면 다시 누르는 사용자 → RUM frustration(rage click)
-    await pay.click();
-    await pay.click();
+    // 첫 클릭 후 페이지가 이동했으면(정상 결제) 버튼이 사라지므로 짧은 timeout + try/catch로 건너뜀
+    try {
+      await pay.click({ timeout: 1000 });
+      await pay.click({ timeout: 1000 });
+    } catch (e) {
+      // navigation으로 버튼이 없어짐 — rage click 생략
+    }
     await page.waitForTimeout(3000);
   } finally {
     await page.close();

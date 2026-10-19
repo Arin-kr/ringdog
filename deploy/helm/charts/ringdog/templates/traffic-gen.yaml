@@ -93,8 +93,12 @@ spec:
             limits: { memory: 1536Mi }
           volumeMounts:
             - { name: scripts, mountPath: /scripts }
+            - { name: dshm, mountPath: /dev/shm }
       volumes:
         - name: scripts
           configMap:
             name: traffic-gen-scripts
+        # Chromium은 /dev/shm을 많이 써서 기본 64Mi로는 크래시/빈 화면이 날 수 있음
+        - name: dshm
+          emptyDir: { medium: Memory, sizeLimit: 256Mi }
 {{- end }}

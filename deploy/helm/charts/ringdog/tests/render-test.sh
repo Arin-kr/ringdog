@@ -53,5 +53,7 @@ echo "$out" | grep -A1 'name: RATE_PER_MIN' | grep -q 'value: "240"' || fail "sp
 echo "$out" | grep -A1 'name: USERS' | grep -q 'value: "40"' || fail "spike users"
 echo "$out" | grep -A1 'name: CHECKOUT_RATIO' | grep -q 'value: "0.25"' || fail "checkout ratio"
 echo "$out" | grep -q 'api.js: |' || fail "script configmap"
+echo "$out" | grep -q 'mountPath: /dev/shm' || fail "browser mounts /dev/shm"
+echo "$out" | grep -q 'medium: Memory' || fail "dshm memory emptyDir"
 
 echo "ALL PASS"
