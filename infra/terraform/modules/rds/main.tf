@@ -3,7 +3,7 @@
 # Cost/complexity tradeoffs vs. production:
 #   - `multi_az = false` (single instance, no standby) — halves RDS cost but
 #     means a maintenance event or AZ outage causes downtime.
-#   - `instance_class = db.t3.micro` — burstable/small, fine for demo traffic.
+#   - `instance_class = db.t3.small` — 시나리오 ① 대량 데이터와 DBM 수집 안정성
 #   - `skip_final_snapshot = true` — no final snapshot on destroy, so
 #     `terraform destroy` fully tears the DB down with no leftover cost, but
 #     also means no recovery snapshot. Acceptable for a throwaway demo.
@@ -74,11 +74,74 @@ resource "random_password" "master" {
   special = false # avoid characters that need extra escaping in connection strings / JSON
 }
 
+# --- Datadog DBM -------------------------------------------------------
+# 정적 파라미터(shared_preload_libraries 등)는 재부팅이 필요하지만, 이 환경은
+# 매번 새로 만들므로 인스턴스 생성 시점에 그대로 적용된다.
+resource "aws_db_parameter_group" "this" {
+  name   = "${local.name}-pg${var.engine_version}-dbm"
+  family = "postgres${var.engine_version}"
+
+  parameter {
+    name         = "shared_preload_libraries"
+    value        = "pg_stat_statements"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "track_activity_query_size"
+    value        = "4096"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "pg_stat_statements.max"
+    value        = "10000"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "pg_stat_statements.track"
+    value        = "ALL"
+    apply_method = "immediate"
+  }
+
+  parameter {
+    name         = "track_io_timing"
+    value        = "1"
+    apply_method = "immediate"
+  }
+
+  tags = var.tags
+}
+
+resource "random_password" "datadog" {
+  length  = 24
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "datadog" {
+  name                    = "${local.name}/rds/datadog"
+  description             = "Datadog Agent DBM 접속 계정 (deploy/dbm/datadog-setup.sql이 생성)"
+  recovery_window_in_days = 0
+
+  tags = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "datadog" {
+  secret_id = aws_secretsmanager_secret.datadog.id
+  secret_string = jsonencode({
+    username = "datadog"
+    password = random_password.datadog.result
+  })
+}
+
 resource "aws_db_instance" "this" {
   identifier     = var.identifier
   engine         = "postgres"
   engine_version = var.engine_version
   instance_class = var.instance_class
+
+  parameter_group_name = aws_db_parameter_group.this.name
 
   allocated_storage = var.allocated_storage
   storage_type       = "gp3"

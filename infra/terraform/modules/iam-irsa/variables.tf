@@ -34,6 +34,11 @@ variable "jwt_secret_arn" {
   type        = string
 }
 
+variable "datadog_secret_arn" {
+  description = "ARN of the Secrets Manager secret holding the Datadog DBM account (from the rds module). Granted to the GitHub Actions deploy role only, so CD can resolve it at deploy time."
+  type        = string
+}
+
 variable "msk_cluster_name" {
   description = "MSK cluster name, used to scope the GitHub Actions deploy role's kafka:GetBootstrapBrokers permission so CD can resolve broker addresses at deploy time."
   type        = string

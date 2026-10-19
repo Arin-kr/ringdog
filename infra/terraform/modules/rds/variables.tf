@@ -20,9 +20,9 @@ variable "allowed_security_group_ids" {
 }
 
 variable "instance_class" {
-  description = "RDS instance class. Demo cost tradeoff: db.t3.micro instead of a production-sized multi-AZ instance."
+  description = "RDS instance class. Demo cost tradeoff: db.t3.small instead of a production-sized multi-AZ instance."
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t3.small"
 }
 
 variable "allocated_storage" {

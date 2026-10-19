@@ -19,10 +19,10 @@ github_repo = "your-org/ringdog"
 # k8s_version          = "1.29"
 # node_instance_types  = ["t3.medium"]
 # node_min_size        = 1
-# node_max_size        = 3
-# node_desired_size    = 2
+# node_max_size        = 4
+# node_desired_size    = 3
 
-# rds_instance_class = "db.t3.micro"
+# rds_instance_class = "db.t3.small"
 # rds_db_name        = "ringdog"
 # rds_username       = "ringdog"
 

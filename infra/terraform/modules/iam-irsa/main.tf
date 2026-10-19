@@ -319,7 +319,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   statement {
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [var.rds_secret_arn, var.jwt_secret_arn]
+    resources = [var.rds_secret_arn, var.jwt_secret_arn, var.datadog_secret_arn]
   }
 
   # ListClustersV2 has no resource-level permissions (must be "*"); it's how

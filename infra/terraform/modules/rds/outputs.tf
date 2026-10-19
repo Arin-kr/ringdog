@@ -22,3 +22,13 @@ output "security_group_id" {
   description = "ID of the RDS security group."
   value       = aws_security_group.rds.id
 }
+
+output "datadog_secret_name" {
+  description = "Name of the Secrets Manager secret holding the Datadog DBM {username, password}."
+  value       = aws_secretsmanager_secret.datadog.name
+}
+
+output "datadog_secret_arn" {
+  description = "ARN of the Datadog DBM secret (granted to the GitHub Actions deploy role so CD can read it)."
+  value       = aws_secretsmanager_secret.datadog.arn
+}

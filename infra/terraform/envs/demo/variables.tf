@@ -53,7 +53,7 @@ variable "k8s_version" {
 }
 
 variable "node_instance_types" {
-  description = "Instance types for the EKS managed node group. Demo cost tradeoff: t3.medium."
+  description = "Instance types for the EKS managed node group. Demo cost tradeoff: t3.medium. 노드 자동 확장(Cluster Autoscaler) 없음 — 시나리오 ①의 HPA 최대치 + k6 browser를 3대에 올림."
   type        = list(string)
   default     = ["t3.medium"]
 }
@@ -65,20 +65,20 @@ variable "node_min_size" {
 
 variable "node_max_size" {
   type    = number
-  default = 3
+  default = 4
 }
 
 variable "node_desired_size" {
   type    = number
-  default = 2
+  default = 3
 }
 
 # --- RDS -------------------------------------------------------------
 
 variable "rds_instance_class" {
-  description = "RDS instance class. Demo cost tradeoff: db.t3.micro."
+  description = "RDS instance class. 시나리오 ① 대량 데이터·DBM 수집 때문에 db.t3.small."
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t3.small"
 }
 
 variable "rds_db_name" {

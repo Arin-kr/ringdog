@@ -102,6 +102,7 @@ module "iam_irsa" {
   service_account_names  = var.service_account_names
   rds_secret_arn         = module.rds.secret_arn
   jwt_secret_arn         = module.secrets.jwt_secret_arn
+  datadog_secret_arn     = module.rds.datadog_secret_arn
   msk_cluster_name       = var.cluster_name
   opensearch_domain_name = var.opensearch_domain_name
   bedrock_model_id       = var.bedrock_model_id
