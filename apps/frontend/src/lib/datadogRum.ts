@@ -43,6 +43,9 @@ export function initRum(config: RumConfig): void {
     env: env ?? "local",
     sessionSampleRate: 100,
     sessionReplaySampleRate: 100,
+    // Browser profiling (SDK >= 6.12); needs the Document-Policy: js-profiling
+    // response header from next.config.js, or the profiler fails to start.
+    profilingSampleRate: 100,
     trackUserInteractions: true,
     trackResources: true,
     trackLongTasks: true,
