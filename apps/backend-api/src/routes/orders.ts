@@ -54,7 +54,11 @@ ordersRouter.post(
         async (tx) => {
           await reserveStock(
             tx,
-            cartItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+            cartItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              createdAt: item.product.createdAt,
+            })),
           );
 
           const created = await tx.order.create({

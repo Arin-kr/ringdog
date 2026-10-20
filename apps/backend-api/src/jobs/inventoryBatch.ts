@@ -4,6 +4,7 @@ import "../tracer";
 import { prisma } from "@ringdog/db";
 import { logger } from "@ringdog/shared";
 
+import { compareLockOrder } from "../lib/stock";
 import { BatchMode, BatchTarget, SALE_STOCK, runBatch, salePrice } from "./batchRunner";
 
 /**
@@ -15,12 +16,15 @@ const targetCount = Number(process.env.BATCH_TARGET_COUNT ?? "1200");
 
 async function main(): Promise<void> {
   // 목록과 같은 순서(최신순) → k6가 구매하는 앞쪽 상품부터 잠근다.
+  // 잠그는 순서는 checkout과 같은 compareLockOrder로 다시 정렬한다 (DB 정렬과 달라 교착이 나지 않게).
   const rows = await prisma.product.findMany({
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take: targetCount,
-    select: { id: true, price: true, stock: true },
+    select: { id: true, price: true, stock: true, createdAt: true },
   });
-  const targets: BatchTarget[] = rows.map((r) => ({ id: r.id, price: Number(r.price), stock: r.stock }));
+  const targets: BatchTarget[] = [...rows]
+    .sort(compareLockOrder)
+    .map((r) => ({ id: r.id, price: Number(r.price), stock: r.stock }));
   const ids = targets.map((t) => t.id);
 
   // reset이 정상가로 되돌릴 수 있도록 원래 값을 따로 커밋해 둔다 (이미 있으면 처음 값 유지).
