@@ -21,12 +21,16 @@ export interface RumConfig {
  * before these values exist in CI (see apiClient.ts for the same lesson
  * learned the hard way with NEXT_PUBLIC_API_BASE_URL).
  */
+let initialized = false;
+
 export function initRum(config: RumConfig): void {
   const { applicationId, clientToken, site, env, remoteConfigurationId } = config;
 
-  if (!applicationId || !clientToken) {
+  // Called from RumInit's render: skip SSR and re-renders.
+  if (typeof window === "undefined" || initialized || !applicationId || !clientToken) {
     return;
   }
+  initialized = true;
 
   datadogRum.init({
     applicationId,
