@@ -3033,13 +3033,16 @@ git commit -m "docs(demo-02): trim plan to scenario-02-only tasks after shared f
 
 ### Task 16 (실환경): 장애 재현 + 튜닝
 
-> 2026-10-20 진행: 계획 외 선행 확인으로 k6 browser RUM 수집(RUM 초기화 순서 수정 `1d58bea`), `inject` 중 결제 버튼 Rage Click(6건), RUM 브라우저 프로파일링(`43e5ac3`) 완료. 아래 Step 1~8은 아직.
+> 2026-10-20 진행: 계획 외 선행 확인으로 k6 browser RUM 수집(RUM 초기화 순서 수정 `1d58bea`), `inject` 중 결제 버튼 Rage Click(6건), RUM 브라우저 프로파일링(`43e5ac3`) 완료.
+> Step 1~5 완료. 바뀐 것: 급증 프로필 `trendingRatio=0.5`·`ordersRatio=0.1`(`323c56d`, 매 반복 호출 시 위젯 OFF여도 RDS CPU 100%), checkout·배치 공통 잠금 순서 `compareLockOrder`(`fd4d8bd`, 교착 40P01로 배치가 13초 만에 롤백되던 버그), backend-api `connection_limit=10`(`936c8bb`, Step 3 목록 p95 2.6초 → 18ms).
+> 리허설 실측: 위젯 ON CPU 약 85% → OFF 24%, fix-index 인덱스 생성 15초(전체 워크플로 124초), 인기상품 p95 126ms, 27분 배치 875/1,200, mitigate session 54초, 안전 모드 약 17초. Step 5의 장애 Job은 `Failed`가 아니라 mitigate가 삭제한다(재시작 없음은 동일). 남은 확인: 인기상품 p95 1.87초로 1차 트리거(2초) 미달 → Task 17에서 기준 조정, `orders`는 `orders_created_at_idx`가 있어도 Seq Scan(원인 미확인).
+> 재개: Step 6(reset 원복) → 7 → 8.
 
-- [ ] **Step 1: 원인 ①만** — **demo-control** `spike` 후 위젯만 켜기(`helm upgrade --reset-then-reuse-values --set featureFlags.trendingWidget=true` + rollout restart를 로컬 kubectl로) → 5분 동안 확인: DBM Top Query 1위가 trending 쿼리, Explain Plan `Seq Scan`, RDS CPU 80%+, HPA가 Pod를 늘림. 부족하면 조정 순서: `trafficGen.apiUsers`/`apiRatePerMin` ↑ → `backendApi.hpa.targetCPUUtilization` ↓ → 시드 데이터량 ↑
-- [ ] **Step 2: 원인 ②만** — `reset` → `spike` → 로컬에서 `render_batch_job fault <이미지>`의 `sleep 180`을 `sleep 0`으로 바꿔 apply → 1분 안에 DBM Blocking 트리에 `inventory-batch`(`idle in transaction`), checkout 트레이스의 postgres span이 약 5초 대기 후 `lock timeout` 에러, 배치 로그 "25/1,200 처리 중", `ringdog.db.blocking_sessions` ≥ 1
-- [ ] **Step 3: 상품 목록은 살아 있는지** — Step 2 상태에서 `/api/products` p95가 평시 수준인지 확인. 커넥션 풀 고갈(`P2024`)로 목록까지 느려지면 `checkoutRatio`를 낮추거나 `CHECKOUT_LOCK_TIMEOUT`을 3초로 줄인다 (설계 4.7 "목록은 빨라졌지만 결제는 실패" 장면 유지)
-- [ ] **Step 4: 전체 inject + 원인 ① 해결** — `reset` → **demo-control** `inject` → 설계 3.2 타임라인대로 3분 뒤 배치 시작, 9분 무렵 `mitigate widget` → RDS CPU 하락, 14분 무렵 `fix-index` → **배치가 도는 중에도 1분 안에 끝나는지**(멈추면 `CONCURRENTLY`가 섞였거나 다른 긴 트랜잭션이 orders를 잡은 것), Explain Plan이 `Index Scan`, 인기상품 p95 < 500ms, 위젯 ON인데 RDS CPU 안정, checkout은 여전히 실패. 27분 무렵에도 배치가 아직 실행 중인지(로그 진행률) 확인 — 끝나 버렸으면 `FAULT_ITEM_DELAY_MS` ↑
-- [ ] **Step 5: 2차 대처** — **demo-control** `mitigate session` → 1분 안에 블로킹 0, checkout 201 회복, `inventory-batch` Job `Failed`(재시작 없음, Review Focus 1), `inventory-batch-safe` 로그 "1,200/1,200 완료", 상품 가격이 세일가
+- [x] **Step 1: 원인 ①만** — **demo-control** `spike` 후 위젯만 켜기(`helm upgrade --reset-then-reuse-values --set featureFlags.trendingWidget=true` + rollout restart를 로컬 kubectl로) → 5분 동안 확인: DBM Top Query 1위가 trending 쿼리, Explain Plan `Seq Scan`, RDS CPU 80%+, HPA가 Pod를 늘림. 부족하면 조정 순서: `trafficGen.apiUsers`/`apiRatePerMin` ↑ → `backendApi.hpa.targetCPUUtilization` ↓ → 시드 데이터량 ↑
+- [x] **Step 2: 원인 ②만** — `reset` → `spike` → 로컬에서 `render_batch_job fault <이미지>`의 `sleep 180`을 `sleep 0`으로 바꿔 apply → 1분 안에 DBM Blocking 트리에 `inventory-batch`(`idle in transaction`), checkout 트레이스의 postgres span이 약 5초 대기 후 `lock timeout` 에러, 배치 로그 "25/1,200 처리 중", `ringdog.db.blocking_sessions` ≥ 1
+- [x] **Step 3: 상품 목록은 살아 있는지** — Step 2 상태에서 `/api/products` p95가 평시 수준인지 확인. 커넥션 풀 고갈(`P2024`)로 목록까지 느려지면 `checkoutRatio`를 낮추거나 `CHECKOUT_LOCK_TIMEOUT`을 3초로 줄인다 (설계 4.7 "목록은 빨라졌지만 결제는 실패" 장면 유지)
+- [x] **Step 4: 전체 inject + 원인 ① 해결** — `reset` → **demo-control** `inject` → 설계 3.2 타임라인대로 3분 뒤 배치 시작, 9분 무렵 `mitigate widget` → RDS CPU 하락, 14분 무렵 `fix-index` → **배치가 도는 중에도 1분 안에 끝나는지**(멈추면 `CONCURRENTLY`가 섞였거나 다른 긴 트랜잭션이 orders를 잡은 것), Explain Plan이 `Index Scan`, 인기상품 p95 < 500ms, 위젯 ON인데 RDS CPU 안정, checkout은 여전히 실패. 27분 무렵에도 배치가 아직 실행 중인지(로그 진행률) 확인 — 끝나 버렸으면 `FAULT_ITEM_DELAY_MS` ↑
+- [x] **Step 5: 2차 대처** — **demo-control** `mitigate session` → 1분 안에 블로킹 0, checkout 201 회복, `inventory-batch` Job `Failed`(재시작 없음, Review Focus 1), `inventory-batch-safe` 로그 "1,200/1,200 완료", 상품 가격이 세일가
 - [ ] **Step 6: reset 복원** — 테스트용 PR(브랜치 `demo/fix-index-test`)을 하나 열어 둔 뒤 `reset` → 상품 가격·재고가 시드 값, 인덱스 없음, 배치 Job 없음, 그 PR이 닫히고 브랜치 삭제됨
 - [ ] **Step 7: 세션 종료 범위 (Review Focus 5)** — 로컬에서 `kubectl run`으로 psql Pod를 띄워 `SET application_name='manual-check'; BEGIN; UPDATE products SET stock = stock WHERE id = '<앞쪽 상품 id>'; SELECT pg_sleep(120);` 실행(다른 결제를 막는 블로커) → 40초 뒤 **demo-control** `mitigate session` → `manual-check` 세션은 살아 있어야 함(`terminated` 행 0개). 확인 후 그 Pod 삭제
 - [ ] **Step 8: 튜닝 값 반영 + Commit** — 바꾼 값(트래픽·HPA·lock_timeout)을 values/코드에 반영하고 설계 3장·운영 README에 실제 소요 시간 기록

@@ -21,7 +21,7 @@
 | 2 | 구현 계획 작성 | ✅ 완료 | `docs/design/plans/2026-10-16-demo-flash-sale-db.md` (Task 1~19) |
 | 3 | 오프라인 구현 (계획 Task 1~14) | ✅ 완료 | 2026-10-19 |
 | 4 | 실환경 생성·배포·수집 확인 (Task 15) | ✅ 완료 | 2026-10-19~20. `demo-up` 약 35분(리소스 75개) |
-| 5 | 장애 재현·튜닝 (Task 16) | 🔄 진행 중 | RUM 수집·Rage Click·프로파일링 확인 완료, 원인별 강도·대처 타이밍 확인 남음 |
+| 5 | 장애 재현·튜닝 (Task 16) | 🔄 진행 중 | Step 1~5 완료(원인별 단독 재현, 전체 시연 리허설 1회 성공). 남은 것: Step 6 reset 원복 검증, Step 7 세션 종료 범위, Step 8 소요 시간 문서화 |
 | **공통 기반** | | | ②·3단계에서 재사용 |
 | B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ✅ 완료 | `demo-up`이 호출해 배포까지 성공 |
 | B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ✅ 완료 | `infra/terraform/team` apply 완료(IAM 3개). Datadog AWS 연동 Role은 계정에 기존 연동이 있어 만들지 않음 |
@@ -31,10 +31,10 @@
 | **시나리오 ① 전용** | | | |
 | F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ✅ 완료 | Agent `postgres` 체크 `[OK]`, `ringdog.db.blocking_sessions` 수집 |
 | F2 | Datadog AWS Integration (RDS·ALB·MSK) | ✅ 완료 | 계정에 이미 있는 연동 사용 |
-| F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | 🔄 진행 중 | 평시 결제·위젯 동작 확인, 장애 중 동작은 Task 16. 위젯 표시 규칙: 설계 4.7 |
+| F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ✅ 완료 | 장애 중 동작 확인(2026-10-20). checkout이 배치와 같은 순서로 상품을 잠그도록 수정(교착 방지), backend-api 커넥션 풀 Pod당 10. 위젯 표시 규칙: 설계 4.7 |
 | F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ✅ 완료 | 약 76초, `order_items` 약 150만 행. 재실행 시 건너뜀 |
-| F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | 🔄 진행 중 | 노드 3대·metrics-server·`inject` 후 배치 실행 확인, HPA 확장·안전 모드는 Task 16. 설계 4.1.1·4.6 |
-| F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | 🔄 진행 중 | `demo-up`·`demo-down`·`inject`·`reset` 확인, `mitigate`·`fix-index`는 Task 16. reset은 세일가 원복·시연 PR 닫기 포함 |
+| F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ✅ 완료 | HPA 1→4, 장애 배치 약 30분 실행(1,200개 × 1.5초), 안전 모드 약 17초에 1,200/1,200 확인. 설계 4.1.1·4.6 |
+| F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | 🔄 진행 중 | `demo-up`·`demo-down`·`inject`·`mitigate`(widget·session)·`fix-index`·`reset` 확인. 남은 것: 리허설 뒤 reset 원복(세일가·인덱스·시연 PR) 검증, 세션 종료 범위 검증. 급증 프로필은 위젯 호출 50%·주문 내역 10% |
 | F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
 | F8 | Workflow 2개: 1차 위젯 OFF → 인덱스 적용 + 위젯 ON (승인 2번) / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (승인 1번, 대기 30분) | ⬜ 대기 | 설정 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), 실제 생성은 실환경에서 |
 | F9 | 데모 대시보드 | ⬜ 대기 | |
@@ -110,3 +110,5 @@
 | 2026-10-16 | 운영 흐름을 시연자 조작 5가지로 묶음(demo-up / inject / 1차+근본 수정 / 2차 / reset·demo-down). 원인 ① 근본 수정(인덱스 적용 + 위젯 ON)을 2차 대처 앞으로 이동(전체 약 31분), 배치 상품당 1.5초(약 30분), cd가 대량 시드·평시 트래픽까지 실행 |
 | 2026-10-19 | 오프라인 구현(Task 1~14) 완료. 실환경 첫 생성: MSK 3.8.x로 변경(AWS가 3.6.0 거부), RDS `track_io_timing` 반영 방식 수정, GitHub 기본 브랜치 main으로 변경, k6 setup의 ALB DNS 대기·브라우저 선택자 수정. DBM 수집·대량 시드·reset 2회 확인 |
 | 2026-10-20 | k6 browser RUM 0건 원인 수정: RUM 초기화가 화면을 그린 뒤 실행돼 첫 페이지 뷰가 버려지고, 클라이언트 라우팅 전까지 SDK가 시작되지 않음(실사용자도 첫 뷰 유실). 초기화를 렌더 중으로 옮김. `inject` 중 결제 버튼 Rage Click 확인, RUM 브라우저 프로파일링 활성화(`profilingSampleRate` + `Document-Policy: js-profiling`) |
+| 2026-10-20 | 장애 강도 튜닝(Task 16 Step 1~3): 급증 때 매 반복 부르던 인기상품·주문 내역이 DB를 100%로 만들어 위젯을 꺼도 CPU가 안 내려감(주문 내역도 인덱스 없이 전체 스캔) → 급증 프로필 위젯 50%·주문 내역 10%. checkout과 배치가 반대 순서로 상품을 잠가 교착(40P01)으로 배치가 13초 만에 죽던 버그 수정. lock 대기 결제가 커넥션 풀을 막아 상품 목록이 느려져 backend-api 풀을 Pod당 10으로 |
+| 2026-10-20 | 전체 시연 리허설 1회 성공(Task 16 Step 4~5): 위젯 ON RDS CPU 약 85% → 위젯 OFF 24%, 인덱스 생성 15초(배치 실행 중), 인기상품 7.2초 → 136ms, 그래도 결제 약 98% 실패, 27분에 배치 875/1,200 진행 중, 세션 종료 54초 후 결제 회복·세일가 1,200개 반영. 주의: 인기상품 p95 1.87초로 1차 트리거 기준(2초)에 못 미침 → Task 17에서 기준 1초 검토, `orders`는 새 인덱스가 있어도 Seq Scan(원인 미확인) |
