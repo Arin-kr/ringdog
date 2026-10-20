@@ -89,19 +89,19 @@
 - Produces: `calculateOrderTotal(items: { price: number; quantity: number }[], couponCode: string | undefined): { subtotal: number; totalAmount: number; isDemoCoupon: boolean }`
 - Produces: 5xx 로그 JSON에 `error.kind`, `error.message`, `error.stack`. 4xx(예: 409 `OutOfStockError`)는 `err.message`를 그대로 응답
 
-- [ ] **Step 1: ci-cd 브랜치 커밋 가져오기**
+- [x] **Step 1: ci-cd 브랜치 커밋 가져오기**
 
 ```bash
 git cherry-pick ab519cc
 ```
 Expected: 충돌 없이 적용. `docs/design/plans/2026-07-23-ci-cd-visibility.md`의 Task 1 제목 옆에 "(2026-10-16 main에 cherry-pick됨)" 추가.
 
-- [ ] **Step 2: 의존성 설치 후 기존 테스트 통과 확인**
+- [x] **Step 2: 의존성 설치 후 기존 테스트 통과 확인**
 
 Run: `NODE_OPTIONS=--use-system-ca npx --yes pnpm@9.15.0 install && npx --yes pnpm@9.15.0 --filter @ringdog/shared run build && npx --yes pnpm@9.15.0 --filter @ringdog/db run build && npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test`
 Expected: `orderTotal.test.ts` 4 passed
 
-- [ ] **Step 3: errorHandler 실패 테스트 작성**
+- [x] **Step 3: errorHandler 실패 테스트 작성**
 
 `apps/backend-api/src/middleware/errorHandler.test.ts`:
 ```ts
@@ -163,12 +163,12 @@ describe("errorHandler", () => {
 ```
 (`logger.error`가 `console.error`로 JSON 한 줄을 쓰는지 `packages/shared/src/logger.ts`에서 확인. `console.log`를 쓰면 spy 대상을 맞춘다.)
 
-- [ ] **Step 4: 실패 확인**
+- [x] **Step 4: 실패 확인**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test`
 Expected: FAIL — `expected undefined to be 'TypeError'`
 
-- [ ] **Step 5: errorHandler 구현**
+- [x] **Step 5: errorHandler 구현**
 
 `apps/backend-api/src/middleware/errorHandler.ts` 전체:
 ```ts
@@ -216,12 +216,12 @@ export function errorHandler(err: HttpError, req: Request, res: Response, _next:
 }
 ```
 
-- [ ] **Step 6: 통과 확인 + lint/typecheck**
+- [x] **Step 6: 통과 확인 + lint/typecheck**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test && npx --yes pnpm@9.15.0 --filter @ringdog/backend-api lint && npx --yes pnpm@9.15.0 --filter @ringdog/backend-api typecheck`
 Expected: 6 passed, lint/typecheck 에러 없음
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend-api/src/middleware docs/design/plans/2026-07-23-ci-cd-visibility.md
@@ -247,7 +247,7 @@ git commit -m "feat(backend-api): emit standard error fields and span error tag 
 - Produces: Helm 값 `<component>.resources` (frontend/backendApi/chatbotService/orderConsumer), `limitRange.*`
 - Produces: `bash deploy/helm/charts/ringdog/tests/render-test.sh` — 이후 Task가 검사 블록을 `echo "ALL PASS"` 위에 추가
 
-- [ ] **Step 1: 렌더링 테스트 스크립트 작성**
+- [x] **Step 1: 렌더링 테스트 스크립트 작성**
 
 `deploy/helm/charts/ringdog/tests/render-test.sh`:
 ```bash
@@ -281,7 +281,7 @@ echo "ALL PASS"
 Run (WSL): `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && bash deploy/helm/charts/ringdog/tests/render-test.sh"`
 Expected: `FAIL: DD_VERSION=abc123 on 3 backends`
 
-- [ ] **Step 2: 헬퍼 추가**
+- [x] **Step 2: 헬퍼 추가**
 
 `_helpers.tpl` 끝에 추가:
 ```yaml
@@ -296,7 +296,7 @@ tags.datadoghq.com/version: {{ .version | quote }}
 {{- end }}
 ```
 
-- [ ] **Step 3: backend-api.yaml 수정**
+- [x] **Step 3: backend-api.yaml 수정**
 
 Deployment `---` 바로 다음 줄(`apiVersion: apps/v1` 위)에 변수 정의를 추가하고 라벨·이미지·env·resources를 바꾼다:
 ```yaml
@@ -333,7 +333,7 @@ env의 `DD_SERVICE` 항목 바로 아래:
             {{- toYaml .Values.backendApi.resources | nindent 12 }}
 ```
 
-- [ ] **Step 4: 나머지 3개 템플릿 수정**
+- [x] **Step 4: 나머지 3개 템플릿 수정**
 
 `chatbot-service.yaml`, `order-consumer.yaml`: Deployment metadata.labels와 template.metadata.labels에
 ```yaml
@@ -347,7 +347,7 @@ env의 `DD_SERVICE` 항목 바로 아래:
 컨테이너에 `resources: {{- toYaml .Values.chatbotService.resources | nindent 12 }}` (order-consumer는 `.Values.orderConsumer.resources`).
 `frontend.yaml`: 기존 `{{- include "ringdog.labels" . | nindent 4 }}` 아래와 pod labels에 service `ringdog-frontend`로 ddLabels만 추가(frontend는 dd-trace가 없어 `DD_VERSION` 불필요), 컨테이너에 `resources: {{- toYaml .Values.frontend.resources | nindent 12 }}`.
 
-- [ ] **Step 5: LimitRange 템플릿**
+- [x] **Step 5: LimitRange 템플릿**
 
 `deploy/helm/charts/ringdog/templates/limitrange.yaml`:
 ```yaml
@@ -367,7 +367,7 @@ spec:
         {{- toYaml .Values.limitRange.default | nindent 8 }}
 ```
 
-- [ ] **Step 6: values.yaml에 기본값 추가**
+- [x] **Step 6: values.yaml에 기본값 추가**
 
 `frontend:` 블록에:
 ```yaml
@@ -399,12 +399,12 @@ limitRange:
   default: { memory: 256Mi }
 ```
 
-- [ ] **Step 7: 테스트 통과 확인**
+- [x] **Step 7: 테스트 통과 확인**
 
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && bash deploy/helm/charts/ringdog/tests/render-test.sh && helm lint deploy/helm/charts/ringdog --set image.registry=r --set secrets.databaseUrl=x --set secrets.jwtSecret=y"`
 Expected: `ALL PASS`, lint `0 chart(s) failed`
 
-- [ ] **Step 8: cd.yml 수동 실행 추가**
+- [x] **Step 8: cd.yml 수동 실행 추가**
 
 `.github/workflows/cd.yml`의 `on:` 블록:
 ```yaml
@@ -417,7 +417,7 @@ on:
   workflow_dispatch:
 ```
 
-- [ ] **Step 9: 문서 갱신**
+- [x] **Step 9: 문서 갱신**
 
 `docs/setup/03-deploy.md` 3-2절을 다음으로 교체:
 ```markdown
@@ -428,7 +428,7 @@ main에 push해도 자동으로 실행됩니다.
 ```
 (그 아래 진행 상황 확인 내용은 유지, 트러블슈팅의 "Re-run 불가" 행은 "Run workflow로 새로 실행"으로 수정)
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add deploy/helm/charts/ringdog .github/workflows/cd.yml docs/setup/03-deploy.md
@@ -449,7 +449,7 @@ git commit -m "feat(helm): unified service tagging, resource requests, limitrang
 - Produces: IAM 그룹 `ringdog-demo-team`, IAM Role `ringdog-demo-eks-admin`, (External ID가 있을 때) IAM Role `ringdog-datadog-integration`
 - Consumes (envs/demo): `var.team_eks_admin_role_name` (기본 `"ringdog-demo-eks-admin"`)
 
-- [ ] **Step 1: team 스택 작성**
+- [x] **Step 1: team 스택 작성**
 
 `infra/terraform/team/versions.tf`:
 ```hcl
@@ -586,7 +586,7 @@ output "datadog_integration_role_name" {
 }
 ```
 
-- [ ] **Step 2: envs/demo에 access entry 추가**
+- [x] **Step 2: envs/demo에 access entry 추가**
 
 `infra/terraform/envs/demo/variables.tf` 끝:
 ```hcl
@@ -626,12 +626,12 @@ resource "aws_eks_access_policy_association" "team_eks_admin" {
 ```
 (`module.eks.cluster_name` 출력 이름이 `modules/eks/outputs.tf`에 실제로 있는지 확인. 다르면 그 이름 사용)
 
-- [ ] **Step 3: tfvars가 gitignore되는지 확인**
+- [x] **Step 3: tfvars가 gitignore되는지 확인**
 
 Run: `git check-ignore -v infra/terraform/team/terraform.tfvars`
 Expected: `.gitignore`의 규칙이 출력됨. 출력이 없으면 `.gitignore`에 `infra/terraform/**/terraform.tfvars` 추가
 
-- [ ] **Step 4: fmt/validate (WSL 내부 경로 복사본에서)**
+- [x] **Step 4: fmt/validate (WSL 내부 경로 복사본에서)**
 
 스크래치패드에 `tfcheck.sh` 작성 후 실행:
 ```bash
@@ -649,7 +649,7 @@ done
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash /mnt/c/Users/MZC01-ARINAN/AppData/Local/Temp/claude/D--Demo/<session>/scratchpad/tfcheck.sh`
 Expected: 두 디렉터리 모두 `Success! The configuration is valid.`
 
-- [ ] **Step 5: ci.yml에 team 스택 검증 추가**
+- [x] **Step 5: ci.yml에 team 스택 검증 추가**
 
 `.github/workflows/ci.yml` terraform_plan job의 마지막 step 뒤:
 ```yaml
@@ -660,7 +660,7 @@ Expected: 두 디렉터리 모두 `Success! The configuration is valid.`
           terraform -chdir=infra/terraform/team validate
 ```
 
-- [ ] **Step 6: 문서 갱신**
+- [x] **Step 6: 문서 갱신**
 
 - `docs/setup/01-prerequisites.md`: "⚠️ IAM 그룹은 구현 항목 C0-2(...)가 반영된 뒤에 존재합니다." 줄 삭제
 - `docs/setup/02-infra.md`: 2-2절의 "(구현 항목 C0-2 반영 후 사용 가능)"과 2-5절의 "⚠️ 공용 Role 접속은..." 인용문 삭제. 2-2절 코드 블록 아래에 추가:
@@ -676,14 +676,14 @@ team 스택을 다시 apply합니다. 그 다음 Datadog 화면에 계정 ID와 
 | `no IAM Role found` (`data.aws_iam_role.team_eks_admin`) | team 스택이 아직 없음. 2-2절 team 스택 apply 후 다시 실행 |
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add infra/terraform/team infra/terraform/envs/demo/main.tf infra/terraform/envs/demo/variables.tf .github/workflows/ci.yml docs/setup .gitignore
 git commit -m "feat(infra): team IAM stack, shared EKS admin role, Datadog AWS integration role"
 ```
 
-- [ ] **Step 8 (사용자 수행, AWS 반영): team 스택 apply** — **사용자 확인 후에만.** WSL 내부 복사본에서 `terraform -chdir=infra/terraform/team init && terraform -chdir=infra/terraform/team apply` (무료) → 본인을 그룹에 추가
+- [x] **Step 8 (사용자 수행, AWS 반영): team 스택 apply** — **사용자 확인 후에만.** WSL 내부 복사본에서 `terraform -chdir=infra/terraform/team init && terraform -chdir=infra/terraform/team apply` (무료) → 본인을 그룹에 추가
 
 ---
 
@@ -697,7 +697,7 @@ git commit -m "feat(infra): team IAM stack, shared EKS admin role, Datadog AWS i
 - Produces: Secrets Manager `ringdog-demo/rds/datadog` = `{"username":"datadog","password":"<랜덤>"}` (Task 5의 cd.yml이 읽음)
 - Produces: RDS 파라미터 그룹 `ringdog-demo-pg16-dbm`
 
-- [ ] **Step 1: 파라미터 그룹 + Datadog 계정 시크릿**
+- [x] **Step 1: 파라미터 그룹 + Datadog 계정 시크릿**
 
 `modules/rds/main.tf`의 `random_password.master` 아래에:
 ```hcl
@@ -770,19 +770,19 @@ output "datadog_secret_name" {
 }
 ```
 
-- [ ] **Step 2: envs/demo 기본값**
+- [x] **Step 2: envs/demo 기본값**
 
 `envs/demo/variables.tf`:
 - `rds_instance_class` default `"db.t3.small"`, description "RDS instance class. 시나리오 ① 대량 데이터·DBM 수집 때문에 db.t3.small."
 - `node_desired_size` default `3`, `node_max_size` default `4` (`node_min_size`는 1 유지). `node_instance_types` description에 "노드 자동 확장(Cluster Autoscaler) 없음 — 시나리오 ①의 HPA 최대치 + k6 browser를 3대에 올림" 추가
 `terraform.tfvars.example`의 주석 예시도 같은 값으로.
 
-- [ ] **Step 3: fmt/validate**
+- [x] **Step 3: fmt/validate**
 
 Run: Task 3 Step 4의 `tfcheck.sh`
 Expected: 두 디렉터리 모두 valid
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add infra/terraform/modules/rds infra/terraform/envs/demo
@@ -803,7 +803,7 @@ git commit -m "feat(infra): RDS DBM parameter group and datadog secret, db.t3.sm
 - Produces: Datadog 지표 `ringdog.db.blocking_sessions`, `ringdog.db.blocked_sessions` (태그 `env:demo`, `dbinstanceidentifier:ringdog-demo`) — Task 17 모니터가 사용
 - Produces: kube-system에 metrics-server (Task 8 HPA가 사용)
 
-- [ ] **Step 1: DBM 준비 SQL**
+- [x] **Step 1: DBM 준비 SQL**
 
 `deploy/dbm/datadog-setup.sql`:
 ```sql
@@ -844,7 +844,7 @@ RETURNS NULL ON NULL INPUT
 SECURITY DEFINER;
 ```
 
-- [ ] **Step 2: Agent Postgres 체크 템플릿**
+- [x] **Step 2: Agent Postgres 체크 템플릿**
 
 `deploy/helm/datadog-agent/postgres-values.tmpl.yaml`:
 ```yaml
@@ -890,7 +890,7 @@ clusterAgent:
                   type: gauge
 ```
 
-- [ ] **Step 3: cd.yml 수정 — 순서 재배치와 신규 단계**
+- [x] **Step 3: cd.yml 수정 — 순서 재배치와 신규 단계**
 
 `helm_upgrade_eks` job에서:
 1. 기존 "Deploy / upgrade Datadog Agent" 단계를 **"Run DB migrations and seed" 다음**으로 옮긴다 (DB 접속 정보가 필요해서).
@@ -957,12 +957,12 @@ clusterAgent:
           kubectl -n kube-system rollout status deployment/metrics-server --timeout=120s
 ```
 
-- [ ] **Step 4: actionlint**
+- [x] **Step 4: actionlint**
 
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && docker run --rm -v \"\$PWD:/repo\" -w /repo rhysd/actionlint:1.7.3 -color"` (`$PWD` 이스케이프가 깨지면 스크립트 파일로 실행)
 Expected: `cd.yml` 변경분에서 새 경고 없음. WSL에 docker가 없거나 이미지 pull이 사내 TLS 때문에 실패하면, 사용자에게 알리고 `go install`/바이너리 다운로드 대신 Task 15의 실제 실행으로 검증을 대체
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/dbm deploy/helm/datadog-agent .github/workflows/cd.yml
@@ -984,7 +984,7 @@ git commit -m "feat(cd): metrics-server, Postgres DBM setup and agent cluster ch
 - Produces: `GET /api/products/trending` → `200 { enabled: false, items: [] }` 또는 `200 { enabled: true, items: TrendingItem[] }`, `TrendingItem = { id: string; name: string; price: number; imageUrl: string | null; tags: string[]; sold: number }` (Task 7 frontend가 같은 모양 사용)
 - Produces: `env.featureTrendingWidget: boolean` ← `FEATURE_TRENDING_WIDGET` (Task 8 ConfigMap)
 
-- [ ] **Step 1: 재고 차감 실패 테스트**
+- [x] **Step 1: 재고 차감 실패 테스트**
 
 `apps/backend-api/src/lib/stock.test.ts`:
 ```ts
@@ -1033,7 +1033,7 @@ describe("reserveStock", () => {
 });
 ```
 
-- [ ] **Step 2: 인기상품 핸들러 실패 테스트**
+- [x] **Step 2: 인기상품 핸들러 실패 테스트**
 
 `apps/backend-api/src/routes/trending.test.ts`:
 ```ts
@@ -1075,12 +1075,12 @@ describe("GET /api/products/trending", () => {
 });
 ```
 
-- [ ] **Step 3: 실패 확인**
+- [x] **Step 3: 실패 확인**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test`
 Expected: FAIL — `Cannot find module './stock'`, `'./trending'`
 
-- [ ] **Step 4: stock.ts 구현**
+- [x] **Step 4: stock.ts 구현**
 
 `apps/backend-api/src/lib/stock.ts`:
 ```ts
@@ -1124,7 +1124,7 @@ export async function reserveStock(
 }
 ```
 
-- [ ] **Step 5: trending lib + 핸들러 구현**
+- [x] **Step 5: trending lib + 핸들러 구현**
 
 `apps/backend-api/src/lib/trending.ts`:
 ```ts
@@ -1208,7 +1208,7 @@ export function createTrendingHandler(deps: TrendingDeps): RequestHandler {
 }
 ```
 
-- [ ] **Step 6: 라우트·env·checkout 연결**
+- [x] **Step 6: 라우트·env·checkout 연결**
 
 `config/env.ts`의 `demoCouponCode` 줄 아래:
 ```ts
@@ -1262,16 +1262,16 @@ productsRouter.get(
 ```
 (`OutOfStockError`는 `status = 409`라 기존 `next(err)` → errorHandler가 409 + "Out of stock"으로 응답)
 
-- [ ] **Step 7: 통과 확인 + lint/typecheck**
+- [x] **Step 7: 통과 확인 + lint/typecheck**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test && npx --yes pnpm@9.15.0 --filter @ringdog/backend-api lint && npx --yes pnpm@9.15.0 --filter @ringdog/backend-api typecheck`
 Expected: 11 passed, 에러 없음. typecheck가 `Prisma.TransactionClient` Pick에서 실패하면 `@ringdog/db`가 `Prisma` 네임스페이스를 re-export하는지(`export * from "../generated/client"`) 확인 — `packages/db`를 먼저 build
 
-- [ ] **Step 8: 로컬 동작 확인 (선택, 로컬 Postgres가 있을 때)**
+- [x] **Step 8: 로컬 동작 확인 (선택, 로컬 Postgres가 있을 때)**
 
 `.env`의 로컬 DB로 `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api dev` → `curl -s localhost:4000/api/products/trending` → `{"enabled":false,"items":[]}`. `FEATURE_TRENDING_WIDGET=true`로 재시작 → `{"enabled":true,"items":[...]}`(주문이 없으면 빈 배열). 로컬 DB가 없으면 건너뛰고 Task 15에서 확인
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/backend-api/src
@@ -1291,7 +1291,7 @@ git commit -m "feat(backend-api): checkout stock reservation with lock_timeout a
 - Consumes: `GET /api/products/trending` 응답 모양 (Task 6)
 - Produces: `loadTrending(fetcher, timeoutMs?): Promise<TrendingState>`, `TrendingState = { status: "hidden" } | { status: "ready"; items: TrendingItem[] }`
 
-- [ ] **Step 1: 위젯 상태 실패 테스트**
+- [x] **Step 1: 위젯 상태 실패 테스트**
 
 `apps/frontend/package.json`: `"test": "vitest run"`, devDependencies에 `"vitest": "^2.0.5"`. 설치: `NODE_OPTIONS=--use-system-ca npx --yes pnpm@9.15.0 install`
 
@@ -1338,12 +1338,12 @@ describe("loadTrending", () => {
 });
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/frontend test`
 Expected: FAIL — `Cannot find module './trending'`
 
-- [ ] **Step 3: trending.ts 구현**
+- [x] **Step 3: trending.ts 구현**
 
 `apps/frontend/src/lib/trending.ts`:
 ```ts
@@ -1388,12 +1388,12 @@ export async function loadTrending(
 }
 ```
 
-- [ ] **Step 4: 통과 확인**
+- [x] **Step 4: 통과 확인**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/frontend test`
 Expected: 5 passed
 
-- [ ] **Step 5: 위젯 컴포넌트**
+- [x] **Step 5: 위젯 컴포넌트**
 
 `apps/frontend/src/components/TrendingWidget.tsx`:
 ```tsx
@@ -1470,19 +1470,19 @@ export function TrendingWidget(): JSX.Element | null {
 ```
 (`bg-cream-100`, `shadow-soft`가 `tailwind.config.ts`에 있는지 확인 — 없으면 기존 컴포넌트가 쓰는 배경색 클래스로 바꾼다)
 
-- [ ] **Step 6: ProductCatalog에 배치**
+- [x] **Step 6: ProductCatalog에 배치**
 
 `apps/frontend/src/components/ProductCatalog.tsx`: `import { TrendingWidget } from "./TrendingWidget";` 추가, `return (` 안 `<section>` 바로 다음 줄에:
 ```tsx
       {!q && <TrendingWidget />}
 ```
 
-- [ ] **Step 7: lint/typecheck**
+- [x] **Step 7: lint/typecheck**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/frontend lint && npx --yes pnpm@9.15.0 --filter @ringdog/frontend typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/frontend pnpm-lock.yaml
@@ -1501,7 +1501,7 @@ git commit -m "feat(frontend): trending widget that hides on disabled, slow or f
 - Produces: Helm 값 `featureFlags.trendingWidget`(`"false"`), `backendApi.hpa.{enabled,minReplicas,maxReplicas,targetCPUUtilization}` (기본 `true/1/4/50`)
 - Produces: ConfigMap `ringdog-feature-flags` (Task 11 `demo-control.sh`가 `helm --set featureFlags.trendingWidget=...` + `rollout restart`로 토글)
 
-- [ ] **Step 1: 렌더링 테스트 추가 (실패 확인)**
+- [x] **Step 1: 렌더링 테스트 추가 (실패 확인)**
 
 `render-test.sh`의 `echo "ALL PASS"` 위에:
 ```bash
@@ -1524,7 +1524,7 @@ echo "$out" | grep -q 'kind: HorizontalPodAutoscaler' && fail "hpa off"
 Run: render-test.sh (Task 2 Step 1 명령)
 Expected: `FAIL: feature flag configmap`
 
-- [ ] **Step 2: ConfigMap 템플릿**
+- [x] **Step 2: ConfigMap 템플릿**
 
 `templates/feature-flags.yaml`:
 ```yaml
@@ -1539,7 +1539,7 @@ data:
   FEATURE_TRENDING_WIDGET: {{ .Values.featureFlags.trendingWidget | quote }}
 ```
 
-- [ ] **Step 3: HPA 템플릿**
+- [x] **Step 3: HPA 템플릿**
 
 `templates/backend-api-hpa.yaml`:
 ```yaml
@@ -1568,7 +1568,7 @@ spec:
 {{- end }}
 ```
 
-- [ ] **Step 4: backend-api.yaml 수정**
+- [x] **Step 4: backend-api.yaml 수정**
 
 `spec:` 아래 `replicas:` 줄을:
 ```yaml
@@ -1585,7 +1585,7 @@ env의 `DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED` 항목 아래:
                   key: FEATURE_TRENDING_WIDGET
 ```
 
-- [ ] **Step 5: values.yaml**
+- [x] **Step 5: values.yaml**
 
 `backendApi:` 블록에:
 ```yaml
@@ -1603,12 +1603,12 @@ featureFlags:
   trendingWidget: "false"
 ```
 
-- [ ] **Step 6: 통과 확인**
+- [x] **Step 6: 통과 확인**
 
 Run: render-test.sh + helm lint (Task 2 Step 7 명령)
 Expected: `ALL PASS`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add deploy/helm/charts/ringdog
@@ -1632,7 +1632,7 @@ git commit -m "feat(helm): trending widget flag configmap and backend-api CPU HP
 - Produces: 셸 함수 `render_batch_job <mode> <image>` → stdout에 Job YAML (Task 11이 `kubectl apply -f -`)
 - Produces: DB 테이블 `demo_price_backup(product_id text PK, price numeric(10,2), stock int)` (Task 11 `reset.sql`이 복원)
 
-- [ ] **Step 1: 배치 순서 실패 테스트**
+- [x] **Step 1: 배치 순서 실패 테스트**
 
 `apps/backend-api/src/jobs/batchRunner.test.ts`:
 ```ts
@@ -1710,12 +1710,12 @@ describe("salePrice", () => {
 });
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test`
 Expected: FAIL — `Cannot find module './batchRunner'`
 
-- [ ] **Step 3: batchRunner.ts 구현**
+- [x] **Step 3: batchRunner.ts 구현**
 
 `apps/backend-api/src/jobs/batchRunner.ts`:
 ```ts
@@ -1811,12 +1811,12 @@ export async function runBatch(mode: BatchMode, targets: BatchTarget[], deps: Ba
 }
 ```
 
-- [ ] **Step 4: 통과 확인**
+- [x] **Step 4: 통과 확인**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api test`
 Expected: 16 passed
 
-- [ ] **Step 5: 진입점 inventoryBatch.ts**
+- [x] **Step 5: 진입점 inventoryBatch.ts**
 
 `apps/backend-api/src/jobs/inventoryBatch.ts`:
 ```ts
@@ -1889,7 +1889,7 @@ main()
 ```
 (`logger.info` 시그니처가 `(message, fields)`인지 `packages/shared/src/logger.ts`에서 확인)
 
-- [ ] **Step 6: Job 매니페스트 + 렌더링 테스트 (실패 확인)**
+- [x] **Step 6: Job 매니페스트 + 렌더링 테스트 (실패 확인)**
 
 `deploy/demo/tests/render-test.sh`:
 ```bash
@@ -1922,7 +1922,7 @@ echo "ALL PASS"
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && bash deploy/demo/tests/render-test.sh"`
 Expected: FAIL — `demo-control.sh: No such file or directory`
 
-- [ ] **Step 7: Job 템플릿 + render 함수**
+- [x] **Step 7: Job 템플릿 + render 함수**
 
 `deploy/demo/inventory-batch-job.yaml`:
 ```yaml
@@ -2015,12 +2015,12 @@ render_batch_job() {
 # (Task 11에서 나머지 동작과 main 추가)
 ```
 
-- [ ] **Step 8: 통과 확인**
+- [x] **Step 8: 통과 확인**
 
 Run: Step 6 명령
 Expected: `ALL PASS`
 
-- [ ] **Step 9: lint/typecheck + Commit**
+- [x] **Step 9: lint/typecheck + Commit**
 
 Run: `npx --yes pnpm@9.15.0 --filter @ringdog/backend-api lint && npx --yes pnpm@9.15.0 --filter @ringdog/backend-api typecheck`
 ```bash
@@ -2042,7 +2042,7 @@ git commit -m "feat(demo): inventory-batch job with fault (one long transaction)
 - 프로필 (Task 11이 `--set`으로 지정): 평시 `apiRatePerMin=30, apiUsers=5, checkoutRatio=1` / 급증 `apiRatePerMin=240, apiUsers=40, checkoutRatio=0.25`. 시나리오 ②는 `couponRatio=0.5`를 쓴다
 - 데모 계정: API `demo-traffic-<n>@ringdog.demo`, 브라우저 `demo-browser-0..1@ringdog.demo`, 비밀번호 `demo-traffic-pw`
 
-- [ ] **Step 1: 렌더링 테스트 추가 (실패 확인)**
+- [x] **Step 1: 렌더링 테스트 추가 (실패 확인)**
 
 `render-test.sh`의 `echo "ALL PASS"` 위에:
 ```bash
@@ -2063,7 +2063,7 @@ echo "$out" | grep -q 'api.js: |' || fail "script configmap"
 ```
 Run: render-test.sh → Expected: `FAIL: traffic-api rendered`
 
-- [ ] **Step 2: values.yaml**
+- [x] **Step 2: values.yaml**
 
 파일 끝:
 ```yaml
@@ -2082,7 +2082,7 @@ trafficGen:
   browserImage: grafana/k6:0.52.0-with-browser
 ```
 
-- [ ] **Step 3: API 스크립트**
+- [x] **Step 3: API 스크립트**
 
 `files/traffic/api.js`:
 ```js
@@ -2149,7 +2149,7 @@ export default function () {
 }
 ```
 
-- [ ] **Step 4: 브라우저 스크립트**
+- [x] **Step 4: 브라우저 스크립트**
 
 `files/traffic/browser.js`:
 ```js
@@ -2225,7 +2225,7 @@ export default async function () {
 ```
 (장바구니·쿠폰 입력란의 실제 DOM(`placeholder`, 버튼 문구)을 `apps/frontend/src/app/cart/page.tsx`에서 확인하고 다르면 맞춘다)
 
-- [ ] **Step 5: Helm 템플릿**
+- [x] **Step 5: Helm 템플릿**
 
 `templates/traffic-gen.yaml`:
 ```yaml
@@ -2331,13 +2331,13 @@ spec:
 {{- end }}
 ```
 
-- [ ] **Step 6: 렌더링 테스트 + k6 문법 검증**
+- [x] **Step 6: 렌더링 테스트 + k6 문법 검증**
 
 Run: render-test.sh → Expected `ALL PASS`
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "docker run --rm -v /mnt/d/Demo/deploy/helm/charts/ringdog/files/traffic:/s grafana/k6:0.52.0 inspect /s/api.js && docker run --rm -v /mnt/d/Demo/deploy/helm/charts/ringdog/files/traffic:/s grafana/k6:0.52.0-with-browser inspect /s/browser.js"`
 Expected: 두 스크립트 모두 options JSON 출력. (docker가 없거나 사내 TLS로 pull이 실패하면 사용자에게 알리고 Task 15 실환경 확인으로 대체)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add deploy/helm/charts/ringdog
@@ -2360,7 +2360,7 @@ git commit -m "feat(demo): k6 API/browser traffic generator with normal and spik
 - Produces: GitHub Actions `demo-control` — inputs `action`(`seed|start|spike|inject|mitigate|fix-index|reset|stop`), `target`(`widget|session`, mitigate에서만). Datadog Workflow 1(Task 18)이 `mitigate`+`widget` → `fix-index`, Workflow 2가 `mitigate`+`session`으로 호출
 - Produces: cd.yml 완료 = 대량 시드 + 평시 트래픽까지 켜진 상태 (Task 12 `demo-up.sh`가 이것을 기다림)
 
-- [ ] **Step 1: 대량 시드 SQL**
+- [x] **Step 1: 대량 시드 SQL**
 
 `deploy/demo/sql/bulk-seed.sql`:
 ```sql
@@ -2419,7 +2419,7 @@ ANALYZE order_items;
 \echo 'bulk seed: done'
 ```
 
-- [ ] **Step 2: 세션 종료 SQL**
+- [x] **Step 2: 세션 종료 SQL**
 
 `deploy/demo/sql/terminate-batch-blockers.sql`:
 ```sql
@@ -2441,7 +2441,7 @@ WHERE a.application_name = 'inventory-batch'
   AND now() - a.xact_start > interval '30 seconds';
 ```
 
-- [ ] **Step 2-1: 인덱스 적용 SQL (원인 ① 근본 수정)**
+- [x] **Step 2-1: 인덱스 적용 SQL (원인 ① 근본 수정)**
 
 `deploy/demo/sql/apply-index.sql`:
 ```sql
@@ -2458,7 +2458,7 @@ ANALYZE order_items;
 \echo 'fix-index: orders_created_at_idx, order_items_order_id_idx ready'
 ```
 
-- [ ] **Step 3: 리셋 SQL**
+- [x] **Step 3: 리셋 SQL**
 
 `deploy/demo/sql/reset.sql`:
 ```sql
@@ -2483,7 +2483,7 @@ DROP INDEX IF EXISTS orders_created_at_idx;
 DROP INDEX IF EXISTS order_items_order_id_idx;
 ```
 
-- [ ] **Step 4: 스크립트 테스트 추가 (실패 확인)**
+- [x] **Step 4: 스크립트 테스트 추가 (실패 확인)**
 
 `deploy/demo/tests/render-test.sh`의 `echo "ALL PASS"` 위에:
 ```bash
@@ -2503,7 +2503,7 @@ grep -q "orders_created_at_idx" "$DIR/sql/reset.sql" || fail "reset drops fix-in
 ```
 Run: Task 9 Step 6 명령 → Expected: `traffic_args: command not found`로 FAIL
 
-- [ ] **Step 5: demo-control.sh 완성**
+- [x] **Step 5: demo-control.sh 완성**
 
 `deploy/demo/demo-control.sh`의 `render_batch_job` 아래(`# (Task 11에서...` 줄 대체):
 ```bash
@@ -2646,12 +2646,12 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 fi
 ```
 
-- [ ] **Step 6: 테스트 통과 + shellcheck**
+- [x] **Step 6: 테스트 통과 + shellcheck**
 
 Run: Task 9 Step 6 명령 → Expected `ALL PASS`
 Run (WSL에 shellcheck가 있으면): `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && shellcheck deploy/demo/demo-control.sh deploy/demo/tests/render-test.sh"` → 경고 없음
 
-- [ ] **Step 7: demo-control.yml**
+- [x] **Step 7: demo-control.yml**
 
 `.github/workflows/demo-control.yml`:
 ```yaml
@@ -2718,7 +2718,7 @@ jobs:
 ```
 actionlint 실행 (Task 5 Step 4 명령) → 새 경고 없음
 
-- [ ] **Step 7-1: cd.yml에 대량 시드 + 평시 트래픽 연결**
+- [x] **Step 7-1: cd.yml에 대량 시드 + 평시 트래픽 연결**
 
 `demo-up.sh` 한 번으로 시연 직전 상태가 되도록 cd가 끝까지 준비한다.
 1. "Prepare Postgres for Datadog DBM" 단계 다음에 (조건 없이):
@@ -2743,7 +2743,7 @@ actionlint 실행 (Task 5 Step 4 명령) → 새 경고 없음
 ```
 (1차 Helm 배포는 `--reuse-values`가 없어 트래픽·플래그를 기본값(꺼짐)으로 되돌리고, 2차가 평시 트래픽을 다시 켠다. 위젯 플래그는 OFF 유지)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add deploy/demo .github/workflows/demo-control.yml .github/workflows/cd.yml
@@ -2763,7 +2763,7 @@ git commit -m "feat(demo): demo-control workflow (inject/mitigate/fix-index/rese
 - Produces: `bash scripts/demo-up.sh [--yes]` → 종료 코드 0 = 노드 3대 Ready + metrics-server + HPA + 트래픽 Pod 2개 Ready, 마지막 줄 `준비 완료: http://<ALB>`
 - Produces: `bash scripts/demo-down.sh [--yes]` → 종료 코드 0 = Terraform state 비어 있음 + EKS·RDS 없음 + ALB 없음
 
-- [ ] **Step 1: 공통 함수**
+- [x] **Step 1: 공통 함수**
 
 `scripts/lib-demo-env.sh`:
 ```bash
@@ -2808,7 +2808,7 @@ sync_tf() {
 }
 ```
 
-- [ ] **Step 2: demo-up.sh**
+- [x] **Step 2: demo-up.sh**
 
 `scripts/demo-up.sh`:
 ```bash
@@ -2862,7 +2862,7 @@ main() {
 main
 ```
 
-- [ ] **Step 3: demo-down.sh**
+- [x] **Step 3: demo-down.sh**
 
 `scripts/demo-down.sh`:
 ```bash
@@ -2915,12 +2915,12 @@ main() {
 main
 ```
 
-- [ ] **Step 4: 문법 검사**
+- [x] **Step 4: 문법 검사**
 
 Run: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu -- bash -lc "cd /mnt/d/Demo && bash -n scripts/lib-demo-env.sh scripts/demo-up.sh scripts/demo-down.sh && (command -v shellcheck >/dev/null && shellcheck -x scripts/*.sh || echo 'shellcheck 없음 — 건너뜀')"`
 Expected: 오류 없음. 실제 실행 검증은 Task 15 Step 2(`demo-up`)와 Task 19 Step 6(`demo-down`)
 
-- [ ] **Step 5: 문서**
+- [x] **Step 5: 문서**
 
 `docs/setup/02-infra.md` 맨 위(1절 앞)에:
 ```markdown
@@ -2936,7 +2936,7 @@ WSL에서 repo 폴더로 이동한 뒤 실행합니다. 둘 다 시작 전에 �
 아래 절은 같은 내용을 단계별로 직접 할 때의 설명입니다.
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts docs/setup/02-infra.md
@@ -2951,7 +2951,7 @@ git commit -m "feat(demo): one-command demo-up/demo-down scripts"
 - Create: `docs/demo/01-flash-sale-db/datadog-setup.md`
 - Modify: `docs/demo/01-flash-sale-db/README.md`, `docs/setup/04-datadog.md`
 
-- [ ] **Step 1: datadog-setup.md 작성**
+- [x] **Step 1: datadog-setup.md 작성**
 
 다음 절을 포함 (각 절은 클릭 경로 + 입력값 표, 실제 ID는 `<CONNECTION_ID>` 같은 자리표시):
 1. **Slack 연동** — Integrations → Slack → 워크스페이스 연결 → 데모 채널 `#<데모 채널>` 추가
@@ -2975,7 +2975,7 @@ git commit -m "feat(demo): one-command demo-up/demo-down scripts"
 5. **Workflow 내보내기** — Export JSON → Connection ID·채널 ID·org ID를 자리표시로 바꿔 `datadog/workflows/mitigate-widget.json`, `mitigate-session.json`으로 커밋
 6. **Bits AI SRE** — Task 17 Step 3에서 확인한 켜는 방법
 
-- [ ] **Step 2: README 갱신**
+- [x] **Step 2: README 갱신**
 
 `docs/demo/01-flash-sale-db/README.md`:
 - 4절 "환경 준비": setup 1~4단계와 시드 항목을 "WSL에서 `bash scripts/demo-up.sh` (약 30~40분, 대량 시드·평시 트래픽까지 자동)"로 교체. bootstrap·team 스택·GitHub Secrets·Datadog 설정은 "최초 1회"로 분리
@@ -2984,11 +2984,11 @@ git commit -m "feat(demo): one-command demo-up/demo-down scripts"
 - 5절 리셋 절차: 1번 "**demo-control** → `reset`(시연 PR 자동으로 닫힘)", 환경을 끝낼 때 "WSL에서 `bash scripts/demo-down.sh`"
 - 진행 현황 표: 끝낸 Task 항목 ✅
 
-- [ ] **Step 3: 04-datadog.md 갱신**
+- [x] **Step 3: 04-datadog.md 갱신**
 
 4-5절 "배포 후 수집 확인"에 행 추가: DBM(Database Monitoring → Databases에 `ringdog-demo`, Query Metrics에 쿼리 표시), Infra(`kube_deployment:backend-api`의 HPA 지표), AWS 연동(`aws.rds.cpuutilization`). 4-6절에 "시나리오 ① 설정은 `docs/demo/01-flash-sale-db/datadog-setup.md`" 링크
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/demo/01-flash-sale-db docs/setup/04-datadog.md
@@ -3002,14 +3002,14 @@ git commit -m "docs(demo-01): Datadog UI setup guide and demo-control based chec
 **Files:**
 - Modify: `docs/design/plans/2026-10-13-demo-bad-deploy.md`
 
-- [ ] **Step 1: 공통 기반 Task를 참조로 바꾸기**
+- [x] **Step 1: 공통 기반 Task를 참조로 바꾸기**
 
 - 맨 위 ⚠️ 블록을 "공통 기반(Task 1·2·3·6 해당 부분)은 시나리오 ① 계획 `2026-10-16-demo-flash-sale-db.md` Task 1·2·3·10에서 구현됨. 이 계획은 ② 전용 Task만 다룬다"로 교체
 - Task 1·2·3 본문을 "→ ① 계획 Task N에서 완료" 한 줄로 축소
 - Task 6(트래픽 생성기)을 "① 계획 Task 10의 생성기 사용. ② 시연 때는 `demo-control start` 후 `helm upgrade --reset-then-reuse-values --set trafficGen.couponRatio=0.5`" 로 축소하고, `demo-traffic.yml`을 만드는 단계 삭제
 - 파일 구조 표에서 ①에서 만든 파일 행 삭제, Review Focus 2·3·5번(①에서 다룸) 정리
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/design/plans/2026-10-13-demo-bad-deploy.md
@@ -3022,16 +3022,18 @@ git commit -m "docs(demo-02): trim plan to scenario-02-only tasks after shared f
 
 > 💰 이 Task부터 AWS 환경이 필요합니다. 시작 전 사용자에게 `terraform apply`와 `git push` 진행 여부를 확인하고, 세션이 끝날 때 destroy 여부를 확인합니다.
 
-- [ ] **Step 1: team 스택** — Task 3 Step 8이 아직이면 수행 (사용자 확인)
-- [ ] **Step 2: push** — WSL에서 `git push origin main` (사용자 확인). 원격 main에 `cd.yml`의 `workflow_dispatch`와 `demo-control.yml`이 있어야 `demo-up`이 cd를 실행할 수 있다. 환경이 없는 상태라 이 push로 시작된 cd는 실패한다 — 정상(취소해도 됨)
-- [ ] **Step 3: `demo-up`** — WSL에서 `setsid nohup bash scripts/demo-up.sh --yes > ~/demo-up-$(date +%Y%m%d-%H%M).log 2>&1 &` (사용자 확인 후, 세션 재시작에도 살아남게) → 로그 마지막 줄 `준비 완료: http://<ALB>`. 단계별 소요 시간 기록. 추가 확인: `aws rds describe-db-instances --db-instance-identifier ringdog-demo --query 'DBInstances[0].[DBInstanceClass,DBParameterGroups[0].DBParameterGroupName]'` → `db.t3.small`, `ringdog-demo-pg16-dbm`, `kubectl -n ringdog get hpa backend-api`(TARGETS가 `<unknown>`이 아닌 %), `kubectl -n ringdog get limitrange`
-- [ ] **Step 4: DBM 수집** — `kubectl -n ringdog exec deploy/datadog-agent-cluster-agent -- datadog-cluster-agent clusterchecks`(Cluster Agent 파드에서 실행)에 `postgres` 체크 배정, 해당 노드 Agent `agent status`에 `postgres` `[OK]`. Datadog MCP(**org가 RingDog인지 먼저 확인**)로 `search_datadog_metrics` → `ringdog.db.blocking_sessions` 존재(값 0)
-- [ ] **Step 5: 대량 시드 + 평시 트래픽 결과** — cd 로그의 "Bulk seed" 단계 소요 시간 기록, `psql`로 `SELECT count(*) FROM order_items` ≈ 150만. 10분 뒤 MCP로 span `service:ringdog-backend-api env:demo`의 `version`이 sha, RUM 세션 존재, `service:inventory-batch`는 아직 없음 확인. cd를 한 번 더 실행해 "bulk seed: already done, skipping"과 트래픽이 다시 켜지는 것 확인
-- [ ] **Step 6: reset 안전성 (Review Focus 4)** — 백업 테이블이 없는 상태에서 **demo-control** `reset` 두 번 연속 → 둘 다 성공
+- [x] **Step 1: team 스택** — Task 3 Step 8이 아직이면 수행 (사용자 확인)
+- [x] **Step 2: push** — WSL에서 `git push origin main` (사용자 확인). 원격 main에 `cd.yml`의 `workflow_dispatch`와 `demo-control.yml`이 있어야 `demo-up`이 cd를 실행할 수 있다. 환경이 없는 상태라 이 push로 시작된 cd는 실패한다 — 정상(취소해도 됨)
+- [x] **Step 3: `demo-up`** — WSL에서 `setsid nohup bash scripts/demo-up.sh --yes > ~/demo-up-$(date +%Y%m%d-%H%M).log 2>&1 &` (사용자 확인 후, 세션 재시작에도 살아남게) → 로그 마지막 줄 `준비 완료: http://<ALB>`. 단계별 소요 시간 기록. 추가 확인: `aws rds describe-db-instances --db-instance-identifier ringdog-demo --query 'DBInstances[0].[DBInstanceClass,DBParameterGroups[0].DBParameterGroupName]'` → `db.t3.small`, `ringdog-demo-pg16-dbm`, `kubectl -n ringdog get hpa backend-api`(TARGETS가 `<unknown>`이 아닌 %), `kubectl -n ringdog get limitrange`
+- [x] **Step 4: DBM 수집** — `kubectl -n ringdog exec deploy/datadog-agent-cluster-agent -- datadog-cluster-agent clusterchecks`(Cluster Agent 파드에서 실행)에 `postgres` 체크 배정, 해당 노드 Agent `agent status`에 `postgres` `[OK]`. Datadog MCP(**org가 RingDog인지 먼저 확인**)로 `search_datadog_metrics` → `ringdog.db.blocking_sessions` 존재(값 0)
+- [x] **Step 5: 대량 시드 + 평시 트래픽 결과** — cd 로그의 "Bulk seed" 단계 소요 시간 기록, `psql`로 `SELECT count(*) FROM order_items` ≈ 150만. 10분 뒤 MCP로 span `service:ringdog-backend-api env:demo`의 `version`이 sha, RUM 세션 존재, `service:inventory-batch`는 아직 없음 확인. cd를 한 번 더 실행해 "bulk seed: already done, skipping"과 트래픽이 다시 켜지는 것 확인
+- [x] **Step 6: reset 안전성 (Review Focus 4)** — 백업 테이블이 없는 상태에서 **demo-control** `reset` 두 번 연속 → 둘 다 성공
 
 ---
 
 ### Task 16 (실환경): 장애 재현 + 튜닝
+
+> 2026-10-20 진행: 계획 외 선행 확인으로 k6 browser RUM 수집(RUM 초기화 순서 수정 `1d58bea`), `inject` 중 결제 버튼 Rage Click(6건), RUM 브라우저 프로파일링(`43e5ac3`) 완료. 아래 Step 1~8은 아직.
 
 - [ ] **Step 1: 원인 ①만** — **demo-control** `spike` 후 위젯만 켜기(`helm upgrade --reset-then-reuse-values --set featureFlags.trendingWidget=true` + rollout restart를 로컬 kubectl로) → 5분 동안 확인: DBM Top Query 1위가 trending 쿼리, Explain Plan `Seq Scan`, RDS CPU 80%+, HPA가 Pod를 늘림. 부족하면 조정 순서: `trafficGen.apiUsers`/`apiRatePerMin` ↑ → `backendApi.hpa.targetCPUUtilization` ↓ → 시드 데이터량 ↑
 - [ ] **Step 2: 원인 ②만** — `reset` → `spike` → 로컬에서 `render_batch_job fault <이미지>`의 `sleep 180`을 `sleep 0`으로 바꿔 apply → 1분 안에 DBM Blocking 트리에 `inventory-batch`(`idle in transaction`), checkout 트레이스의 postgres span이 약 5초 대기 후 `lock timeout` 에러, 배치 로그 "25/1,200 처리 중", `ringdog.db.blocking_sessions` ≥ 1
