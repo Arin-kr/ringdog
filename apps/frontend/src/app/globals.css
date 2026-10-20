@@ -5,3 +5,13 @@
 body {
   @apply bg-cream text-stone-800;
 }
+
+@layer utilities {
+  /* 스크롤은 그대로 두고 스크롤바만 숨김 (버튼·스와이프로 넘기는 가로 목록용) */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
