@@ -29,8 +29,12 @@ echo "$out" | grep -q 'terminationGracePeriodSeconds: 5' || fail "fast pod delet
 targs=$(traffic_args spike http://alb.example)
 echo "$targs" | grep -q 'trafficGen.apiRatePerMin=240' || fail "spike rate"
 echo "$targs" | grep -q 'trafficGen.checkoutRatio=0.25' || fail "spike checkout ratio"
+echo "$targs" | grep -q 'trafficGen.trendingRatio=0.5' || fail "spike trending ratio"
+echo "$targs" | grep -q 'trafficGen.ordersRatio=0.1' || fail "spike orders ratio"
 targs=$(traffic_args normal http://alb.example)
 echo "$targs" | grep -q 'trafficGen.apiRatePerMin=30' || fail "normal rate"
+echo "$targs" | grep -q 'trafficGen.trendingRatio=1' || fail "normal trending ratio"
+echo "$targs" | grep -q 'trafficGen.ordersRatio=1' || fail "normal orders ratio"
 echo "$targs" | grep -q 'trafficGen.targetUrl=http://alb.example' || fail "target url"
 grep -q "pg_terminate_backend" "$DIR/sql/terminate-batch-blockers.sql" || fail "kill sql"
 grep -q "application_name = 'inventory-batch'" "$DIR/sql/terminate-batch-blockers.sql" || fail "kill only the batch"

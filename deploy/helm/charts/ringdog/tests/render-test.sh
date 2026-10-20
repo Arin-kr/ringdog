@@ -45,13 +45,15 @@ echo "$out" | grep -q 'name: traffic-api' && fail "traffic off by default"
 out=$(helm template ringdog "$CHART" "${BASE[@]}" --set trafficGen.enabled=true)
 echo "$out" | grep -q 'name: traffic-api' && fail "no render without targetUrl"
 out=$(helm template ringdog "$CHART" "${BASE[@]}" --set trafficGen.enabled=true --set trafficGen.targetUrl=http://alb.example \
-  --set trafficGen.apiRatePerMin=240 --set trafficGen.apiUsers=40 --set trafficGen.checkoutRatio=0.25)
+  --set trafficGen.apiRatePerMin=240 --set trafficGen.apiUsers=40 --set trafficGen.checkoutRatio=0.25 --set trafficGen.trendingRatio=0.25 --set trafficGen.ordersRatio=0.1)
 echo "$out" | grep -q 'name: traffic-api' || fail "traffic-api rendered"
 echo "$out" | grep -q 'name: traffic-browser' || fail "traffic-browser rendered"
 echo "$out" | grep -q 'value: "http://alb.example"' || fail "TARGET_URL env"
 echo "$out" | grep -A1 'name: RATE_PER_MIN' | grep -q 'value: "240"' || fail "spike rate"
 echo "$out" | grep -A1 'name: USERS' | grep -q 'value: "40"' || fail "spike users"
 echo "$out" | grep -A1 'name: CHECKOUT_RATIO' | grep -q 'value: "0.25"' || fail "checkout ratio"
+echo "$out" | grep -A1 'name: TRENDING_RATIO' | grep -q 'value: "0.25"' || fail "trending ratio"
+echo "$out" | grep -A1 'name: ORDERS_RATIO' | grep -q 'value: "0.1"' || fail "orders ratio"
 echo "$out" | grep -q 'api.js: |' || fail "script configmap"
 echo "$out" | grep -q 'mountPath: /dev/shm' || fail "browser mounts /dev/shm"
 echo "$out" | grep -q 'medium: Memory' || fail "dshm memory emptyDir"

@@ -7,6 +7,12 @@ const BASE = __ENV.TARGET_URL;
 const PASSWORD = "demo-traffic-pw";
 const USERS = Number(__ENV.USERS || 5);
 const CHECKOUT_RATIO = Number(__ENV.CHECKOUT_RATIO || 1);
+// 인덱스 없는 인기상품 쿼리는 1회에 RDS CPU 약 1.2초를 쓴다. 급증 때 매 반복 호출하면 DB가 포화되고
+// 커넥션 풀까지 막혀 상품 목록도 멈추므로, 급증 프로필은 일부 반복에서만 부른다 (원인 ① 강도 조절).
+const TRENDING_RATIO = Number(__ENV.TRENDING_RATIO || 1);
+// 주문 내역도 orders(user_id)·order_items(order_id) 인덱스가 없어 매번 전체 스캔한다. 급증 때 매 반복 부르면
+// 위젯을 꺼도 DB CPU가 내려가지 않아 1차 대처 장면이 안 나오므로, 급증 프로필은 가끔만 본다.
+const ORDERS_RATIO = Number(__ENV.ORDERS_RATIO || 1);
 const COUPON_RATIO = Number(__ENV.COUPON_RATIO || 0);
 const JSON_HEADERS = { headers: { "Content-Type": "application/json" } };
 const QUERIES = ["고양이", "가죽", "별", "keyring"];
@@ -67,7 +73,9 @@ export default function () {
   const auth = { headers: { "Content-Type": "application/json", Authorization: `Bearer ${res.json("token")}` } };
 
   const list = http.get(`${BASE}/api/products?limit=20`);
-  http.get(`${BASE}/api/products/trending`, { tags: { name: "trending" } });
+  if (Math.random() < TRENDING_RATIO) {
+    http.get(`${BASE}/api/products/trending`, { tags: { name: "trending" } });
+  }
   const items = list.json("items") || [];
   http.get(`${BASE}/api/products/search?q=${encodeURIComponent(QUERIES[Math.floor(Math.random() * QUERIES.length)])}`);
   if (items.length === 0) return;
@@ -82,5 +90,7 @@ export default function () {
     check(checkout, { "checkout 201/409": (r) => r.status === 201 || r.status === 409 });
   }
 
-  http.get(`${BASE}/api/orders`, auth);
+  if (Math.random() < ORDERS_RATIO) {
+    http.get(`${BASE}/api/orders`, auth);
+  }
 }

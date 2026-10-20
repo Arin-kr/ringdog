@@ -65,10 +65,14 @@ traffic_args() {
     echo "--set=trafficGen.apiRatePerMin=240"
     echo "--set=trafficGen.apiUsers=40"
     echo "--set=trafficGen.checkoutRatio=0.25"
+    echo "--set=trafficGen.trendingRatio=0.5"
+    echo "--set=trafficGen.ordersRatio=0.1"
   else
     echo "--set=trafficGen.apiRatePerMin=30"
     echo "--set=trafficGen.apiUsers=5"
     echo "--set=trafficGen.checkoutRatio=1"
+    echo "--set=trafficGen.trendingRatio=1"
+    echo "--set=trafficGen.ordersRatio=1"
   fi
 }
 

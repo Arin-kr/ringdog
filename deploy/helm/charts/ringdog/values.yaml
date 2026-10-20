@@ -111,6 +111,8 @@ trafficGen:
   apiUsers: 5
   checkoutRatio: "1"
   couponRatio: "0"
+  trendingRatio: "1"
+  ordersRatio: "1"
   browserRatePerMin: 1
   image: grafana/k6:0.52.0
   browserImage: grafana/k6:0.52.0-with-browser

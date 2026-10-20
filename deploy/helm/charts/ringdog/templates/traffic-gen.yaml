@@ -43,6 +43,10 @@ spec:
               value: {{ .Values.trafficGen.checkoutRatio | quote }}
             - name: COUPON_RATIO
               value: {{ .Values.trafficGen.couponRatio | quote }}
+            - name: TRENDING_RATIO
+              value: {{ .Values.trafficGen.trendingRatio | quote }}
+            - name: ORDERS_RATIO
+              value: {{ .Values.trafficGen.ordersRatio | quote }}
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 512Mi }
