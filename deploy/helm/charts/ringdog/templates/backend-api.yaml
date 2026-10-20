@@ -41,11 +41,16 @@ spec:
           env:
             - name: BACKEND_API_PORT
               value: {{ .Values.backendApi.port | quote }}
-            - name: DATABASE_URL
+            - name: BASE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: ringdog-app-secrets
                   key: databaseUrl
+            # Prisma 기본 풀(vCPU×2+1 = 5)은 원인 ② 중 lock timeout까지 5초씩 연결을 쥐는 결제 요청에 다 잡혀
+            # 상품 목록까지 기다리게 된다. 락 대기 연결은 DB CPU를 거의 쓰지 않으므로 풀만 늘린다.
+            # 시크릿 URL은 "?schema=public"으로 끝나므로 &로 이어 붙인다.
+            - name: DATABASE_URL
+              value: "$(BASE_DATABASE_URL)&connection_limit={{ .Values.backendApi.dbConnectionLimit }}"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

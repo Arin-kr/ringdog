@@ -28,6 +28,7 @@ out=$(helm template ringdog "$CHART" "${BASE[@]}")
 echo "$out" | grep -q 'name: ringdog-feature-flags' || fail "feature flag configmap"
 echo "$out" | grep -q 'FEATURE_TRENDING_WIDGET: "false"' || fail "flag off by default"
 echo "$out" | grep -A3 'name: FEATURE_TRENDING_WIDGET' | grep -q 'configMapKeyRef' || fail "backend-api reads flag from configmap"
+echo "$out" | grep -q 'value: "$(BASE_DATABASE_URL)&connection_limit=10"' || fail "backend-api prisma pool size"
 out=$(helm template ringdog "$CHART" "${BASE[@]}" --set featureFlags.trendingWidget=true)
 echo "$out" | grep -q 'FEATURE_TRENDING_WIDGET: "true"' || fail "flag on"
 
