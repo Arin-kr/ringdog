@@ -53,9 +53,15 @@ variable "k8s_version" {
 }
 
 variable "node_instance_types" {
-  description = "Instance types for the EKS managed node group. Demo cost tradeoff: t3.medium. 노드 자동 확장(Cluster Autoscaler) 없음 — 시나리오 ①의 HPA 최대치 + k6 browser를 3대에 올림."
+  description = "Instance types for the EKS managed node group. Demo cost tradeoff: t4g.medium (Graviton, ARM — node_ami_type과 짝, cd.yml이 arm64 이미지를 빌드). 노드 자동 확장(Cluster Autoscaler) 없음 — 시나리오 ①의 HPA 최대치 + k6 browser를 3대에 올림."
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t4g.medium"]
+}
+
+variable "node_ami_type" {
+  description = "EKS managed node group AMI type. node_instance_types의 CPU 아키텍처와 맞춰야 한다 (t4g = ARM). 앱 이미지는 cd.yml이 arm64로만 빌드한다."
+  type        = string
+  default     = "AL2023_ARM_64_STANDARD"
 }
 
 variable "node_min_size" {
@@ -76,9 +82,9 @@ variable "node_desired_size" {
 # --- RDS -------------------------------------------------------------
 
 variable "rds_instance_class" {
-  description = "RDS instance class. 시나리오 ① 대량 데이터·DBM 수집 때문에 db.t3.small."
+  description = "RDS instance class. 시나리오 ① 대량 데이터·DBM 수집 때문에 small (Graviton db.t4g.small)."
   type        = string
-  default     = "db.t3.small"
+  default     = "db.t4g.small"
 }
 
 variable "rds_db_name" {
@@ -113,9 +119,9 @@ variable "opensearch_domain_name" {
 }
 
 variable "opensearch_instance_type" {
-  description = "OpenSearch node instance type. Demo cost tradeoff: t3.small.search, single node."
+  description = "OpenSearch node instance type. Demo cost tradeoff: t4g.small.search (Graviton), single node."
   type        = string
-  default     = "t3.small.search"
+  default     = "t4g.small.search"
 }
 
 # --- ECR -------------------------------------------------------------

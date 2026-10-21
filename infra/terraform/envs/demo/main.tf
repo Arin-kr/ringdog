@@ -30,6 +30,7 @@ module "eks" {
   private_subnet_ids  = module.vpc.private_subnet_ids
   public_subnet_ids   = module.vpc.public_subnet_ids
   node_instance_types = var.node_instance_types
+  node_ami_type       = var.node_ami_type
   node_min_size       = var.node_min_size
   node_max_size       = var.node_max_size
   node_desired_size   = var.node_desired_size

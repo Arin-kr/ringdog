@@ -31,6 +31,12 @@ variable "node_instance_types" {
   default     = ["t3.medium"]
 }
 
+variable "node_ami_type" {
+  description = "AMI type for the managed node group (e.g. AL2023_ARM_64_STANDARD for Graviton). null = EKS default (x86_64)."
+  type        = string
+  default     = null
+}
+
 variable "node_min_size" {
   description = "Minimum number of nodes in the managed node group."
   type        = number

@@ -24,7 +24,7 @@ flowchart LR
             end
 
             subgraph priv["Private Subnet × 2"]
-                subgraph eks["EKS ringdog-demo · k8s 1.33 · t3.medium × 2 노드"]
+                subgraph eks["EKS ringdog-demo · k8s 1.33 · t4g.medium(ARM) × 3 노드"]
                     subgraph ns["namespace: ringdog"]
                         fe["frontend<br/>Next.js :3000"]
                         api["backend-api<br/>Express :4000"]
@@ -33,9 +33,9 @@ flowchart LR
                     end
                     agent["Datadog Agent (DaemonSet)<br/>+ Cluster Agent"]
                 end
-                rds[("RDS PostgreSQL 16<br/>db.t3.micro")]
-                msk[["MSK Kafka 3.6<br/>kafka.t3.small × 2 브로커"]]
-                os[("OpenSearch 2.15<br/>t3.small.search × 1")]
+                rds[("RDS PostgreSQL 16<br/>db.t4g.small")]
+                msk[["MSK Kafka 3.8<br/>kafka.t3.small × 2 브로커"]]
+                os[("OpenSearch 2.15<br/>t4g.small.search × 1")]
             end
         end
     end
@@ -84,11 +84,11 @@ flowchart LR
 | | 서브넷 | AZ별 Public 1 + Private 1 (총 4개) |
 | | NAT Gateway | **1개** (단일 NAT, 비용 절감) |
 | 컴퓨팅 | EKS 클러스터 | `ringdog-demo`, Kubernetes **1.33** |
-| | 관리형 노드 그룹 | **t3.medium × 2** (min 1 / max 3), 루트 디스크 20GB, Private Subnet 배치 |
+| | 관리형 노드 그룹 | **t4g.medium × 3** (Graviton·ARM, AMI `AL2023_ARM_64_STANDARD`, min 1 / max 4), 온디맨드, 루트 디스크 20GB, Private Subnet 배치. 앱 이미지는 cd가 arm64로 빌드 |
 | | 인그레스 | AWS Load Balancer Controller → internet-facing **ALB** (HTTP :80, target-type ip) |
-| 데이터베이스 | RDS | **PostgreSQL 16**, `db.t3.micro`, 20GB, **Single-AZ** |
-| 메시징 | Amazon MSK | **Kafka 3.6.0**, `kafka.t3.small` × **2 브로커** (AZ당 1), 브로커당 EBS 20GB, 클라이언트 통신은 평문(9092)과 TLS(9094) 둘 다 허용(앱은 평문 9092 사용), 브로커 간 통신은 암호화 |
-| 검색 | Amazon OpenSearch | **OpenSearch 2.15**, `t3.small.search` × **1 노드**, EBS 10GB, 노드 간 암호화 |
+| 데이터베이스 | RDS | **PostgreSQL 16**, `db.t4g.small`, 20GB, **Single-AZ** |
+| 메시징 | Amazon MSK | **Kafka 3.8.x**, `kafka.t3.small` × **2 브로커** (AZ당 1, MSK에는 t4g가 없어 t3 유지), 브로커당 EBS 20GB, 클라이언트 통신은 평문(9092)과 TLS(9094) 둘 다 허용(앱은 평문 9092 사용), 브로커 간 통신은 암호화 |
+| 검색 | Amazon OpenSearch | **OpenSearch 2.15**, `t4g.small.search` × **1 노드**, EBS 10GB, 노드 간 암호화 |
 | 컨테이너 레지스트리 | ECR | `ringdog-frontend` / `ringdog-backend-api` / `ringdog-chatbot-service` / `ringdog-order-consumer` |
 | 보안 / 권한 | IRSA | 서비스별 ServiceAccount IAM Role (`backend-api`, `chatbot-service`, `order-consumer`) |
 | | Secrets Manager | RDS 접속 정보, JWT 서명 키 |

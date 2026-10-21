@@ -28,7 +28,9 @@ permissions:
 jobs:
   docker_build_push_ecr:
     name: Build & Push Docker Images to ECR
-    runs-on: ubuntu-latest
+    # EKS 노드가 Graviton(t4g, ARM)이라 arm64 이미지만 빌드한다. QEMU 에뮬레이션 대신 ARM 러너에서 네이티브 빌드
+    # (Prisma 엔진도 러너 아키텍처를 따라 linux-musl-arm64로 들어간다).
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
         service: [frontend, backend-api, chatbot-service, order-consumer]
@@ -54,6 +56,7 @@ jobs:
         with:
           context: .
           file: apps/${{ matrix.service }}/Dockerfile
+          platforms: linux/arm64
           push: true
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/ringdog-${{ matrix.service }}:${{ github.sha }}
