@@ -38,6 +38,8 @@ export default function ProductDetailPage(): JSX.Element {
     setLoading(true);
     setError(null);
     setQuantity(1);
+    setCartMessage(null);
+    setBusy(false);
     try {
       const data = await apiFetch<Product>(`/api/products/${params.id}`);
       setProduct(data);
