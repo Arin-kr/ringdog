@@ -1,5 +1,6 @@
 -- 시나리오 ① 대량 데이터 (cd.yml이 마이그레이션 다음에 매번 실행, 수동: demo-control seed). 이미 했으면 건너뛴다.
--- 상품 1,200개(기존 60 + 1,140), 주문 50만(최근 90일 분산), 주문 항목 150만(앞쪽 상품에 몰리게).
+-- 상품 1,200개(기존 60 + 1,140), 주문 100만(최근 90일 분산), 주문 항목 300만(앞쪽 상품에 몰리게).
+-- 100만인 이유: Graviton RDS(db.t4g.small)에서 50만으로는 인기상품 쿼리가 빨라 위젯 ON p95가 0.4~0.9초에 그침 (2026-10-21 측정).
 SELECT EXISTS (SELECT 1 FROM users WHERE email = 'bulk-seed@ringdog.demo') AS seeded \gset
 \if :seeded
   \echo 'bulk seed: already done, skipping'
@@ -27,7 +28,7 @@ UPDATE products SET stock = 100000;
 
 INSERT INTO orders (id, user_id, total_amount, status, created_at)
 SELECT gen_random_uuid(), u.id, 10000, 'PAID', now() - random() * interval '90 days'
-FROM generate_series(1, 500000), (SELECT id FROM users WHERE email = 'bulk-seed@ringdog.demo') u;
+FROM generate_series(1, 1000000),(SELECT id FROM users WHERE email = 'bulk-seed@ringdog.demo') u;
 
 CREATE TEMP TABLE seed_products ON COMMIT DROP AS
 SELECT id, price, row_number() OVER (ORDER BY created_at DESC, id) AS rn FROM products;

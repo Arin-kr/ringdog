@@ -41,7 +41,7 @@
 
 | 겹친 원인 | 실제 동작 | Datadog에서 보이는 것 |
 |---|---|---|
-| ① 인덱스 누락 집계 쿼리 | 위젯 API가 **최근 1시간** 주문의 `order_items`를 상품별로 집계. `orders(created_at)`·`order_items(order_id)` 인덱스가 없어 주문 50만·항목 150만 건을 매번 Seq Scan + Hash Join → 요청마다 수백 ms~수 초 | DBM Top Query 1위, Explain Plan `Seq Scan`, RDS CPU 100% / CPU 크레딧 소진 |
+| ① 인덱스 누락 집계 쿼리 | 위젯 API가 **최근 1시간** 주문의 `order_items`를 상품별로 집계. `orders(created_at)`·`order_items(order_id)` 인덱스가 없어 주문 100만·항목 300만 건을 매번 Seq Scan + Hash Join → 요청마다 수백 ms~수 초 | DBM Top Query 1위, Explain Plan `Seq Scan`, RDS CPU 100% / CPU 크레딧 소진 |
 | ② 락 경합 | 세일가 반영 배치가 상품 전체를 **트랜잭션 하나**로 묶어 하나씩 처리하고 마지막에만 커밋 → 이미 수정한 세일 상품 행의 락을 계속 쥠 → 바로 그 상품을 사려는 checkout의 재고 차감 `UPDATE`가 대기 (4.6) | DBM Blocking 트리(블로커 `application_name=inventory-batch`, `idle in transaction`), Wait Event `Lock:tuple/transactionid`, checkout 트레이스의 긴 postgres span, 배치 진행 로그 |
 | (증폭) 트래픽 급증 + HPA | Pod가 늘수록 Prisma 커넥션 풀 총합이 늘어 DB 부하 가중 | Infra Pod 수 증가와 DBM 커넥션 수·대기 증가가 같은 시점 |
 
@@ -252,7 +252,7 @@ flowchart TB
 | 앱 (backend-api) | `GET /api/products/trending` (인덱스 없는 집계, 플래그 OFF면 집계 없이 `{ enabled: false }` 반환), checkout 재고 차감 `UPDATE products` 트랜잭션 | main에 반영. 위젯 플래그 OFF가 기본 |
 | 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯. 표시 규칙은 4.7 | RUM에 위젯 로딩 시간 표시 |
 | 플래그 | **ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET`** (결정. Datadog Feature Flags는 이후 확장). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
-| 데이터 | 대량 시드(`cd.yml`이 마이그레이션 다음에 자동 실행, 이미 했으면 건너뜀. 수동 재실행은 `demo-control seed`): 상품 1,200개(기존 60 + 1,140), 주문 약 50만 건(최근 90일 분산), `order_items` 약 150만 건, 재고 넉넉히(100,000) | 환경 재생성마다 1회 실행 (소요 시간은 리허설로 확인) |
+| 데이터 | 대량 시드(`cd.yml`이 마이그레이션 다음에 자동 실행, 이미 했으면 건너뜀. 수동 재실행은 `demo-control seed`): 상품 1,200개(기존 60 + 1,140), 주문 약 100만 건(최근 90일 분산), `order_items` 약 300만 건, 재고 넉넉히(100,000) | 환경 재생성마다 1회 실행 (소요 시간은 리허설로 확인) |
 | k8s | backend-api HPA(CPU 기준, 1→4) + metrics-server, 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 약 30분 실행, 제한 40분, 동작은 4.6) | 2차 대처 시점(장애 주입 약 24분 뒤)까지 락이 유지되어야 함. 노드 용량은 4.1.1 |
 | 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `seed` / `start` / `spike` / `inject` / `mitigate` / `fix-index` / `reset` / `stop`) → `deploy/demo/demo-control.sh` | 대량 시드, 트래픽 평시·급증·정지, 인덱스 생성(fix-index)·삭제(reset), 시연 중 PR 닫기(reset), 플래그 토글, 배치 Job 실행(장애 모드 / 안전 모드)·삭제, 블로킹 세션 종료, 세일가 원복 |
 | 환경 올리기·내리기 | `scripts/demo-up.sh`: terraform apply → `gh workflow run cd.yml` → 완료 대기 → 노드·HPA·트래픽 확인, ALB 주소 출력. `scripts/demo-down.sh`: 트래픽 끄기 → Ingress 삭제 → ALB 정리 대기 → terraform destroy → AWS CLI로 EKS·RDS·VPC 삭제 확인. 둘 다 WSL에서 실행, 실행 전 확인 질문(`--yes`로 생략) | cd.yml 2차 Helm 배포가 평시 트래픽(`trafficGen.enabled=true`, ALB 주소)까지 켬 |

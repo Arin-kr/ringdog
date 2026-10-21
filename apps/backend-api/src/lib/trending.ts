@@ -22,7 +22,7 @@ interface TrendingRow {
  * 최근 1시간 주문 기준 인기상품 8개.
  *
  * 데모 시나리오 ①의 원인 ①: orders(created_at)·order_items(order_id) 인덱스가 없어서
- * 대량 데이터(주문 50만·항목 150만)를 매번 Seq Scan + Hash Join 한다. 근본 수정(인덱스 추가)은
+ * 대량 데이터(주문 100만·항목 300만)를 매번 Seq Scan + Hash Join 한다. 근본 수정(인덱스 추가)은
  * 시연 중 MCP로 PR만 만들고 머지하지 않는다 (docs/design/specs/2026-10-15-demo-flash-sale-db-design.md).
  */
 export async function queryTrending(): Promise<TrendingItem[]> {

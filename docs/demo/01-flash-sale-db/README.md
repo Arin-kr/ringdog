@@ -32,7 +32,7 @@
 | F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ✅ 완료 | Agent `postgres` 체크 `[OK]`, `ringdog.db.blocking_sessions` 수집 |
 | F2 | Datadog AWS Integration (RDS·ALB·MSK) | ✅ 완료 | 계정에 이미 있는 연동 사용 |
 | F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ✅ 완료 | 장애 중 동작 확인(2026-10-20). checkout이 배치와 같은 순서로 상품을 잠그도록 수정(교착 방지), backend-api 커넥션 풀 Pod당 10. 위젯 표시 규칙: 설계 4.7 |
-| F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ✅ 완료 | 약 76초, `order_items` 약 150만 행. 재실행 시 건너뜀 |
+| F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ✅ 완료 | x86 50만 기준 약 76초 → Graviton 대응으로 주문 100만·`order_items` 약 300만 행(2026-10-21). 재실행 시 건너뜀 |
 | F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ✅ 완료 | HPA 1→4, 장애 배치 약 30분 실행(1,200개 × 1.5초), 안전 모드 약 17초에 1,200/1,200 확인. 설계 4.1.1·4.6 |
 | F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | 🔄 진행 중 | `demo-up`·`demo-down`·`inject`·`mitigate`(widget·session)·`fix-index`·`reset` 확인. 남은 것: 리허설 뒤 reset 원복(세일가·인덱스·시연 PR) 검증, 세션 종료 범위 검증. 급증 프로필은 위젯 호출 50%·주문 내역 10% |
 | F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
