@@ -3035,7 +3035,7 @@ git commit -m "docs(demo-02): trim plan to scenario-02-only tasks after shared f
 
 > 2026-10-20 진행: 계획 외 선행 확인으로 k6 browser RUM 수집(RUM 초기화 순서 수정 `1d58bea`), `inject` 중 결제 버튼 Rage Click(6건), RUM 브라우저 프로파일링(`43e5ac3`) 완료.
 > Step 1~5 완료. 바뀐 것: 급증 프로필 `trendingRatio=0.5`·`ordersRatio=0.1`(`323c56d`, 매 반복 호출 시 위젯 OFF여도 RDS CPU 100%), checkout·배치 공통 잠금 순서 `compareLockOrder`(`fd4d8bd`, 교착 40P01로 배치가 13초 만에 롤백되던 버그), backend-api `connection_limit=10`(`936c8bb`, Step 3 목록 p95 2.6초 → 18ms).
-> 리허설 실측: 위젯 ON CPU 약 85% → OFF 24%, fix-index 인덱스 생성 15초(전체 워크플로 124초), 인기상품 p95 126ms, 27분 배치 875/1,200, mitigate session 54초, 안전 모드 약 17초. Step 5의 장애 Job은 `Failed`가 아니라 mitigate가 삭제한다(재시작 없음은 동일). 남은 확인: 인기상품 p95 1.87초로 1차 트리거(2초) 미달 → Task 17에서 기준 조정, `orders`는 `orders_created_at_idx`가 있어도 Seq Scan(원인 미확인).
+> 리허설 실측: 위젯 ON CPU 약 85% → OFF 24%, fix-index 인덱스 생성 15초(전체 워크플로 124초), 인기상품 p95 126ms, 27분 배치 875/1,200, mitigate session 54초, 안전 모드 약 17초. Step 5의 장애 Job은 `Failed`가 아니라 mitigate가 삭제한다(재시작 없음은 동일). 남은 확인: 인기상품 p95 1.87초로 1차 트리거(2초) 미달 → 기준을 1초로 낮춤(2026-10-21 결정, Task 17 Step 2), `orders`는 `orders_created_at_idx`가 있어도 Seq Scan(원인 미확인).
 > 재개: Step 6(reset 원복) → 7 → 8.
 
 - [x] **Step 1: 원인 ①만** — **demo-control** `spike` 후 위젯만 켜기(`helm upgrade --reset-then-reuse-values --set featureFlags.trendingWidget=true` + rollout restart를 로컬 kubectl로) → 5분 동안 확인: DBM Top Query 1위가 trending 쿼리, Explain Plan `Seq Scan`, RDS CPU 80%+, HPA가 Pod를 늘림. 부족하면 조정 순서: `trafficGen.apiUsers`/`apiRatePerMin` ↑ → `backendApi.hpa.targetCPUUtilization` ↓ → 시드 데이터량 ↑
@@ -3064,7 +3064,7 @@ git add -A deploy apps docs && git commit -m "chore(demo-01): tune fault intensi
   - `[RingDog demo] RUM 결제 지연` — RUM checkout resource p75 > 3s (5분)
   - `[RingDog demo] APM checkout p95` — `percentile(last_5m):p95:trace.<OP>{env:demo,service:ringdog-backend-api,resource_name:post_/api/orders/checkout} > 3`
   - `[RingDog demo] 결제 장애 (Composite)` — 위 두 모니터 AND. 메시지에 Slack 채널 핸들 (사람 알림 전용, Workflow 없음)
-  - `[RingDog demo] 인기상품 API 지연 지속` — `percentile(last_3m):p95:trace.<OP>{...,resource_name:get_/api/products/trending} > 2`. 메시지 `@workflow-<위젯 OFF>`는 Task 18 후 추가
+  - `[RingDog demo] 인기상품 API 지연 지속` — `percentile(last_3m):p95:trace.<OP>{...,resource_name:get_/api/products/trending} > 1` (리허설 p95 1.87초가 2초 미달이라 1초로 낮춤). 메시지 `@workflow-<위젯 OFF>`는 Task 18 후 추가
   - `[RingDog demo] DB 블로킹 세션 지속` — `min(last_5m):max:ringdog.db.blocking_sessions{env:demo} >= 1`. `@workflow-<세션 종료>`는 Task 18 후 추가. 리허설에서 샘플에 0이 섞여 알림이 끊기면 `avg(last_5m):max:... > 0.5`로 바꾼다
 - [ ] **Step 3: Bits AI SRE** — MCP `list_datadog_skills`(query "bits ai sre monitor") / 공식 문서로 "모니터 알림 시 자동 조사"를 켜는 정확한 방법 확인 → Composite 모니터에 적용, `datadog-setup.md` 6절에 기록
 - [ ] **Step 4: 대시보드** — MCP로 `[RingDog demo] 01 타임세일 DB 병목`: RDS CPU·CPU 크레딧, backend-api Pod 수(HPA), DB 커넥션 수(`postgresql.connections`), `ringdog.db.blocking_sessions`/`blocked_sessions`, trending p95, checkout p95·에러율, `/api/products` p95, 이벤트 오버레이(Kubernetes Job 이벤트 `inventory-batch`)
