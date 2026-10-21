@@ -25,11 +25,11 @@ export default function GlobalError({
     <html lang="ko">
       <body className="flex min-h-screen items-center justify-center bg-cream font-sans text-stone-800">
         <main className="flex flex-col items-center gap-4 px-6 py-16 text-center">
-          <h1 className="font-bold text-2xl">앗, 문제가 발생했어요</h1>
+          <h1 className="text-2xl font-bold text-stone-900">앗, 문제가 발생했어요</h1>
           <p className="text-stone-500">애플리케이션에 심각한 오류가 발생했습니다.</p>
           <button
             onClick={reset}
-            className="rounded-full bg-primary-500 px-4 py-2.5 font-medium text-white transition hover:bg-primary-600"
+            className="rounded bg-primary-500 px-5 py-2.5 font-bold text-white transition hover:bg-primary-600"
           >
             Try again
           </button>

@@ -35,8 +35,9 @@ export default function SignupPage(): JSX.Element {
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-sm px-6 py-8">
-        <h1 className="font-bold text-2xl text-stone-800">회원가입</h1>
+      <main className="mx-auto max-w-sm px-4 py-12">
+        <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-soft">
+        <h1 className="text-2xl font-bold text-stone-900">회원가입</h1>
         <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit}>
           <label className="flex flex-col gap-1 text-sm text-stone-600">
             이메일
@@ -45,7 +46,7 @@ export default function SignupPage(): JSX.Element {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="rounded-xl border border-stone-200 px-3 py-2 text-base text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              className="rounded border border-stone-300 px-3 py-2 text-[15px] text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-stone-600">
@@ -56,13 +57,13 @@ export default function SignupPage(): JSX.Element {
               onChange={(e) => setPassword(e.target.value)}
               minLength={8}
               required
-              className="rounded-xl border border-stone-200 px-3 py-2 text-base text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              className="rounded border border-stone-300 px-3 py-2 text-[15px] text-stone-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
           </label>
           {error && <p className="text-red-600">{error}</p>}
           <button
             type="submit"
-            className="rounded-full bg-primary-500 px-4 py-2.5 font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
+            className="rounded bg-primary-500 px-4 py-3 text-base font-bold text-white transition hover:bg-primary-600 disabled:opacity-50"
             disabled={loading}
           >
             {loading ? "처리 중..." : "가입하기"}
@@ -74,6 +75,7 @@ export default function SignupPage(): JSX.Element {
             로그인
           </Link>
         </p>
+        </div>
       </main>
     </>
   );

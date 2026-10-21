@@ -8,6 +8,8 @@ import { Order, OrderStatus } from "@ringdog/shared";
 import { Header } from "@/components/Header";
 import { apiFetch, ApiError } from "@/lib/apiClient";
 import { isLoggedIn } from "@/lib/auth";
+import { formatWon } from "@/lib/displayMeta";
+import { productImages } from "@/lib/productImage";
 
 interface OrdersResponse {
   items: Order[];
@@ -28,10 +30,6 @@ const STATUS_BADGE_CLASS: Record<OrderStatus, string> = {
 };
 
 const CANCELLABLE_STATUSES: OrderStatus[] = ["PENDING", "PAID"];
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW" }).format(price);
-}
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
@@ -84,8 +82,8 @@ export default function OrdersPage(): JSX.Element {
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="font-bold text-2xl text-stone-800">주문 내역</h1>
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <h1 className="text-2xl font-bold text-stone-900">주문 내역</h1>
 
         {loading && <p className="mt-4 text-stone-500">불러오는 중...</p>}
         {error && <p className="mt-4 text-red-600">{error}</p>}
@@ -102,36 +100,56 @@ export default function OrdersPage(): JSX.Element {
         {!loading && orders.length > 0 && (
           <ul className="mt-6 flex flex-col gap-4">
             {orders.map((order) => (
-              <li key={order.id} className="rounded-2xl bg-white p-4 shadow-soft">
-                <div className="flex items-start justify-between gap-4">
+              <li key={order.id} className="rounded-lg border border-stone-200 bg-white">
+                <div className="flex items-start justify-between gap-4 border-b border-stone-100 px-4 py-3">
                   <div>
-                    <div className="font-medium text-stone-800">주문번호 {order.id.slice(0, 8)}</div>
-                    <div className="text-sm text-stone-400">{formatDate(order.createdAt)}</div>
+                    <div className="font-bold text-stone-900">{formatDate(order.createdAt)}</div>
+                    <div className="text-sm text-stone-500">주문번호 {order.id.slice(0, 8)}</div>
                   </div>
                   <span
-                    className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASS[order.status]}`}
+                    className={`whitespace-nowrap rounded px-2.5 py-1 text-sm font-semibold ${STATUS_BADGE_CLASS[order.status]}`}
                   >
                     {STATUS_LABEL[order.status]}
                   </span>
                 </div>
 
-                <ul className="mt-3 flex flex-col gap-1 text-sm text-stone-600">
-                  {order.items?.map((item) => (
-                    <li key={item.id}>
-                      {item.product?.name ?? "상품"} × {item.quantity}
-                      <span className="text-stone-400"> ({formatPrice(item.unitPrice * item.quantity)})</span>
-                    </li>
-                  ))}
+                <ul className="flex flex-col divide-y divide-stone-100 px-4">
+                  {order.items?.map((item) => {
+                    const product = item.product as
+                      | (NonNullable<typeof item.product> & { tags?: string[] })
+                      | undefined;
+                    const [image] = productImages({
+                      id: item.productId,
+                      name: product?.name ?? "",
+                      tags: product?.tags ?? [],
+                      imageUrl: product?.imageUrl ?? null,
+                    });
+                    return (
+                      <li key={item.id} className="flex items-center gap-3 py-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={image}
+                          alt={product?.name ?? "상품"}
+                          className="h-16 w-16 shrink-0 rounded-lg bg-stone-100 object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-[15px] text-stone-800">{product?.name ?? "상품"}</div>
+                          <div className="text-sm text-stone-500">수량 {item.quantity}개</div>
+                        </div>
+                        <div className="font-medium text-stone-800">{formatWon(item.unitPrice * item.quantity)}</div>
+                      </li>
+                    );
+                  })}
                 </ul>
 
-                <div className="mt-3 flex items-center justify-between border-t border-stone-100 pt-3">
-                  <span className="font-bold text-stone-800">합계: {formatPrice(order.totalAmount)}</span>
+                <div className="flex items-center justify-between border-t border-stone-100 px-4 py-3">
+                  <span className="text-lg font-bold text-stone-900">합계: {formatWon(order.totalAmount)}</span>
                   {CANCELLABLE_STATUSES.includes(order.status) && (
                     <button
                       type="button"
                       disabled={cancellingId === order.id}
                       onClick={() => handleCancel(order.id)}
-                      className="rounded-full bg-stone-100 px-3 py-1.5 text-sm font-medium text-stone-600 transition hover:bg-stone-200 disabled:opacity-50"
+                      className="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
                     >
                       {cancellingId === order.id ? "취소 중..." : "주문 취소"}
                     </button>

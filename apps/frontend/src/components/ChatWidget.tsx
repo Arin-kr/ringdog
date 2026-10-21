@@ -80,7 +80,7 @@ export function ChatWidget(): JSX.Element {
   return (
     <div className="fixed bottom-6 right-6 z-[1000] flex flex-col items-end gap-3">
       {isOpen && (
-        <div className="flex w-[300px] flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg">
+        <div className="flex w-[300px] flex-col overflow-hidden rounded-lg border border-stone-200 bg-white shadow-soft-lg">
           <div className="flex items-center justify-between bg-primary-500 px-4 py-3 text-white">
             <span className="font-bold">RingDog Assistant</span>
             <button
@@ -124,12 +124,12 @@ export function ChatWidget(): JSX.Element {
               onChange={(event) => setMessage(event.target.value)}
               placeholder="Type a message..."
               disabled={isLoading}
-              className="flex-1 rounded-full border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
+              className="flex-1 rounded border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
             <button
               type="submit"
               disabled={isLoading || !message.trim()}
-              className="rounded-full bg-primary-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
+              className="rounded bg-primary-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-primary-600 disabled:opacity-50"
             >
               {isLoading ? "..." : "Send"}
             </button>
