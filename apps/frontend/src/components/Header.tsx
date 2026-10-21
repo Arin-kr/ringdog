@@ -121,6 +121,7 @@ export function Header(): JSX.Element {
                   <li key={category.slug}>
                     <Link
                       href={categorySearchHref(category)}
+                      onClick={() => setMenuOpen(false)}
                       className="block px-4 py-2 hover:bg-primary-50 hover:text-primary-600"
                     >
                       {category.label}
