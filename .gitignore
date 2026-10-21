@@ -44,3 +44,6 @@ apps/android-app/.cxx/
 *.apk
 *.aab
 *.hprof
+
+# superpowers 작업 공간(시안·SDD 진행 기록)
+.superpowers/
