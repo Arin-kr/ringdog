@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ProductIcon } from "@/components/ProductIcon";
 import { apiFetch } from "@/lib/apiClient";
 import { carouselEdges, carouselStep } from "@/lib/carousel";
+import { formatWon } from "@/lib/displayMeta";
+import { productImages } from "@/lib/productImage";
 import { loadTrending, TrendingResponse, TrendingState } from "@/lib/trending";
 
 // 플래그가 꺼져 있으면 응답이 바로 오므로, 그 사이에는 스켈레톤을 그리지 않는다
@@ -15,13 +16,9 @@ const SKELETON_CARDS = 6;
 
 type WidgetState = TrendingState | { status: "loading" } | { status: "pending" };
 
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW" }).format(price);
-}
-
-const CARD = "w-24 shrink-0";
+const CARD = "w-36 shrink-0";
 const ARROW =
-  "flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-sm text-stone-600 transition hover:bg-cream disabled:cursor-default disabled:opacity-40";
+  "flex h-8 w-8 items-center justify-center rounded-full border border-stone-300 bg-white text-base text-stone-600 transition hover:bg-stone-50 disabled:cursor-default disabled:opacity-40";
 
 /**
  * 시나리오 ① "실시간 인기상품" 위젯. 플래그는 페이지 로드 때 한 번만 확인한다 —
@@ -31,6 +28,7 @@ const ARROW =
  * 높이는 고정값 대신 내용에 맞춘다. 스켈레톤이 같은 머리글·카드 구조를 그려서
  * 로딩 → 표시 때 높이가 같고(목록이 밀리지 않음) 세로 스크롤도 생기지 않는다.
  * 가로로 넘치는 카드는 스크롤바 대신 [<] [>] 버튼으로 넘긴다 (터치 스와이프는 그대로 됨).
+ * 카드는 순위·사진·이름·가격만 보여 주는 상세 링크다(장바구니 버튼 없음).
  */
 export function TrendingWidget(): JSX.Element | null {
   const [state, setState] = useState<WidgetState>({ status: "pending" });
@@ -81,13 +79,9 @@ export function TrendingWidget(): JSX.Element | null {
   const showArrows = !loading && (edges.canPrev || edges.canNext);
 
   return (
-    <section
-      aria-label="실시간 인기상품"
-      aria-busy={loading}
-      className="mb-6 rounded-2xl bg-white p-4 shadow-soft"
-    >
-      <div className="flex h-7 items-center justify-between">
-        <h2 className="font-bold text-lg text-stone-800">실시간 인기상품</h2>
+    <section aria-label="실시간 인기상품" aria-busy={loading} className="mb-8">
+      <div className="flex h-8 items-center justify-between">
+        <h2 className="text-xl font-bold text-stone-900">실시간 인기상품</h2>
         {showArrows && (
           <div className="flex gap-1">
             <button
@@ -114,24 +108,32 @@ export function TrendingWidget(): JSX.Element | null {
       <ol
         ref={listRef}
         onScroll={updateEdges}
-        className="no-scrollbar mt-2 flex snap-x gap-3 overflow-x-auto overflow-y-hidden"
+        className="no-scrollbar mt-3 flex snap-x gap-4 overflow-x-auto overflow-y-hidden"
       >
         {loading
           ? Array.from({ length: SKELETON_CARDS }, (_, i) => (
               <li key={i} aria-hidden className={CARD}>
-                <div className="aspect-square w-full animate-pulse rounded-2xl bg-cream" />
-                <div className="mt-1 h-4 animate-pulse rounded bg-cream" />
-                <div className="h-4 w-2/3 animate-pulse rounded bg-cream" />
+                <div className="aspect-square w-full animate-pulse rounded-lg bg-stone-100" />
+                <div className="mt-1 h-6 animate-pulse rounded bg-stone-100" />
+                <div className="mt-1 h-6 w-2/3 animate-pulse rounded bg-stone-100" />
               </li>
             ))
           : state.items.map((item, index) => (
               <li key={item.id} className={`${CARD} snap-start`}>
-                <Link href={`/products/${item.id}`} className="text-inherit no-underline">
-                  <ProductIcon tags={item.tags} name={item.name} className="aspect-square w-full" />
-                  <div className="mt-1 truncate text-xs leading-4 text-stone-700">
-                    {index + 1}. {item.name}
+                <Link href={`/products/${item.id}`} className="block text-inherit no-underline">
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={productImages(item)[0]}
+                      alt={item.name}
+                      className="aspect-square w-full rounded-lg bg-stone-100 object-cover"
+                    />
+                    <span className="absolute left-0 top-0 rounded-br-lg rounded-tl-lg bg-stone-900 px-2 py-0.5 text-sm font-bold text-white">
+                      {index + 1}
+                    </span>
                   </div>
-                  <div className="text-xs leading-4 text-stone-500">{formatPrice(item.price)}</div>
+                  <div className="mt-1 truncate text-[15px] leading-6 text-stone-800">{item.name}</div>
+                  <div className="text-base font-bold leading-6 text-stone-900">{formatWon(item.price)}</div>
                 </Link>
               </li>
             ))}
