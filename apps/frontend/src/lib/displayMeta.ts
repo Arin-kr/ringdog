@@ -48,11 +48,14 @@ export function displayMeta(id: string, price: number): DisplayMeta {
 
 /** 상품 id 기준의 가짜 리뷰. 작성자는 마스킹되고 날짜는 최근 30일 안에 든다. */
 export function reviewsFor(id: string, count = 3, today: Date = new Date()): Review[] {
+  // 시작 위치만 id 해시로 정하고 서로소 간격으로 건너뛰어 한 상품 안에서 작성자·본문이 겹치지 않게 한다.
+  const authorStart = hashString(`${id}:review-authors`) % REVIEW_AUTHORS.length;
+  const bodyStart = hashString(`${id}:review-bodies`) % REVIEW_BODIES.length;
   return Array.from({ length: count }, (_, i) => {
     const h = hashString(`${id}:review:${i}`);
-    const author = `${REVIEW_AUTHORS[h % REVIEW_AUTHORS.length]}***`;
+    const author = `${REVIEW_AUTHORS[(authorStart + i * 3) % REVIEW_AUTHORS.length]}***`;
     const rating = 4 + ((h >>> 4) % 2);
-    const body = REVIEW_BODIES[(h >>> 8) % REVIEW_BODIES.length];
+    const body = REVIEW_BODIES[(bodyStart + i * 5) % REVIEW_BODIES.length];
     const daysAgo = (h >>> 12) % 30;
     const date = new Date(today.getTime() - daysAgo * 24 * 60 * 60 * 1000);
     return { author, rating, body, date: formatDate(date) };

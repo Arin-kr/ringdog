@@ -30,7 +30,7 @@ export default function ProductDetailPage(): JSX.Element {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cartMessage, setCartMessage] = useState<string | null>(null);
+  const [cartMessage, setCartMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
 
@@ -67,7 +67,7 @@ export default function ProductDetailPage(): JSX.Element {
 
   async function addToCart(): Promise<boolean> {
     if (!isLoggedIn()) {
-      setCartMessage("장바구니에 담으려면 로그인이 필요합니다.");
+      setCartMessage({ text: "장바구니에 담으려면 로그인이 필요합니다.", error: true });
       return false;
     }
     if (!product) return false;
@@ -78,10 +78,13 @@ export default function ProductDetailPage(): JSX.Element {
         auth: true,
         body: { product_id: product.id, quantity },
       });
-      setCartMessage("장바구니에 담았습니다.");
+      setCartMessage({ text: "장바구니에 담았습니다.", error: false });
       return true;
     } catch (err) {
-      setCartMessage(err instanceof ApiError ? err.message : "장바구니 추가에 실패했습니다.");
+      setCartMessage({
+        text: err instanceof ApiError ? err.message : "장바구니 추가에 실패했습니다.",
+        error: true,
+      });
       return false;
     } finally {
       setBusy(false);
@@ -156,9 +159,11 @@ export default function ProductDetailPage(): JSX.Element {
                     </div>
                   )}
                   <div className="text-[26px] font-extrabold text-stone-900">{formatWon(product.price)}</div>
-                  <span className="mt-1.5 inline-block rounded bg-primary-600 px-2 py-0.5 text-[13px] text-white">
-                    ⚡ 타임세일 · 오늘 자정까지
-                  </span>
+                  {view.meta.discountRate > 0 && (
+                    <span className="mt-1.5 inline-block rounded bg-primary-600 px-2 py-0.5 text-[13px] text-white">
+                      ⚡ 타임세일 · 오늘 자정까지
+                    </span>
+                  )}
                 </div>
 
                 <dl className="mt-4 border-t border-stone-200 text-sm">
@@ -199,7 +204,13 @@ export default function ProductDetailPage(): JSX.Element {
                   </button>
                 </div>
 
-                {cartMessage && <p className="mt-3 rounded-lg bg-mint-50 px-4 py-3 text-mint-700">{cartMessage}</p>}
+                {cartMessage && (
+                  <p
+                    className={`mt-3 rounded-lg px-4 py-3 ${cartMessage.error ? "bg-red-50 text-red-700" : "bg-mint-50 text-mint-700"}`}
+                  >
+                    {cartMessage.text}
+                  </p>
+                )}
 
                 <div className="mt-4 flex gap-2">
                   {soldOut ? (

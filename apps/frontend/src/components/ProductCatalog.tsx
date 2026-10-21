@@ -33,7 +33,7 @@ export function ProductCatalog(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cartMessage, setCartMessage] = useState<string | null>(null);
+  const [cartMessage, setCartMessage] = useState<{ text: string; error: boolean } | null>(null);
   const requestId = useRef(0);
 
   const fetchPage = useCallback(
@@ -92,7 +92,7 @@ export function ProductCatalog(): JSX.Element {
 
   async function handleAddToCart(productId: string): Promise<void> {
     if (!isLoggedIn()) {
-      setCartMessage("장바구니에 담으려면 로그인이 필요합니다.");
+      setCartMessage({ text: "장바구니에 담으려면 로그인이 필요합니다.", error: true });
       return;
     }
 
@@ -102,10 +102,10 @@ export function ProductCatalog(): JSX.Element {
         auth: true,
         body: { product_id: productId, quantity: 1 },
       });
-      setCartMessage("장바구니에 담았습니다.");
+      setCartMessage({ text: "장바구니에 담았습니다.", error: false });
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "장바구니 추가에 실패했습니다.";
-      setCartMessage(message);
+      setCartMessage({ text: message, error: true });
     }
   }
 
@@ -133,7 +133,11 @@ export function ProductCatalog(): JSX.Element {
         )}
 
         {cartMessage && (
-          <p className="mt-4 rounded-lg bg-mint-50 px-4 py-3 text-[15px] text-mint-700">{cartMessage}</p>
+          <p
+            className={`mt-4 rounded-lg px-4 py-3 text-[15px] ${cartMessage.error ? "bg-red-50 text-red-700" : "bg-mint-50 text-mint-700"}`}
+          >
+            {cartMessage.text}
+          </p>
         )}
         {loading && <p className="mt-4 text-stone-500">불러오는 중...</p>}
         {error && <p className="mt-4 text-red-600">{error}</p>}

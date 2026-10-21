@@ -28,5 +28,12 @@ describe("reviewsFor", () => {
     expect(r).toHaveLength(3);
     r.forEach((x) => { expect(x.author).toMatch(/^[a-z]{2,5}\*\*\*$/); expect(x.date >= "2026.09.21").toBe(true); });
   });
+  it("gives 3 distinct bodies and authors per product", () => {
+    for (let i = 0; i < 200; i++) {
+      const r = reviewsFor(`id-${i}`, 3, new Date("2026-10-21T00:00:00Z"));
+      expect(new Set(r.map((x) => x.body)).size).toBe(3);
+      expect(new Set(r.map((x) => x.author)).size).toBe(3);
+    }
+  });
 });
 it("formatWon", () => expect(formatWon(8400)).toBe("8,400원"));
