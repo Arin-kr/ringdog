@@ -82,7 +82,7 @@ export default function ProductDetailPage(): JSX.Element {
             )}
 
             <div>
-              <h1 className="font-heading text-2xl text-stone-800">{product.name}</h1>
+              <h1 className="font-bold text-2xl text-stone-800">{product.name}</h1>
               <p className="mt-2 text-xl font-bold text-primary-600">{formatPrice(product.price)}</p>
 
               {product.tags.length > 0 && (

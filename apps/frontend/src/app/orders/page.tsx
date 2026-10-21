@@ -85,7 +85,7 @@ export default function OrdersPage(): JSX.Element {
     <>
       <Header />
       <main className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="font-heading text-2xl text-stone-800">주문 내역</h1>
+        <h1 className="font-bold text-2xl text-stone-800">주문 내역</h1>
 
         {loading && <p className="mt-4 text-stone-500">불러오는 중...</p>}
         {error && <p className="mt-4 text-red-600">{error}</p>}

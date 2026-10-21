@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { DatadogAppRouter } from "@datadog/browser-rum-nextjs";
 
-import { jua, notoSansKr } from "./fonts";
+import { notoSansKr } from "./fonts";
+import { Footer } from "@/components/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
 import { RumInit } from "@/components/RumInit";
 
@@ -22,8 +23,8 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <html lang="ko" className={`${jua.variable} ${notoSansKr.variable}`}>
-      <body className="min-h-screen bg-cream font-sans text-stone-800 antialiased">
+    <html lang="ko" className={notoSansKr.variable}>
+      <body className="min-h-screen bg-stone-50 font-sans text-[15px] text-stone-800 antialiased">
         <RumInit
           applicationId={process.env.DD_RUM_APPLICATION_ID}
           clientToken={process.env.DD_RUM_CLIENT_TOKEN}
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
         />
         <DatadogAppRouter />
         {children}
+        <Footer />
         {/* FR-CHAT-001: the chat widget floats on every page. */}
         <ChatWidget />
       </body>

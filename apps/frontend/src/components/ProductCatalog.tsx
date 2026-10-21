@@ -71,7 +71,7 @@ export function ProductCatalog(): JSX.Element {
   return (
     <section>
       {!q && <TrendingWidget />}
-      <h1 className="font-heading text-2xl text-stone-800">{q ? `"${q}" 검색 결과` : "키링 상품"}</h1>
+      <h1 className="font-bold text-2xl text-stone-800">{q ? `"${q}" 검색 결과` : "키링 상품"}</h1>
       <p className="mt-1 text-stone-500">{total}개 상품</p>
 
       {cartMessage && (

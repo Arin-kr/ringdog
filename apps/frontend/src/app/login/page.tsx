@@ -44,7 +44,7 @@ export default function LoginPage(): JSX.Element {
     <>
       <Header />
       <main className="mx-auto max-w-sm px-6 py-8">
-        <h1 className="font-heading text-2xl text-stone-800">로그인</h1>
+        <h1 className="font-bold text-2xl text-stone-800">로그인</h1>
         <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit}>
           <label className="flex flex-col gap-1 text-sm text-stone-600">
             이메일

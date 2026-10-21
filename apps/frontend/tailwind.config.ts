@@ -32,12 +32,11 @@ const config: Config = {
         cream: "#FFFBF5",
       },
       boxShadow: {
-        soft: "0 8px 24px -6px rgba(255, 106, 77, 0.35)",
-        "soft-lg": "0 16px 40px -8px rgba(255, 106, 77, 0.35)",
+        soft: "0 2px 8px -2px rgba(0, 0, 0, 0.12)",
+        "soft-lg": "0 8px 24px -6px rgba(0, 0, 0, 0.18)",
       },
       fontFamily: {
         sans: ["var(--font-noto-sans-kr)", ...defaultTheme.fontFamily.sans],
-        heading: ["var(--font-jua)", "sans-serif"],
       },
     },
   },

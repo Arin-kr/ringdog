@@ -16,7 +16,7 @@ export default function Error({
 
   return (
     <main className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-16 text-center">
-      <h1 className="font-heading text-2xl text-stone-800">앗, 문제가 발생했어요</h1>
+      <h1 className="font-bold text-2xl text-stone-800">앗, 문제가 발생했어요</h1>
       <p className="text-stone-500">페이지를 불러오는 중 오류가 발생했습니다.</p>
       <button
         onClick={reset}

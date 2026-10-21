@@ -87,7 +87,7 @@ export function TrendingWidget(): JSX.Element | null {
       className="mb-6 rounded-2xl bg-white p-4 shadow-soft"
     >
       <div className="flex h-7 items-center justify-between">
-        <h2 className="font-heading text-lg text-stone-800">실시간 인기상품</h2>
+        <h2 className="font-bold text-lg text-stone-800">실시간 인기상품</h2>
         {showArrows && (
           <div className="flex gap-1">
             <button

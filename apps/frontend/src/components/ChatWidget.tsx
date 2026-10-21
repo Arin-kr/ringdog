@@ -82,7 +82,7 @@ export function ChatWidget(): JSX.Element {
       {isOpen && (
         <div className="flex w-[300px] flex-col overflow-hidden rounded-3xl bg-white shadow-soft-lg">
           <div className="flex items-center justify-between bg-primary-500 px-4 py-3 text-white">
-            <span className="font-heading">RingDog Assistant</span>
+            <span className="font-bold">RingDog Assistant</span>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
