@@ -244,7 +244,7 @@ flowchart TB
 | 구분 | 내용 | 비고 |
 |---|---|---|
 | RDS 파라미터 그룹 | `shared_preload_libraries=pg_stat_statements`, `track_activity_query_size=4096`, (선택) `track_io_timing=on` | Terraform `modules/rds`에 파라미터 그룹 추가. 적용 시 재시작 필요 |
-| RDS 사양 | `db.t3.micro`(1GB) → **`db.t3.small`** (결정) → 2026-10-21 **`db.t4g.small`**(Graviton)로 변경 | 대량 데이터 + DBM 수집 안정성. 비용 소폭 증가. t4g 전환 시 EKS 노드도 `t4g.medium`(ARM AMI, 이미지 arm64 빌드), OpenSearch `t4g.small.search`로 함께 바꿨고 MSK는 t4g가 없어 `kafka.t3.small` 유지. CPU 세대가 바뀌므로 4.7·Task 16 부하 튜닝 값은 재확인 필요 |
+| RDS 사양 | `db.t3.micro`(1GB) → **`db.t3.small`** (결정) → 2026-10-21 **`db.t4g.small`**(Graviton)로 변경 | 대량 데이터 + DBM 수집 안정성. 비용 소폭 증가. t4g 전환 시 EKS 노드도 `t4g.medium`(ARM AMI, 이미지 arm64 빌드), 함께 바꿨다. MSK·OpenSearch는 t4g가 없어 `kafka.t3.small`·`t3.small.search` 유지(OpenSearch Graviton 최소 `m7g.medium.search`는 더 비쌈). CPU 세대가 바뀌므로 4.7·Task 16 부하 튜닝 값은 재확인 필요 |
 | EKS 노드 | `node_desired_size` 2 → **3**, `node_max_size` 3 → 4, metrics-server 설치, 모든 Pod에 `requests`/`limits` | 4.1.1. HPA 동작과 Pending 방지 |
 | DBM 준비 SQL | `datadog` 사용자, `datadog` 스키마, `pg_monitor` 권한, `pg_stat_statements` 확장, `datadog.explain_statement` 함수 | CD의 migrate 단계 뒤에 실행. 비밀번호는 Secrets Manager |
 | Datadog Agent | Cluster Agent cluster check로 Postgres 체크 `dbm: true`, RDS 엔드포인트 직접 연결. 블로킹 지표용 `custom_queries` 추가(4.4) | `deploy/helm/datadog-agent/values.yaml` (`clusterChecks` 활성화) |

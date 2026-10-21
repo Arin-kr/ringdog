@@ -119,9 +119,9 @@ variable "opensearch_domain_name" {
 }
 
 variable "opensearch_instance_type" {
-  description = "OpenSearch node instance type. Demo cost tradeoff: t4g.small.search (Graviton), single node."
+  description = "OpenSearch node instance type. Demo cost tradeoff: t3.small.search, single node. OpenSearch에는 t4g가 없고(CreateDomain 400) Graviton 최소 사양 m7g.medium.search는 더 비싸서 t3 유지."
   type        = string
-  default     = "t4g.small.search"
+  default     = "t3.small.search"
 }
 
 # --- ECR -------------------------------------------------------------
