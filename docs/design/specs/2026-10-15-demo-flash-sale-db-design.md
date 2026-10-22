@@ -55,17 +55,18 @@
 
 | # | 시연자 행동 | 실행 방법 | 안에서 일어나는 일 |
 |---|---|---|---|
-| 1 | **환경 올리기** | 로컬(WSL) `bash scripts/demo-up.sh` | `terraform apply` → `gh workflow run cd.yml` → cd가 이미지 빌드·마이그레이션·기본 시드·**대량 시드**·DBM 준비·Agent·ALB Controller·metrics-server·앱 배포·**평시 트래픽**까지 → 노드·HPA·트래픽 확인 후 ALB 주소 출력 (약 30~40분) |
+| 1 | **환경 올리기** (시연 전 미리) | 로컬(WSL) `bash scripts/demo-up.sh` | `terraform apply` → `gh workflow run cd.yml` → cd가 이미지 빌드·마이그레이션·기본 시드·**대량 시드**·DBM 준비·Agent·ALB Controller·metrics-server·앱 배포·**평시 트래픽**까지 → 노드·HPA·트래픽 확인 후 ALB 주소 출력 (약 30~40분) |
 | 2 | **장애 주입** | GitHub Actions `demo-control` → `inject` | k6 급증 + 위젯 ON + 3분 뒤 배치 시작 |
 | 3 | **1차 대처 + 원인 ① 근본 수정** | Slack 승인 → (MCP PR 시연) → Slack 승인 | Workflow 1: 위젯 OFF → 3분 뒤 보고 → 두 번째 승인 → **인덱스 적용 + 위젯 다시 ON**(`demo-control fix-index`) → 3분 뒤 "인기상품 p95·RDS CPU 정상" 보고 |
 | 4 | **2차 대처** | Slack 승인 | Workflow 2: 배치 세션 종료 → 안전 모드 배치 재실행 → 3분 뒤 회복 보고 |
-| 5 | **시연 후** | 이어서 쓸 때 `demo-control reset` / 끝낼 때 로컬 `bash scripts/demo-down.sh` | reset: 원복 + 시연 중 만든 PR(`demo/fix-index-*`) 자동으로 닫기 / demo-down: 트래픽 끄기 → Ingress 삭제(ALB 정리) → `terraform destroy` → AWS에 남은 리소스 없는지 확인 |
+| 5 | **시연 후** (시연 끝난 뒤) | 이어서 쓸 때 `demo-control reset` / 끝낼 때 로컬 `bash scripts/demo-down.sh` | reset: 원복 + 시연 중 만든 PR(`demo/fix-index-*`) 자동으로 닫기 / demo-down: 트래픽 끄기 → Ingress 삭제(ALB 정리) → `terraform destroy` → AWS에 남은 리소스 없는지 확인 |
 
 | 자동 | 내용 |
 |---|---|
 | K8s | HPA가 backend-api를 1→4개로 확장. 배치 Job은 3분 뒤 자동 시작하고, 제한 시간(40분)이 지나면 자동 종료 |
 | Datadog | Composite 모니터 → Slack 알림 + Bits AI SRE 자동 조사. 원인별 모니터 2개 → Workflow 1·2 시작(Slack 승인 요청). 대처 3분 뒤 결과 자동 보고 |
 
+- **시연 시간(약 31분)에는 2~4번만 들어간다.** 1번 환경 올리기와 4장 체크리스트의 사전 준비는 시연자가 시연 전에 미리 끝내 두고, 5번은 시연이 끝난 뒤 한다
 - **1번이 GitHub Actions가 아닌 이유**: Actions가 AWS에 접속하는 Role이 envs/demo 안에 있어 환경을 지우면 함께 지워진다. Actions로 환경을 만들려면 관리자급 상시 Role이 필요한데, public repo에서는 두지 않는다. 비용이 드는 작업은 직접 실행한다는 원칙도 유지된다
 - **3번이 승인 2번인 이유**: 승인 사이에 "AI가 수정안을 만든다"(MCP PR) 장면이 들어가야 한다. DB에 적용하는 인덱스는 PR과 같은 이름·내용이며, PR은 main에 머지하지 않고 `reset`이 인덱스를 지운다
 
@@ -117,19 +118,25 @@
 | 잠금 순서 | checkout·배치 모두 상품 id 순서 | 반대 순서로 잠가 교착(40P01)으로 배치가 13초 만에 롤백되던 버그 |
 | 1차 트리거 | 인기상품 p95 > 1초 3분 지속 | x86 리허설 p95 1.87초가 2초 기준에 못 미침 |
 
-**소요 시간·지표 실측**
+**시연 중 소요 시간·지표 실측**
 
 | 구간 | 실측 | 비고 |
 |---|---|---|
-| `demo-up` 전체 | 약 37분 (2026-10-22 09:57→10:34) | terraform 약 27분(MSK가 가장 느림 27분, OpenSearch 13분, EKS 8분, RDS 6.5분) + cd 약 9분 |
-| cd 대량 시드 | 약 2분 50초 | Graviton·100만 기준. x86·50만은 약 76초 |
-| `inject` / `reset` 실행 | 각 약 2분 | GitHub Actions 실행 시간 |
+| `inject` 실행 | 약 2분 (Actions 시작~끝) | 대본은 1분으로 잡혀 있음. 급증·위젯 ON은 실행 중간에 적용되고 배치는 끝난 뒤 3분 후 시작 |
 | 위젯 ON (장애 중) | RDS CPU 81~88%, 인기상품 p95 3.85초 | 다른 API는 정상 범위 |
 | 위젯 OFF (1차 완화) | RDS CPU 13~24% | |
 | `fix-index` 후 | 인기상품 p95 44ms | x86에서는 인덱스 생성 15초(배치 실행 중) |
 | `inject` 후 RUM | 약 8분 안에 결제하기 Rage Click 8건 | 2026-10-22 |
 | 장애 모드 배치 | 27분 시점 875/1,200 처리 중 | x86. 2차 대처 시점까지 락 유지 확인 |
 | 2차 대처 | 세션 종료 54초 후 결제 회복, 안전 모드 약 17초에 1,200/1,200 | x86 |
+
+**시연 전·후 작업 (시연 시간에 넣지 않음)**
+
+| 작업 | 실측 | 비고 |
+|---|---|---|
+| `demo-up` 전체 | 약 37분 (2026-10-22 09:57→10:34) | terraform 약 27분(MSK 27분이 가장 김, OpenSearch 13분, EKS 8분, RDS 6.5분) + cd 약 9분 |
+| cd 대량 시드 | 약 2분 50초 (`demo-up` 안에 포함) | Graviton·100만 기준. x86·50만은 약 76초 |
+| `reset` | 약 2분 | 시연을 이어서 할 때만 |
 
 - 재시작 직후 약 1분은 검색 p95가 수십 초까지 튈 수 있다(backend-api 시작 시 OpenSearch 전체 동기화). 시연 지표와 무관하므로 무시한다.
 - `GET /api/orders`는 `orders(user_id)` 인덱스가 없어 Parallel Seq Scan(약 57ms)이다. 시드 주문이 전부 한 사용자 소유라 생기는 일이고 시나리오 범위 밖이다(인덱스 수정 대상 아님).
@@ -286,7 +293,7 @@ flowchart TB
 | 앱 (backend-api) | `GET /api/products/trending` (인덱스 없는 집계, 플래그 OFF면 집계 없이 `{ enabled: false }` 반환), checkout 재고 차감 `UPDATE products` 트랜잭션 | main에 반영. 위젯 플래그 OFF가 기본 |
 | 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯. 표시 규칙은 4.7 | RUM에 위젯 로딩 시간 표시 |
 | 플래그 | **ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET`** (결정. Datadog Feature Flags는 이후 확장). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
-| 데이터 | 대량 시드(`cd.yml`이 마이그레이션 다음에 자동 실행, 이미 했으면 건너뜀. 수동 재실행은 `demo-control seed`): 상품 1,200개(기존 60 + 1,140), 주문 약 100만 건(최근 90일 분산), `order_items` 약 300만 건, 재고 넉넉히(100,000) | 환경 재생성마다 1회 실행 (약 2분 50초, 3.4) |
+| 데이터 | 대량 시드(`cd.yml`이 마이그레이션 다음에 자동 실행, 이미 했으면 건너뜀. 수동 재실행은 `demo-control seed`): 상품 1,200개(기존 60 + 1,140), 주문 약 100만 건(최근 90일 분산), `order_items` 약 300만 건, 재고 넉넉히(100,000) | 환경 재생성마다 1회 실행 (약 2분 50초, 시연 전 `demo-up` 안에서 끝남. 3.4) |
 | k8s | backend-api HPA(CPU 기준, 1→4) + metrics-server, 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 약 30분 실행, 제한 40분, 동작은 4.6) | 2차 대처 시점(장애 주입 약 24분 뒤)까지 락이 유지되어야 함. 노드 용량은 4.1.1 |
 | 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `seed` / `start` / `spike` / `inject` / `mitigate` / `fix-index` / `reset` / `stop`) → `deploy/demo/demo-control.sh` | 대량 시드, 트래픽 평시·급증·정지, 인덱스 생성(fix-index)·삭제(reset), 시연 중 PR 닫기(reset), 플래그 토글, 배치 Job 실행(장애 모드 / 안전 모드)·삭제, 블로킹 세션 종료, 세일가 원복 |
 | 환경 올리기·내리기 | `scripts/demo-up.sh`: terraform apply → `gh workflow run cd.yml` → 완료 대기 → 노드·HPA·트래픽 확인, ALB 주소 출력. `scripts/demo-down.sh`: 트래픽 끄기 → Ingress 삭제 → ALB 정리 대기 → terraform destroy → AWS CLI로 EKS·RDS·VPC 삭제 확인. 둘 다 WSL에서 실행, 실행 전 확인 질문(`--yes`로 생략) | cd.yml 2차 Helm 배포가 평시 트래픽(`trafficGen.enabled=true`, ALB 주소)까지 켬 |
