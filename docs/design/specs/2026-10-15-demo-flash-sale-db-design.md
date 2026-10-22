@@ -1,7 +1,7 @@
 # 데모 시나리오 ① "타임세일 트래픽 폭주 → DB 병목" 설계
 
 - 작성일: 2026-10-15
-- 상태: **설계 확정 (2026-10-16)**, 실환경 검증 중 (2026-10-20 기준 계획 Task 16 진행). 구현 계획: `docs/design/plans/2026-10-16-demo-flash-sale-db.md`
+- 상태: **설계 확정 (2026-10-16)**, 실환경 검증 중 (2026-10-22 Task 16 완료, 실측은 3.4). 구현 계획: `docs/design/plans/2026-10-16-demo-flash-sale-db.md`
 - 2026-10-16 구현 계획 작성 중 보정: 원인 ① 인덱스를 `orders(created_at)`·`order_items(order_id)`로(인기상품 = 최근 1시간 집계), checkout에 재고 차감 + `lock_timeout` 5초 추가(락 대기가 커넥션 풀 전체를 막지 않게), `demo-control`에 `seed`·`start`·`stop` 추가, 위젯 스켈레톤 0.3초 지연
 - 2026-10-16 운영 흐름 재구성: 시연자 조작 5가지(3.1), 원인 ① 근본 수정(인덱스 적용 + 위젯 ON)을 2차 대처 앞으로(약 31분), 배치 약 30분 실행, Workflow 2 승인 대기 30분, demo-up/demo-down 스크립트
 - 2026-10-16 보강: 원인 ② 배치의 실체와 7단계 발견 경로(4.6), 위젯 표시 규칙(4.7), "위젯 OFF는 롤백 아님", "인덱스는 원인 ①만 해결" 명시. 2차 대처에 배치 안전 모드 자동 재실행 추가, EKS 내부 구조도(4.1.1), metrics-server·노드 3대 고정·리소스 요청값, 8장 1~4번 확정
@@ -100,6 +100,40 @@
 | 하지 말아야 할 것 | Pod 스케일 아웃만 하는 것 | 10단계 장면으로 근거 제시 |
 
 > **인덱스 마이그레이션은 원인 ①만 해결한다.** 원인 ②는 느린 쿼리가 아니라 같은 행의 락을 기다리는 문제라서, 인덱스가 있어도 배치가 커밋할 때까지 checkout은 기다린다.
+
+### 3.4 리허설 실측과 튜닝 값 (2026-10-20~22)
+
+환경: EKS t4g.medium(ARM) 3대, RDS db.t4g.small, MSK·OpenSearch t3 (2026-10-21부터 Graviton). x86 값은 따로 표시.
+
+**확정한 튜닝 값**
+
+| 항목 | 값 | 이유 |
+|---|---|---|
+| 대량 시드 | 주문 100만, `order_items` 약 300만 | 50만으로는 Graviton에서 위젯 ON p95 0.4~0.9초로 약함 |
+| 급증 프로필 | 반복마다 인기상품 35%(`trendingRatio` 0.35), 주문 내역 10%(`ordersRatio` 0.1) | 0.5@100만은 RDS CPU 99%로 목록·로그인까지 느려짐(과함). 매 반복 호출하면 위젯 OFF 후에도 CPU가 안 내려감 |
+| backend-api 커넥션 풀 | Pod당 10 (최대 4 Pod × 10 = 40) | lock 대기 결제가 풀을 다 잡아 상품 목록까지 느려지던 문제 |
+| HPA | backend-api 1→4 | 리허설에서 4개까지 확장 확인 |
+| `lock_timeout` | checkout 5초, 안전 모드 배치 2초 | 변경 없음 |
+| 잠금 순서 | checkout·배치 모두 상품 id 순서 | 반대 순서로 잠가 교착(40P01)으로 배치가 13초 만에 롤백되던 버그 |
+| 1차 트리거 | 인기상품 p95 > 1초 3분 지속 | x86 리허설 p95 1.87초가 2초 기준에 못 미침 |
+
+**소요 시간·지표 실측**
+
+| 구간 | 실측 | 비고 |
+|---|---|---|
+| `demo-up` 전체 | 약 37분 (2026-10-22 09:57→10:34) | terraform 약 27분(MSK가 가장 느림 27분, OpenSearch 13분, EKS 8분, RDS 6.5분) + cd 약 9분 |
+| cd 대량 시드 | 약 2분 50초 | Graviton·100만 기준. x86·50만은 약 76초 |
+| `inject` / `reset` 실행 | 각 약 2분 | GitHub Actions 실행 시간 |
+| 위젯 ON (장애 중) | RDS CPU 81~88%, 인기상품 p95 3.85초 | 다른 API는 정상 범위 |
+| 위젯 OFF (1차 완화) | RDS CPU 13~24% | |
+| `fix-index` 후 | 인기상품 p95 44ms | x86에서는 인덱스 생성 15초(배치 실행 중) |
+| `inject` 후 RUM | 약 8분 안에 결제하기 Rage Click 8건 | 2026-10-22 |
+| 장애 모드 배치 | 27분 시점 875/1,200 처리 중 | x86. 2차 대처 시점까지 락 유지 확인 |
+| 2차 대처 | 세션 종료 54초 후 결제 회복, 안전 모드 약 17초에 1,200/1,200 | x86 |
+
+- 재시작 직후 약 1분은 검색 p95가 수십 초까지 튈 수 있다(backend-api 시작 시 OpenSearch 전체 동기화). 시연 지표와 무관하므로 무시한다.
+- `GET /api/orders`는 `orders(user_id)` 인덱스가 없어 Parallel Seq Scan(약 57ms)이다. 시드 주문이 전부 한 사용자 소유라 생기는 일이고 시나리오 범위 밖이다(인덱스 수정 대상 아님).
+- Graviton에서 전체 시연 리허설(2차 대처까지)은 Task 19에서 다시 잰다.
 
 ## 4. 환경 구조
 
@@ -252,7 +286,7 @@ flowchart TB
 | 앱 (backend-api) | `GET /api/products/trending` (인덱스 없는 집계, 플래그 OFF면 집계 없이 `{ enabled: false }` 반환), checkout 재고 차감 `UPDATE products` 트랜잭션 | main에 반영. 위젯 플래그 OFF가 기본 |
 | 앱 (frontend) | 상품 목록 상단 "실시간 인기상품" 위젯. 표시 규칙은 4.7 | RUM에 위젯 로딩 시간 표시 |
 | 플래그 | **ConfigMap 환경변수 `FEATURE_TRENDING_WIDGET`** (결정. Datadog Feature Flags는 이후 확장). **플래그는 backend-api가 소유** — Next.js `NEXT_PUBLIC_*` 값은 빌드 시 고정되어 ConfigMap 변경이 반영되지 않기 때문 | ConfigMap 방식은 반영에 `rollout restart`가 필요해 화면상 재배포처럼 보임 → 시연 멘트로 "같은 버전, 기능 스위치만 끕니다"를 짚음 |
-| 데이터 | 대량 시드(`cd.yml`이 마이그레이션 다음에 자동 실행, 이미 했으면 건너뜀. 수동 재실행은 `demo-control seed`): 상품 1,200개(기존 60 + 1,140), 주문 약 100만 건(최근 90일 분산), `order_items` 약 300만 건, 재고 넉넉히(100,000) | 환경 재생성마다 1회 실행 (소요 시간은 리허설로 확인) |
+| 데이터 | 대량 시드(`cd.yml`이 마이그레이션 다음에 자동 실행, 이미 했으면 건너뜀. 수동 재실행은 `demo-control seed`): 상품 1,200개(기존 60 + 1,140), 주문 약 100만 건(최근 90일 분산), `order_items` 약 300만 건, 재고 넉넉히(100,000) | 환경 재생성마다 1회 실행 (약 2분 50초, 3.4) |
 | k8s | backend-api HPA(CPU 기준, 1→4) + metrics-server, 세일가 반영 배치 Job `inventory-batch`(`inject` 3분 뒤 시작, 약 30분 실행, 제한 40분, 동작은 4.6) | 2차 대처 시점(장애 주입 약 24분 뒤)까지 락이 유지되어야 함. 노드 용량은 4.1.1 |
 | 데모 제어 | `.github/workflows/demo-control.yml` (workflow_dispatch: `seed` / `start` / `spike` / `inject` / `mitigate` / `fix-index` / `reset` / `stop`) → `deploy/demo/demo-control.sh` | 대량 시드, 트래픽 평시·급증·정지, 인덱스 생성(fix-index)·삭제(reset), 시연 중 PR 닫기(reset), 플래그 토글, 배치 Job 실행(장애 모드 / 안전 모드)·삭제, 블로킹 세션 종료, 세일가 원복 |
 | 환경 올리기·내리기 | `scripts/demo-up.sh`: terraform apply → `gh workflow run cd.yml` → 완료 대기 → 노드·HPA·트래픽 확인, ALB 주소 출력. `scripts/demo-down.sh`: 트래픽 끄기 → Ingress 삭제 → ALB 정리 대기 → terraform destroy → AWS CLI로 EKS·RDS·VPC 삭제 확인. 둘 다 WSL에서 실행, 실행 전 확인 질문(`--yes`로 생략) | cd.yml 2차 Helm 배포가 평시 트래픽(`trafficGen.enabled=true`, ALB 주소)까지 켬 |
@@ -276,7 +310,7 @@ Composite 모니터는 사람에게 알리는 용도로만 쓰고 조치를 트�
 
 | 항목 | 1차: 위젯 OFF (원인 ①) | 2차: 블로킹 세션 종료 (원인 ②) |
 |---|---|---|
-| 트리거 모니터 | **"인기상품 API 지연 지속"** — APM `GET /api/products/trending` p95 > 1초가 3분 지속 (리허설 실측 위젯 ON p95 약 1.9초, 인덱스 적용 후 약 130ms → 1초면 양쪽 모두 여유. 대안: DBM 쿼리 지연 지표) | **"DB 블로킹 세션 지속"** — 다른 세션을 막고 있고 자기 트랜잭션이 30초 넘게 열린 세션(`ringdog.db.blocking_sessions`) ≥ 1 이 **5분** 지속 |
+| 트리거 모니터 | **"인기상품 API 지연 지속"** — APM `GET /api/products/trending` p95 > 1초가 3분 지속 (리허설 실측 위젯 ON p95 x86 약 1.9초·Graviton 3.85초, 인덱스 적용 후 130ms·44ms → 1초면 양쪽 모두 여유. 대안: DBM 쿼리 지연 지표) | **"DB 블로킹 세션 지속"** — 다른 세션을 막고 있고 자기 트랜잭션이 30초 넘게 열린 세션(`ringdog.db.blocking_sessions`) ≥ 1 이 **5분** 지속 |
 | 알림 연결 | 알림 메시지에 `@workflow-<위젯 OFF 워크플로>` | 알림 메시지에 `@workflow-<세션 종료 워크플로>` |
 | 지표 | APM 트레이스 지표 (서비스·리소스 기준이라 결정적) | Postgres 체크 `custom_queries`로 `pg_blocking_pids()` 기반 지표(예: `ringdog.db.blocked_sessions`) 직접 생성. 대안: 체크 기본 지표(`postgresql.locks` 등) — 정확한 지표명은 환경 기동 후 확인 |
 | Slack 버튼 | ① [위젯 OFF] [무시] → 결과 보고 후 ② [인덱스 적용 후 위젯 ON] [나중에] (두 번째 승인 대기 15분, 그 사이 MCP PR 시연) | [블로킹 세션 종료] [무시]. 승인 메시지에 영향 안내: "진행 중이던 세일가 반영은 롤백되고, 안전 모드로 자동 재실행합니다" |

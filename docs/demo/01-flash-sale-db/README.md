@@ -20,8 +20,8 @@
 | 1 | 결정 항목 반영, 설계 확정 | ✅ 완료 | 2026-10-16, 설계 8장 |
 | 2 | 구현 계획 작성 | ✅ 완료 | `docs/design/plans/2026-10-16-demo-flash-sale-db.md` (Task 1~19) |
 | 3 | 오프라인 구현 (계획 Task 1~14) | ✅ 완료 | 2026-10-19 |
-| 4 | 실환경 생성·배포·수집 확인 (Task 15) | ✅ 완료 | 2026-10-19~20. `demo-up` 약 35분(리소스 75개) |
-| 5 | 장애 재현·튜닝 (Task 16) | 🔄 진행 중 | Step 1~5 완료(원인별 단독 재현, 전체 시연 리허설 1회 성공). 남은 것: Step 6 reset 원복 검증, Step 7 세션 종료 범위, Step 8 소요 시간 문서화 |
+| 4 | 실환경 생성·배포·수집 확인 (Task 15) | ✅ 완료 | 2026-10-19~20. `demo-up` 약 37분(리소스 75개, Graviton 기준) |
+| 5 | 장애 재현·튜닝 (Task 16) | ✅ 완료 | 2026-10-22. 튜닝 값·소요 시간 실측은 [설계 3.4](../../design/specs/2026-10-15-demo-flash-sale-db-design.md#34-리허설-실측과-튜닝-값-2026-10-2022). Graviton 전체 리허설은 Task 19 |
 | **공통 기반** | | | ②·3단계에서 재사용 |
 | B1 | `cd.yml` 수동 실행(`workflow_dispatch`) | ✅ 완료 | `demo-up`이 호출해 배포까지 성공 |
 | B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ✅ 완료 | `infra/terraform/team` apply 완료(IAM 3개). Datadog AWS 연동 Role은 계정에 기존 연동이 있어 만들지 않음 |
@@ -29,12 +29,12 @@
 | B4 | 트래픽 생성기 (k6 API + k6 browser), 평시/급증 프로필 | ✅ 완료 | k6 browser RUM 세션·Replay·프로파일링 수집 확인(2026-10-20). 로그인은 API 호출 + 토큰 주입 |
 | B5 | Slack 연동 + GitHub Connection | ⬜ 대기 | 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), UI 설정은 실환경에서 |
 | **시나리오 ① 전용** | | | |
-| F1 | RDS t3.small + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ✅ 완료 | Agent `postgres` 체크 `[OK]`, `ringdog.db.blocking_sessions` 수집 |
+| F1 | RDS db.t4g.small(2026-10-21 t3에서 전환) + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ✅ 완료 | Agent `postgres` 체크 `[OK]`, `ringdog.db.blocking_sessions` 수집 |
 | F2 | Datadog AWS Integration (RDS·ALB·MSK) | ✅ 완료 | 계정에 이미 있는 연동 사용 |
 | F3 | 인기상품 API·위젯 + checkout 재고 차감 트랜잭션 + 플래그(backend-api 소유) | ✅ 완료 | 장애 중 동작 확인(2026-10-20). checkout이 배치와 같은 순서로 상품을 잠그도록 수정(교착 방지), backend-api 커넥션 풀 Pod당 10. 위젯 표시 규칙: 설계 4.7 |
 | F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ✅ 완료 | x86 50만 기준 약 76초 → Graviton 대응으로 주문 100만·`order_items` 약 300만 행(2026-10-21). 재실행 시 건너뜀 |
 | F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ✅ 완료 | HPA 1→4, 장애 배치 약 30분 실행(1,200개 × 1.5초), 안전 모드 약 17초에 1,200/1,200 확인. 설계 4.1.1·4.6 |
-| F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | 🔄 진행 중 | `demo-up`·`demo-down`·`inject`·`mitigate`(widget·session)·`fix-index`·`reset` 확인. 남은 것: 리허설 뒤 reset 원복(세일가·인덱스·시연 PR) 검증, 세션 종료 범위 검증. 급증 프로필은 위젯 호출 50%·주문 내역 10% |
+| F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | ✅ 완료 | `demo-up`·`demo-down`·`inject`·`mitigate`(widget·session)·`fix-index`·`reset` 확인. reset 원복(세일가·인덱스·시연 PR)과 세션 종료 범위(manual-check 블로커는 안 끊김) 검증 완료(2026-10-21). 급증 프로필은 위젯 호출 35%·주문 내역 10% |
 | F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
 | F8 | Workflow 2개: 1차 위젯 OFF → 인덱스 적용 + 위젯 ON (승인 2번) / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (승인 1번, 대기 30분) | ⬜ 대기 | 설정 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), 실제 생성은 실환경에서 |
 | F9 | 데모 대시보드 | ⬜ 대기 | |
@@ -114,3 +114,4 @@
 | 2026-10-20 | 전체 시연 리허설 1회 성공(Task 16 Step 4~5): 위젯 ON RDS CPU 약 85% → 위젯 OFF 24%, 인덱스 생성 15초(배치 실행 중), 인기상품 7.2초 → 136ms, 그래도 결제 약 98% 실패, 27분에 배치 875/1,200 진행 중, 세션 종료 54초 후 결제 회복·세일가 1,200개 반영. 주의: 인기상품 p95 1.87초로 1차 트리거 기준(2초)에 못 미침 → 기준을 1초로 낮춤(2026-10-21), `orders`는 새 인덱스가 있어도 Seq Scan(원인 미확인) |
 | 2026-10-20 | 인기상품 위젯 UI: 고정 높이(h-56) 때문에 생기던 세로 스크롤 제거(높이는 내용에 맞추고 스켈레톤도 같은 구조), 가로 스크롤바 대신 [<] [>] 버튼으로 넘기기. 코드만 반영, 실서버 확인은 다음 배포 때 |
 | 2026-10-22 | 프론트 쇼핑몰형 개편 실서버 확인 완료(사용자 화면 승인). 확인 중 요청으로 카테고리를 태그 기준(`#동물`)으로 바꾸고 탈것 삭제, 신상품 페이지(`/new`, #41~#60) 추가, 할인 없는 상품 카드의 [장바구니] 줄 맞춤. k6 browser 선택자 에러 0건, RUM `장바구니`·`결제하기` 액션 수신, `inject` 중 결제하기 Rage Click 8건·인기상품 p95 0.6~2.1초(평시 수십 ms). Dead Click은 개편 전부터 있던 장바구니 화면의 이름 없는 요소(k6, 개편 전 약 250건) 외에 새 화면 요소 원인 없음 |
+| 2026-10-22 | Task 16 마무리(Step 8): 튜닝 값과 소요 시간 실측을 설계 3.4에 정리. `demo-up` 약 37분(MSK 27분이 가장 김), cd 대량 시드 약 2분 50초, `inject`·`reset` 각 약 2분 |
