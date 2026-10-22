@@ -1,0 +1,8 @@
+{
+  "name": "[RingDog demo] APM checkout p95",
+  "type": "query alert",
+  "query": "percentile(last_5m):p95:trace.express.request{env:demo,service:ringdog-backend-api,resource_name:post_/api/orders/checkout} > 3",
+  "message": "`POST /api/orders/checkout` p95가 {{value}}초로 3초를 넘었습니다 (평시 약 0.03초).\n시나리오 ① 서버 신호 — Composite `[RingDog demo] 결제 장애`의 한쪽 조건입니다.",
+  "tags": ["project:ringdog", "env:demo", "scenario:01-flash-sale-db"],
+  "options": { "thresholds": { "critical": 3 }, "notify_no_data": false, "require_full_window": false, "include_tags": false }
+}

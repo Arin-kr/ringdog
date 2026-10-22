@@ -1,0 +1,8 @@
+{
+  "name": "[RingDog demo] DB 블로킹 세션 지속",
+  "type": "query alert",
+  "query": "min(last_5m):max:ringdog.db.blocking_sessions{env:demo} >= 1",
+  "message": "다른 세션을 막고 있고 트랜잭션이 30초 넘게 열린 DB 세션이 5분 동안 {{value}}개 이상입니다.\n원인 ② 트리거 — 2차 대처 Workflow(블로킹 세션 종료 → 배치 안전 모드)는 Task 18에서 연결합니다.",
+  "tags": ["project:ringdog", "env:demo", "scenario:01-flash-sale-db"],
+  "options": { "thresholds": { "critical": 1 }, "notify_no_data": false, "require_full_window": false, "include_tags": false }
+}

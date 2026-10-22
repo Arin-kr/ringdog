@@ -97,7 +97,16 @@ timeout을 30분으로 두는 이유: 알림이 장애 주입 후 11분 무렵 �
 
 ## 6. Bits AI SRE
 
-모니터 알림이 오면 Bits AI SRE가 자동으로 조사하도록 Composite 모니터에 적용합니다. 정확한 켜는 방법(설정 위치·모니터 옵션)은 **실환경 Task 17 Step 3에서 확인한 뒤 이 절에 기록**합니다. 아직 확인 전입니다.
+모니터 알림이 오면 Bits AI SRE가 자동으로 조사하도록 **Composite 모니터 `[RingDog demo] 결제 장애 (Composite)`에만** 켭니다. API·Terraform으로는 켤 수 없어 UI에서 합니다(2026-10-22 공식 문서 확인).
+
+| 방법 | 경로 |
+|---|---|
+| 모니터 하나 | 모니터 상태 페이지 → **Edit** → **Configure notifications & automations** → **Investigate with Bits AI SRE** 켜기 |
+| 목록에서 | **Bits AI SRE → Monitors → Supported** → 해당 모니터의 **Auto-Investigate** 토글 |
+
+- 자동 조사는 **Alert로 바뀔 때만** 시작합니다(Warn·No Data·재알림·테스트 알림은 시작 안 함).
+- ⚠️ **모니터마다 24시간에 1번**만 자동 조사합니다(기본 한도). 시연 당일 리허설로 Composite가 한 번 울렸다면 본 시연 때는 자동 조사가 돌지 않으므로, 리허설은 전날 하거나 본 시연에서는 알림 화면의 **Investigate** 버튼으로 수동 시작합니다.
+- 다른 모니터(트리거 2개, RUM·APM 개별)에는 켜지 않습니다. 같은 장애로 조사가 여러 번 돌면 결론이 흩어집니다.
 
 ## 시연 중 주의
 

@@ -27,7 +27,7 @@
 | B2 | 팀 권한 스택 (IAM 그룹 + EKS 관리자 Role + Datadog AWS 연동 Role) | ✅ 완료 | `infra/terraform/team` apply 완료(IAM 3개). Datadog AWS 연동 Role은 계정에 기존 연동이 있어 만들지 않음 |
 | B3 | Unified Service Tagging + 에러 로그 보강 | ✅ 완료 | APM `version`=커밋 sha, RUM `env:demo` 확인 |
 | B4 | 트래픽 생성기 (k6 API + k6 browser), 평시/급증 프로필 | ✅ 완료 | k6 browser RUM 세션·Replay·프로파일링 수집 확인(2026-10-20). 로그인은 API 호출 + 토큰 주입 |
-| B5 | Slack 연동 + GitHub Connection | ⬜ 대기 | 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), UI 설정은 실환경에서 |
+| B5 | Slack 연동 + GitHub Connection | 🔄 진행 중 | Slack 연동 완료(사용자, 2026-10-22). GitHub Connection은 Task 18에서 |
 | **시나리오 ① 전용** | | | |
 | F1 | RDS db.t4g.small(2026-10-21 t3에서 전환) + 파라미터 그룹 + DBM 준비 SQL + Agent DBM cluster check | ✅ 완료 | Agent `postgres` 체크 `[OK]`, `ringdog.db.blocking_sessions` 수집 |
 | F2 | Datadog AWS Integration (RDS·ALB·MSK) | ✅ 완료 | 계정에 이미 있는 연동 사용 |
@@ -35,9 +35,9 @@
 | F4 | 대량 시드 SQL (cd가 자동 실행, 수동은 `demo-control seed`) | ✅ 완료 | x86 50만 기준 약 76초 → Graviton 대응으로 주문 100만·`order_items` 약 300만 행(2026-10-21). 재실행 시 건너뜀 |
 | F5 | HPA + metrics-server + EKS 노드 3대 고정·전 Pod requests/limits, 세일가 반영 배치 Job `inventory-batch` (장애 모드: 트랜잭션 1개·마지막에 커밋 / 안전 모드: 50개씩 커밋, 진행 로그, 서비스 태그) | ✅ 완료 | HPA 1→4, 장애 배치 약 30분 실행(1,200개 × 1.5초), 안전 모드 약 17초에 1,200/1,200 확인. 설계 4.1.1·4.6 |
 | F6 | `demo-control.yml` (inject / mitigate / fix-index / reset + seed / start / spike / stop), `scripts/demo-up.sh`·`demo-down.sh` | ✅ 완료 | `demo-up`·`demo-down`·`inject`·`mitigate`(widget·session)·`fix-index`·`reset` 확인. reset 원복(세일가·인덱스·시연 PR)과 세션 종료 범위(manual-check 블로커는 안 끊김) 검증 완료(2026-10-21). 급증 프로필은 위젯 호출 35%·주문 내역 10% |
-| F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | ⬜ 대기 | |
+| F7 | 모니터: Composite(사람 알림), 인기상품 API 지연 지속, DB 블로킹 세션 지속 | 🔄 진행 중 | 5개 생성(MCP, draft 상태 — publish 필요), 정의는 [`datadog/monitors`](../../../datadog/README.md). 남은 것: publish, Composite에 Bits AI SRE 켜기(UI), 트리거 2개에 Workflow 연결(Task 18) |
 | F8 | Workflow 2개: 1차 위젯 OFF → 인덱스 적용 + 위젯 ON (승인 2번) / 2차 블로킹 세션 종료 + 배치 안전 모드 자동 재실행 (승인 1번, 대기 30분) | ⬜ 대기 | 설정 가이드 작성 완료([`datadog-setup.md`](./datadog-setup.md)), 실제 생성은 실환경에서 |
-| F9 | 데모 대시보드 | ⬜ 대기 | |
+| F9 | 데모 대시보드 | ✅ 완료 | `[RingDog demo] 01 타임세일 DB 병목` (2026-10-22), 정의 `datadog/dashboards/demo-flash-sale-db.json` |
 | F10 | MCP 근본 수정 시연 리허설 | ⬜ 대기 | |
 | R | 전체 리허설 (타이밍·장애 강도 조정) | ⬜ 대기 | RDS CPU 크레딧 영향 확인 |
 

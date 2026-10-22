@@ -1,0 +1,8 @@
+{
+  "name": "[RingDog demo] 결제 장애 (Composite)",
+  "type": "composite",
+  "query": "<RUM_CHECKOUT_SLOW_ID> && <APM_CHECKOUT_P95_ID>",
+  "message": "{{#is_alert}}🚨 결제 장애: 고객 화면([결제하기] 처리 지연, RUM)과 서버(checkout p95, APM) 양쪽에서 동시에 확인됐습니다.{{/is_alert}}\n{{#is_recovery}}✅ 결제 장애 회복: RUM·APM 양쪽 모두 정상입니다.{{/is_recovery}}\n사람 알림 전용 (Workflow 없음). Bits AI SRE 자동 조사 대상.\n@slack-<SLACK_ACCOUNT>-<CHANNEL>",
+  "tags": ["project:ringdog", "env:demo", "scenario:01-flash-sale-db"],
+  "options": { "notify_no_data": false, "include_tags": false }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "[RingDog demo] 인기상품 API 지연 지속",
+  "type": "query alert",
+  "query": "percentile(last_3m):p95:trace.express.request{env:demo,service:ringdog-backend-api,resource_name:get_/api/products/trending} > 1",
+  "message": "`GET /api/products/trending` p95가 3분 동안 {{value}}초로 1초를 넘었습니다 (평시 1ms 미만, 인덱스 적용 후 약 44ms).\n원인 ① 트리거 — 1차 대처 Workflow(위젯 OFF → 인덱스 적용 + 위젯 ON)는 Task 18에서 연결합니다.",
+  "tags": ["project:ringdog", "env:demo", "scenario:01-flash-sale-db"],
+  "options": { "thresholds": { "critical": 1 }, "notify_no_data": false, "require_full_window": false, "include_tags": false }
+}

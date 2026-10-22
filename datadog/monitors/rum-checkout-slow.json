@@ -1,0 +1,8 @@
+{
+  "name": "[RingDog demo] RUM 결제 지연",
+  "type": "rum alert",
+  "query": "rum(\"env:demo @type:action @action.target.name:결제하기\").rollup(\"avg\", \"@action.loading_time\").last(\"5m\") > 1500000000",
+  "message": "고객이 누른 [결제하기]의 처리 시간이 5분 평균 1.5초를 넘었습니다 (평시 0.05~0.85초).\n시나리오 ① 사용자 체감 신호 — Composite `[RingDog demo] 결제 장애`의 한쪽 조건입니다.",
+  "tags": ["project:ringdog", "env:demo", "scenario:01-flash-sale-db"],
+  "options": { "thresholds": { "critical": 1500000000 }, "notify_no_data": false, "include_tags": false }
+}

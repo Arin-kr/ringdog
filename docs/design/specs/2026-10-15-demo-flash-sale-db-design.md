@@ -76,7 +76,7 @@
 |---|---|---|---|---|
 | 0. 평시 | 0:00 (3분) | 서비스 맵, RUM 대시보드, 데모 대시보드 소개 | Infra, APM, RUM | 정상 LCP·checkout p95·RDS CPU 기준선 |
 | 1. 장애 주입 | 3:00 (1분) | GitHub Actions `demo-control` → `action=inject` | — | k6 급증 + 위젯 ON 즉시, 세일가 반영 배치(`inventory-batch` Job)는 3분 뒤 자동 시작 |
-| 2. 탐지 + AI 1차 조사 | 4:00 (2분) | Slack 알림 확인 → 모니터의 **Bits AI SRE** 조사 결과 | Monitor (Composite), Bits AI SRE | **RUM 결제 지연 AND APM checkout p95 증가** 일 때만 알림. AI 결론은 비결정적이므로 "1차 방향"으로만 활용 |
+| 2. 탐지 + AI 1차 조사 | 4:00 (2분) | Slack 알림 확인 → 모니터의 **Bits AI SRE** 조사 결과 | Monitor (Composite), Bits AI SRE | **RUM 결제 지연 AND APM checkout p95 증가** 일 때만 알림. RUM 쪽은 [결제하기] 클릭의 action loading time 5분 평균 > 1.5초다(장애 중 k6가 응답 전에 페이지를 떠나 checkout resource 이벤트가 남지 않아서 resource 지연은 못 씀. 평시 최대 0.85초, 장애 중 3.07초. 2026-10-22). 배치가 `inject` 3분 뒤 시작하므로 Composite 알림은 `inject` 후 약 6분으로 예상 — Task 19 리허설에서 확인 AI 결론은 비결정적이므로 "1차 방향"으로만 활용 |
 | 3. 첫 번째 원인 | 6:00 (3분) | DBM Query Metrics → Top Query → Explain Plan. Bits Chat Q1 | DBM, Bits AI Chat | **원인 ① 인기상품 쿼리 Seq Scan**, RDS CPU 100%. Q1 "이 쿼리가 왜 느려졌고 어떻게 개선해?" |
 | 4. 1차 대처 (완화) | 9:00 (2분) | Slack "인기상품 API 지연 지속" 알림의 **[위젯 OFF]** 승인 | Workflow Automation | 플래그 OFF → DB CPU 하락 확인 |
 | 5. 원인 ① 근본 수정 | 11:00 (3분) | Claude Code + Datadog MCP | MCP Server | "DBM에서 가장 느린 쿼리와 Explain Plan 가져와서 인덱스 마이그레이션 만들어줘" → Prisma 마이그레이션 + PR(브랜치 `demo/fix-index-<날짜>`, 머지 안 함) |

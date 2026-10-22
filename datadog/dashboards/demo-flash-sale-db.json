@@ -1,0 +1,149 @@
+{
+  "title": "[RingDog demo] 01 타임세일 DB 병목",
+  "description": "시나리오 ① 타임세일 트래픽 폭주 → DB 병목. 세로 점선 이벤트 = Kubernetes Job(inventory-batch) 생성·종료. 정의: repo datadog/dashboards/demo-flash-sale-db.json",
+  "layout_type": "ordered",
+  "widgets": [
+    {
+      "definition": {
+        "type": "group", "layout_type": "ordered", "title": "결제 (고객 영향)", "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries", "title": "checkout p95 (초) — 3초 넘으면 APM 모니터", "show_legend": false,
+              "requests": [{
+                "queries": [{ "data_source": "metrics", "name": "q", "query": "p95:trace.express.request{env:demo,service:ringdog-backend-api,resource_name:post_/api/orders/checkout}" }],
+                "formulas": [{ "formula": "q", "alias": "checkout p95" }],
+                "response_format": "timeseries", "display_type": "line"
+              }],
+              "markers": [{ "value": "y = 3", "display_type": "error dashed", "label": "모니터 3초" }],
+              "events": [{ "q": "source:kubernetes kube_namespace:ringdog kube_kind:job" }]
+            },
+            "layout": { "width": 6, "height": 3 }
+          },
+          {
+            "definition": {
+              "type": "timeseries", "title": "checkout 에러율 (%)", "show_legend": false,
+              "requests": [{
+                "queries": [
+                  { "data_source": "metrics", "name": "err", "query": "sum:trace.express.request.errors{env:demo,service:ringdog-backend-api,resource_name:post_/api/orders/checkout}.as_count()" },
+                  { "data_source": "metrics", "name": "hits", "query": "sum:trace.express.request.hits{env:demo,service:ringdog-backend-api,resource_name:post_/api/orders/checkout}.as_count()" }
+                ],
+                "formulas": [{ "formula": "100 * err / hits", "alias": "에러율 %" }],
+                "response_format": "timeseries", "display_type": "bars"
+              }],
+              "events": [{ "q": "source:kubernetes kube_namespace:ringdog kube_kind:job" }]
+            },
+            "layout": { "width": 6, "height": 3 }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group", "layout_type": "ordered", "title": "API 지연", "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries", "title": "인기상품 API p95 (초) — 1초 넘으면 1차 트리거", "show_legend": false,
+              "requests": [{
+                "queries": [{ "data_source": "metrics", "name": "q", "query": "p95:trace.express.request{env:demo,service:ringdog-backend-api,resource_name:get_/api/products/trending}" }],
+                "formulas": [{ "formula": "q", "alias": "trending p95" }],
+                "response_format": "timeseries", "display_type": "line"
+              }],
+              "markers": [{ "value": "y = 1", "display_type": "warning dashed", "label": "트리거 1초" }]
+            },
+            "layout": { "width": 6, "height": 3 }
+          },
+          {
+            "definition": {
+              "type": "timeseries", "title": "상품 목록 API p95 (초) — 다른 API는 정상인지", "show_legend": false,
+              "requests": [{
+                "queries": [{ "data_source": "metrics", "name": "q", "query": "p95:trace.express.request{env:demo,service:ringdog-backend-api,resource_name:get_/api/products}" }],
+                "formulas": [{ "formula": "q", "alias": "/api/products p95" }],
+                "response_format": "timeseries", "display_type": "line"
+              }]
+            },
+            "layout": { "width": 6, "height": 3 }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group", "layout_type": "ordered", "title": "DB", "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries", "title": "RDS CPU (%)", "show_legend": false,
+              "requests": [{
+                "queries": [{ "data_source": "metrics", "name": "cpu", "query": "avg:aws.rds.cpuutilization{dbinstanceidentifier:ringdog-demo}" }],
+                "formulas": [{ "formula": "cpu", "alias": "CPU %" }],
+                "response_format": "timeseries", "display_type": "line"
+              }],
+              "yaxis": { "min": "0", "max": "100" }
+            },
+            "layout": { "width": 4, "height": 3 }
+          },
+          {
+            "definition": {
+              "type": "timeseries", "title": "DB 커넥션 수", "show_legend": false,
+              "requests": [{
+                "queries": [{ "data_source": "metrics", "name": "c", "query": "sum:postgresql.connections{env:demo}" }],
+                "formulas": [{ "formula": "c", "alias": "connections" }],
+                "response_format": "timeseries", "display_type": "line"
+              }]
+            },
+            "layout": { "width": 4, "height": 3 }
+          },
+          {
+            "definition": {
+              "type": "timeseries", "title": "블로킹 세션 / 막힌 세션", "show_legend": true, "legend_layout": "horizontal",
+              "requests": [{
+                "queries": [
+                  { "data_source": "metrics", "name": "blocking", "query": "max:ringdog.db.blocking_sessions{env:demo}" },
+                  { "data_source": "metrics", "name": "blocked", "query": "max:ringdog.db.blocked_sessions{env:demo}" }
+                ],
+                "formulas": [{ "formula": "blocking", "alias": "블로킹(30초+)" }, { "formula": "blocked", "alias": "막힌 세션" }],
+                "response_format": "timeseries", "display_type": "line"
+              }],
+              "events": [{ "q": "source:kubernetes kube_namespace:ringdog kube_kind:job" }]
+            },
+            "layout": { "width": 4, "height": 3 }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group", "layout_type": "ordered", "title": "인프라 (스케일 아웃 함정)", "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries", "title": "backend-api Pod 수 (HPA)", "show_legend": true, "legend_layout": "horizontal",
+              "requests": [{
+                "queries": [
+                  { "data_source": "metrics", "name": "avail", "query": "avg:kubernetes_state.deployment.replicas_available{kube_namespace:ringdog,kube_deployment:backend-api}" },
+                  { "data_source": "metrics", "name": "desired", "query": "avg:kubernetes_state.deployment.replicas_desired{kube_namespace:ringdog,kube_deployment:backend-api}" }
+                ],
+                "formulas": [{ "formula": "avail", "alias": "사용 가능" }, { "formula": "desired", "alias": "목표" }],
+                "response_format": "timeseries", "display_type": "line"
+              }]
+            },
+            "layout": { "width": 6, "height": 3 }
+          },
+          {
+            "definition": {
+              "type": "timeseries", "title": "RDS CPU 크레딧 잔고", "show_legend": false,
+              "requests": [{
+                "queries": [{ "data_source": "metrics", "name": "cr", "query": "avg:aws.rds.cpucredit_balance{dbinstanceidentifier:ringdog-demo}" }],
+                "formulas": [{ "formula": "cr", "alias": "credit balance" }],
+                "response_format": "timeseries", "display_type": "line"
+              }]
+            },
+            "layout": { "width": 6, "height": 3 }
+          }
+        ]
+      }
+    }
+  ]
+}
