@@ -134,7 +134,7 @@ export function Header(): JSX.Element {
           <Link href="/?q=%EC%84%B8%EC%9D%BC" className="py-3 text-primary-600 hover:underline">
             타임세일
           </Link>
-          <Link href="/#all-products" className="py-3 hover:text-primary-600">
+          <Link href="/new" className="py-3 hover:text-primary-600">
             신상품
           </Link>
           {QUICK_CATEGORIES.map((category) => (

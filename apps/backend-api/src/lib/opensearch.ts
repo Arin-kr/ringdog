@@ -3,6 +3,7 @@ import { Product, PaginatedResult } from "@ringdog/shared";
 import { prisma } from "@ringdog/db";
 
 import { env } from "../config/env";
+import { buildSearchBody } from "./searchQuery";
 
 export const OPENSEARCH_PRODUCTS_INDEX = env.opensearchIndexProducts;
 
@@ -100,35 +101,9 @@ export async function searchProducts(
 ): Promise<PaginatedResult<Product>> {
   await ensureProductsIndex();
 
-  const from = (page - 1) * limit;
-  const q = query.trim();
-
-  const searchBody = q
-    ? {
-        from,
-        size: limit,
-        query: {
-          bool: {
-            should: [
-              { match: { name: { query: q, fuzziness: "AUTO" } } },
-              { match: { description: { query: q } } },
-              { terms: { tags: [q] } },
-            ],
-            minimum_should_match: 1,
-          },
-        },
-        sort: [{ createdAt: { order: "desc" } }],
-      }
-    : {
-        from,
-        size: limit,
-        query: { match_all: {} },
-        sort: [{ createdAt: { order: "desc" } }],
-      };
-
   const response = await opensearchClient.search({
     index: OPENSEARCH_PRODUCTS_INDEX,
-    body: searchBody,
+    body: buildSearchBody(query, (page - 1) * limit, limit),
   });
 
   const hits = response.body.hits;

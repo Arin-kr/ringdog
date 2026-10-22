@@ -12,8 +12,8 @@ export function ProductCard({ id, name, price, imageUrl, tags, onAddToCart }: Pr
   const meta = displayMeta(id, price);
   const [image] = productImages({ id, name, tags, imageUrl });
   return (
-    <div className="flex flex-col">
-      <Link href={`/products/${id}`} className="text-inherit no-underline">
+    <div className="flex h-full flex-col">
+      <Link href={`/products/${id}`} className="flex-1 text-inherit no-underline">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={image} alt={name} loading="lazy" className="aspect-square w-full rounded-lg bg-stone-100 object-cover" />
         <div className="mt-2 line-clamp-2 min-h-[2.8rem] text-[15px] leading-snug text-stone-800">{name}</div>
@@ -21,9 +21,10 @@ export function ProductCard({ id, name, price, imageUrl, tags, onAddToCart }: Pr
           {meta.discountRate > 0 && <span className="text-base font-bold text-primary-600">{meta.discountRate}%</span>}
           <span className="text-lg font-bold text-stone-900">{formatWon(price)}</span>
         </div>
-        {meta.discountRate > 0 && (
-          <div className="text-sm text-stone-400 line-through">{formatWon(meta.originalPrice)}</div>
-        )}
+        {/* 할인 없는 상품도 줄을 비워 두어 카드끼리 [장바구니] 버튼 높이를 맞춘다. */}
+        <div className="min-h-5 text-sm text-stone-400 line-through">
+          {meta.discountRate > 0 && formatWon(meta.originalPrice)}
+        </div>
         <div className="mt-1 flex items-center gap-1 text-sm text-stone-500">
           <span className="text-amber-500">★</span>
           <span>{meta.rating.toFixed(1)}</span>

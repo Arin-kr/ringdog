@@ -10,7 +10,7 @@ const AUTO_ADVANCE_MS = 5000;
 
 const SLIDES = [
   { title: "타임세일 최대 50%", sub: "지금 담으면 세일가 그대로", href: "/?q=%EC%84%B8%EC%9D%BC" },
-  { title: "새로 들어온 키링", sub: "신상품을 가장 먼저 만나 보세요", href: "/#all-products" },
+  { title: "새로 들어온 키링", sub: "신상품을 가장 먼저 만나 보세요", href: "/new" },
   { title: "귀여운 동물 키링 모음", sub: "고양이 · 강아지 · 곰돌이", href: categorySearchHref(CATEGORIES[0]) },
 ];
 

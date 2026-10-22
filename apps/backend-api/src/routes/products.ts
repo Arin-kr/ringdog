@@ -4,6 +4,7 @@ import { DEFAULT_PAGE, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, logger } from "@ringd
 
 import { env } from "../config/env";
 import { searchProducts as opensearchSearch } from "../lib/opensearch";
+import { parseTagQuery } from "../lib/searchQuery";
 import { queryTrending } from "../lib/trending";
 import { createTrendingHandler } from "./trending";
 
@@ -60,7 +61,10 @@ productsRouter.get("/search", async (req, res, next) => {
       logger.warn("OpenSearch unavailable, using DB fallback", { error: String(searchErr) });
     }
 
-    const where = q
+    const tag = parseTagQuery(q);
+    const where = tag
+      ? { tags: { has: tag } }
+      : q
       ? {
           OR: [
             { name: { contains: q, mode: "insensitive" as const } },

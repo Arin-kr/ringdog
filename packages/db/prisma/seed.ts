@@ -12,9 +12,18 @@ const SUBJECTS = [
   "별", "지구본", "카메라", "축구공", "책", "커피컵", "자전거", "로켓",
 ];
 
+// 모양 → 카테고리 이름 태그 (프론트 apps/frontend/src/lib/categories.ts와 같게 유지). 자동차·자전거는 카테고리 없음.
+const SUBJECT_CATEGORY: Record<string, string> = {
+  고양이: "동물", 강아지: "동물", 곰돌이: "동물",
+  로켓: "우주", 우주비행사: "우주", 별: "우주", 지구본: "우주",
+  커피컵: "일상", 책: "일상", 카메라: "일상",
+  에어팟: "테크", 축구공: "스포츠", 꽃: "꽃",
+};
+
 function toProduct(index: number) {
   const adjective = ADJECTIVES[index % ADJECTIVES.length];
   const subject = SUBJECTS[index % SUBJECTS.length];
+  const category = SUBJECT_CATEGORY[subject];
   const name = `${adjective} ${subject} 키링 #${index + 1}`;
   const price = 5000 + ((index * 1500) % 45000);
 
@@ -23,7 +32,7 @@ function toProduct(index: number) {
     description: `${adjective} 소재로 만든 ${subject} 모양 키링. RingDog 데모용 샘플 상품입니다.`,
     price,
     stock: 20 + (index % 30),
-    tags: [adjective, subject],
+    tags: category && category !== subject ? [adjective, subject, category] : [adjective, subject],
     imageUrl: null,
   };
 }

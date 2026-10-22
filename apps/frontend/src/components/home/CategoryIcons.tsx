@@ -5,7 +5,7 @@ import { CATEGORIES, categorySearchHref } from "@/lib/categories";
 export function CategoryIcons(): JSX.Element {
   return (
     <nav aria-label="카테고리" className="mb-8">
-      <ul className="grid grid-cols-4 gap-y-4 sm:grid-cols-7">
+      <ul className="grid grid-cols-3 gap-y-4 sm:grid-cols-6">
         {CATEGORIES.map((category) => (
           <li key={category.slug}>
             <Link href={categorySearchHref(category)} className="group flex flex-col items-center gap-2 text-inherit no-underline">

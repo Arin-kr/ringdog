@@ -1,4 +1,5 @@
-// 모양 태그를 묶은 상품 카테고리. 대표 사진은 상품 사진 풀을 재사용한다.
+// 상품 카테고리. 상품에는 카테고리 이름(label)과 같은 태그가 달려 있다(시드·마이그레이션).
+// subjects는 그 카테고리에 속하는 모양 태그, 대표 사진은 상품 사진 풀을 재사용한다.
 import { SUBJECT_IMAGES } from "./productImage";
 
 export interface Category {
@@ -14,7 +15,6 @@ function make(slug: string, label: string, subjects: string[]): Category {
 
 export const CATEGORIES: Category[] = [
   make("animals", "동물", ["고양이", "강아지", "곰돌이"]),
-  make("vehicles", "탈것", ["자동차", "자전거"]),
   make("space", "우주", ["로켓", "우주비행사", "별", "지구본"]),
   make("daily", "일상", ["커피컵", "책", "카메라"]),
   make("tech", "테크", ["에어팟"]),
@@ -22,20 +22,22 @@ export const CATEGORIES: Category[] = [
   make("flower", "꽃", ["꽃"]),
 ];
 
-/** 태그 중 처음 일치하는 모양과 그 카테고리를 돌려준다. 없으면 null. */
+/** 카테고리 이름 태그로 카테고리와 그 안의 모양을 찾는다. 없으면 null. */
 export function categoryForTags(tags: string[]): { category: Category; subject: string } | null {
-  for (const tag of tags) {
-    const category = CATEGORIES.find((c) => Object.hasOwn(SUBJECT_IMAGES, tag) && c.subjects.includes(tag));
-    if (category) return { category, subject: tag };
-  }
-  return null;
+  const category = CATEGORIES.find((c) => tags.includes(c.label));
+  const subject = category && tags.find((t) => category.subjects.includes(t));
+  return category && subject ? { category, subject } : null;
+}
+
+/** 태그 정확 일치 검색("#동물"). 백엔드가 #으로 시작하는 검색어를 태그 검색으로 처리한다. */
+export function tagSearchHref(tag: string): string {
+  return `/?q=${encodeURIComponent(`#${tag}`)}`;
 }
 
 export function subjectSearchHref(subject: string): string {
-  return `/?q=${encodeURIComponent(subject)}`;
+  return tagSearchHref(subject);
 }
 
-/** 검색 API는 공백으로 구분된 여러 모양을 OR로 처리한다(실환경 확인). */
 export function categorySearchHref(category: Category): string {
-  return subjectSearchHref(category.subjects.join(" "));
+  return tagSearchHref(category.label);
 }

@@ -15,6 +15,8 @@ import { ProductCard } from "./ProductCard";
 import { TrendingWidget } from "./TrendingWidget";
 
 const PAGE_SIZE = 24;
+/** 신상품 = 최신순 앞 20개. 대량 시드 "세일 키링"은 기본 60개보다 오래된 것으로 넣어서 기본 상품 #41~#60이 나온다. */
+const NEW_ARRIVALS = 20;
 
 interface ProductsResponse {
   items: Product[];
@@ -23,9 +25,10 @@ interface ProductsResponse {
   total: number;
 }
 
-export function ProductCatalog(): JSX.Element {
+export function ProductCatalog({ variant = "all" }: { variant?: "all" | "new" }): JSX.Element {
   const searchParams = useSearchParams();
-  const q = searchParams.get("q") ?? "";
+  const isNew = variant === "new";
+  const q = isNew ? "" : (searchParams.get("q") ?? "");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -38,12 +41,16 @@ export function ProductCatalog(): JSX.Element {
 
   const fetchPage = useCallback(
     async (pageNo: number): Promise<ProductsResponse> => {
+      if (isNew) {
+        const data = await apiFetch<ProductsResponse>(`/api/products?page=1&limit=${NEW_ARRIVALS}`);
+        return { ...data, total: data.items.length };
+      }
       const path = q
         ? `/api/products/search?q=${encodeURIComponent(q)}&page=${pageNo}&limit=${PAGE_SIZE}`
         : `/api/products?page=${pageNo}&limit=${PAGE_SIZE}`;
       return apiFetch<ProductsResponse>(path);
     },
-    [q],
+    [q, isNew],
   );
 
   // q가 바뀌면 처음부터 다시 불러온다. 늦게 도착한 이전 요청의 응답은 버린다.
@@ -113,7 +120,7 @@ export function ProductCatalog(): JSX.Element {
 
   return (
     <div>
-      {!q && (
+      {!q && !isNew && (
         <>
           <BannerCarousel />
           <CategoryIcons />
@@ -122,7 +129,14 @@ export function ProductCatalog(): JSX.Element {
       )}
 
       <section id="all-products" className="scroll-mt-4">
-        {q ? (
+        {isNew ? (
+          <h1 className="text-2xl font-bold text-stone-900">
+            신상품{" "}
+            <span className="text-base font-normal text-stone-500">
+              {!loading && !error ? `${total.toLocaleString("ko-KR")}개` : ""}
+            </span>
+          </h1>
+        ) : q ? (
           <h1 className="text-2xl font-bold text-stone-900">
             &apos;{q}&apos; 검색 결과{!loading && !error ? ` ${total.toLocaleString("ko-KR")}개` : ""}
           </h1>
