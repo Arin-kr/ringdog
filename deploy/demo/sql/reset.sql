@@ -7,6 +7,11 @@ WHERE application_name = 'inventory-batch' AND pid <> pg_backend_pid();
 DO $$
 BEGIN
   IF to_regclass('public.demo_price_backup') IS NOT NULL THEN
+    -- 평시 트래픽의 checkout과 교착하지 않도록 compareLockOrder(최신순, id 코드값 순)와 같은 순서로 먼저 잠근다.
+    PERFORM 1 FROM products p
+    WHERE p.id IN (SELECT product_id FROM demo_price_backup)
+    ORDER BY p.created_at DESC, p.id COLLATE "C"
+    FOR UPDATE;
     UPDATE products p SET price = b.price, stock = b.stock
     FROM demo_price_backup b
     WHERE p.id = b.product_id;

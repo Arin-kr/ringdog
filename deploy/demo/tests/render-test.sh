@@ -39,6 +39,7 @@ echo "$targs" | grep -q 'trafficGen.targetUrl=http://alb.example' || fail "targe
 grep -q "pg_terminate_backend" "$DIR/sql/terminate-batch-blockers.sql" || fail "kill sql"
 grep -q "application_name = 'inventory-batch'" "$DIR/sql/terminate-batch-blockers.sql" || fail "kill only the batch"
 grep -q "to_regclass('public.demo_price_backup')" "$DIR/sql/reset.sql" || fail "reset guard for fresh env"
+grep -q 'ORDER BY p.created_at DESC, p.id COLLATE "C"' "$DIR/sql/reset.sql" || fail "reset locks in checkout lock order"
 grep -qi "create index concurrently" "$DIR/sql/apply-index.sql" && fail "fix-index must not use CONCURRENTLY (hangs behind the batch transaction)"
 grep -q "orders_created_at_idx" "$DIR/sql/apply-index.sql" || fail "fix-index creates the same index reset drops"
 grep -q "orders_created_at_idx" "$DIR/sql/reset.sql" || fail "reset drops fix-index index"
