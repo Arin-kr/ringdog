@@ -61,14 +61,20 @@ const DEVICES = [
   },
 ];
 
+// k6 0.52 JS 엔진은 객체 rest/spread(`...`)를 못 읽으므로 Object.assign으로 복사한다
 function pickDevice() {
   let r = Math.random() * DEVICES.reduce((sum, d) => sum + d.weight, 0);
-  for (const { weight, ...device } of DEVICES) {
-    r -= weight;
-    if (r < 0) return device;
+  let picked = DEVICES[DEVICES.length - 1];
+  for (const d of DEVICES) {
+    r -= d.weight;
+    if (r < 0) {
+      picked = d;
+      break;
+    }
   }
-  const { weight, ...last } = DEVICES[DEVICES.length - 1];
-  return last;
+  const device = Object.assign({}, picked);
+  delete device.weight;
+  return device;
 }
 
 const email = (i) => `demo-browser-${i}@ringdog.demo`;
@@ -119,13 +125,15 @@ export function setup() {
 }
 
 export default async function () {
-  const isBot = Math.random() < BOT_RATIO;
-  const isGuest = !isBot && Math.random() < GUEST_RATIO;
-  const formLogin = !isBot && !isGuest && Math.random() < FORM_LOGIN_RATIO;
+  // VISIT_MODE(bot|guest|member|form)는 수동 점검용. 평소에는 비워 두고 비율대로 섞는다
+  const mode = __ENV.VISIT_MODE;
+  const isBot = mode ? mode === "bot" : Math.random() < BOT_RATIO;
+  const isGuest = mode ? mode === "guest" : !isBot && Math.random() < GUEST_RATIO;
+  const formLogin = mode ? mode === "form" : !isBot && !isGuest && Math.random() < FORM_LOGIN_RATIO;
 
   // 매 반복마다 새 context = 새 쿠키 = 새 RUM 세션·새 익명 ID
   const context = await browser.newContext(
-    isBot ? {} : { ...pickDevice(), locale: "ko-KR", timezoneID: "Asia/Seoul" },
+    isBot ? {} : Object.assign(pickDevice(), { locale: "ko-KR", timezoneID: "Asia/Seoul" }),
   );
   const page = await context.newPage();
   try {
@@ -169,8 +177,10 @@ async function guestVisit(page) {
   await addButton.click();
   await page.waitForTimeout(2000);
 
-  const productLink = page.locator('a[href^="/products/"]').first();
-  await productLink.click();
+  // 카드 링크 클릭은 클라이언트 라우팅이 일어나지 않을 때가 있어 href로 직접 이동한다
+  const href = await page.locator('(//a[starts-with(@href, "/products/")])[1]').getAttribute("href");
+  await page.goto(`${BASE}${href}`, { waitUntil: "networkidle" });
+  if (__ENV.VISIT_MODE) console.log(`guest product: href=${href} url=${page.url()}`);
   await page.waitForTimeout(4000);
 }
 
@@ -178,11 +188,15 @@ async function guestVisit(page) {
 async function loginWithForm(page, i) {
   login(i); // 계정이 없으면 만들어 둔다
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(3000); // 하이드레이션 대기 (전에 fill하면 빈 값으로 제출돼 400)
-  await page.locator('input[type="email"]').fill(email(i));
-  await page.locator('input[type="password"]').fill(PASSWORD);
+  await page.waitForTimeout(3000); // 하이드레이션 대기
+  // fill()은 값만 바꿔 React 상태가 비어 있는 채로 제출될 수 있어(→ 400) 키보드 입력으로 넣는다
+  await page.locator('input[type="email"]').click();
+  await page.keyboard.type(email(i));
+  await page.locator('input[type="password"]').click();
+  await page.keyboard.type(PASSWORD);
   await page.locator('main form button[type="submit"]').click();
   await page.waitForTimeout(3000);
+  if (__ENV.VISIT_MODE) console.log(`form login: url=${page.url()} token=${await page.evaluate(() => !!localStorage.getItem("ringdog_token"))}`);
 }
 
 async function memberCheckout(page) {
