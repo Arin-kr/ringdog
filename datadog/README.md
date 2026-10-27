@@ -10,6 +10,7 @@ Datadog에 만든 모니터·대시보드를 JSON으로 보관합니다. `id`·`
 | `monitors/trending-p95.json` | `[RingDog demo] 인기상품 API 지연 지속` | 원인 ① 트리거 (Task 18에서 `@workflow-...` 추가) |
 | `monitors/db-blocking-sessions.json` | `[RingDog demo] DB 블로킹 세션 지속` | 원인 ② 트리거 (Task 18에서 `@workflow-...` 추가) |
 | `dashboards/demo-flash-sale-db.json` | `[RingDog demo] 01 타임세일 DB 병목` | 시연 대시보드 |
+| `dashboards/rum-visitors.json` | `[RingDog demo] RUM 대고객 서비스 방문자` | RUM 방문자 수 카운팅(UV·방문·PV, k6 봇 제외). 카운팅 기준은 대시보드 맨 아래 노트 |
 
 ## 다시 만들기
 

@@ -1,0 +1,1010 @@
+{
+  "title": "[RingDog demo] RUM 대고객 서비스 방문자",
+  "description": "RUM 기반 방문자 수 카운팅. 실 방문자 = 봇·자동화 브라우저(헤드리스 브라우저) 제외. 회원/비로그인 구분은 로그인 시 RUM setUser 기준. 카운팅 기준은 맨 아래 노트. 정의: repo datadog/dashboards/rum-visitors.json",
+  "layout_type": "ordered",
+  "widgets": [
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "실 방문자 핵심 지표 (봇 제외)",
+        "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "순 방문자 (UV)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "uv",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "uv"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "방문 (세션)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "s"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "페이지뷰 (PV)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "pv",
+                      "search": {
+                        "query": "@type:view service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "pv"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "방문당 페이지뷰",
+              "autoscale": false,
+              "precision": 1,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "pv",
+                      "search": {
+                        "query": "@type:view service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "pv / s"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "방문자 1명당 방문 수 (재방문 지표)",
+              "autoscale": false,
+              "precision": 2,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "uv",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "s / uv"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "평균 체류 시간 (분)",
+              "autoscale": false,
+              "precision": 1,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "t",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "avg",
+                        "metric": "@session.time_spent"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "t / 60000000000"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "지금 접속 중 (활성 세션)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "a",
+                      "search": {
+                        "query": "@type:session @session.is_active:true service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "a"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "1페이지만 보고 떠난 방문 (%)",
+              "autoscale": false,
+              "precision": 1,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "b",
+                      "search": {
+                        "query": "@type:session @session.view.count:1 service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * b / s"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "회원 vs 비로그인 (봇 제외)",
+        "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "회원 순 방문자 (회원 ID 기준)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "m",
+                      "search": {
+                        "query": "@type:session @usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "m"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "비로그인 순 방문자 (기기 기준)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "g",
+                      "search": {
+                        "query": "@type:session -@usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "g"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "회원 방문 (세션)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "m",
+                      "search": {
+                        "query": "@type:session @usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "m"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "비로그인 방문 (세션)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "g",
+                      "search": {
+                        "query": "@type:session -@usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "g"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "방문 추이 — 회원 vs 비로그인",
+              "show_legend": true,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "m",
+                      "search": {
+                        "query": "@type:session @usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "g",
+                      "search": {
+                        "query": "@type:session -@usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "m",
+                      "alias": "회원"
+                    },
+                    {
+                      "formula": "g",
+                      "alias": "비로그인"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "bars"
+                }
+              ]
+            },
+            "layout": {
+              "width": 8,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "회원 방문 비율 (%)",
+              "autoscale": false,
+              "precision": 1,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "m",
+                      "search": {
+                        "query": "@type:session @usr.id:* service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * m / s"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "추이",
+        "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "순 방문자 추이 — 실 방문자 vs 봇",
+              "show_legend": true,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "real",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "bot",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo @browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "real",
+                      "alias": "실 방문자"
+                    },
+                    {
+                      "formula": "bot",
+                      "alias": "봇"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "bars"
+                }
+              ]
+            },
+            "layout": {
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "방문·페이지뷰 추이 (실 방문자)",
+              "show_legend": true,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "pv",
+                      "search": {
+                        "query": "@type:view service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "s",
+                      "alias": "방문"
+                    },
+                    {
+                      "formula": "pv",
+                      "alias": "페이지뷰"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            },
+            "layout": {
+              "width": 6,
+              "height": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "방문자 분석 (실 방문자)",
+        "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "많이 본 페이지 (PV)",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "pv",
+                      "search": {
+                        "query": "@type:view service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@view.url_path_group",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "pv"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "첫 방문 페이지 (랜딩)",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@session.initial_view.url_path_group",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "s"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "기기·OS별 순 방문자",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "uv",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo -@browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@device.type",
+                          "limit": 5,
+                          "sort": {
+                            "aggregation": "cardinality",
+                            "metric": "@usr.anonymous_id",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@os.name",
+                          "limit": 5,
+                          "sort": {
+                            "aggregation": "cardinality",
+                            "metric": "@usr.anonymous_id",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "uv"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "title": "전체 트래픽 구성 (봇 포함) — 봇을 어떻게 걸러내는지",
+        "show_title": true,
+        "widgets": [
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "전체 순 방문자 (봇 포함)",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "all",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "all"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "봇 순 방문자",
+              "autoscale": true,
+              "precision": 0,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "bot",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo @browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "cardinality",
+                        "metric": "@usr.anonymous_id"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "bot"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "봇 방문 비율 (%)",
+              "autoscale": false,
+              "precision": 1,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "bot",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo @browser.name:HeadlessChrome"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "all",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * bot / all"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "브라우저 × 접속 네트워크(AS)별 방문",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "s",
+                      "search": {
+                        "query": "@type:session service:ringdog-frontend env:demo"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@browser.name",
+                          "limit": 5,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@geo.as.name",
+                          "limit": 5,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "s"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 3,
+              "height": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "note",
+        "background_color": "white",
+        "font_size": "14",
+        "text_align": "left",
+        "vertical_align": "top",
+        "show_tick": false,
+        "has_padding": true,
+        "content": "### 카운팅 기준\n\n| 지표 | 정의 |\n|---|---|\n| **순 방문자 (UV)** | `@usr.anonymous_id` 고유 수. RUM SDK가 브라우저마다 만드는 익명 ID(쿠키에 저장돼 세션이 바뀌어도 유지)로, **로그인 여부와 상관없이 모든 방문자**에게 붙습니다. 같은 브라우저로 여러 번 와도 1명, 다른 기기·브라우저·시크릿 창은 다른 사람으로 셉니다. |\n| **방문 (세션)** | `@type:session` 개수. 15분 동안 아무 동작이 없거나 4시간이 지나면 새 방문입니다. |\n| **페이지뷰 (PV)** | `@type:view` 개수. 화면 이동(SPA 라우팅 포함)마다 1회로 셉니다. |\n| **지금 접속 중** | `@session.is_active:true` 세션. 기간을 최근 15분 정도로 놓고 보세요. |\n| **회원 방문자** | 로그인하면 앱이 `datadogRum.setUser({ id })`로 회원 ID를 붙입니다. `@usr.id` 고유 수 = 회원 수(기기가 달라도 1명). 방문 중간에 로그인해도 그 방문은 회원 방문입니다. 이메일 등 개인정보는 보내지 않습니다. |\n| **비로그인 방문자** | 회원 ID가 없는 방문(`-@usr.id:*`)의 익명 ID 고유 수. 같은 기기가 비로그인·로그인 상태로 각각 오면 양쪽에 모두 잡힙니다. |\n| **실 방문자 (봇 제외)** | 크롤러·자동화 스크립트·모니터링 도구 같은 헤드리스 브라우저(`@browser.name:HeadlessChrome`)를 뺀 값. 실서비스에서는 user agent·데이터센터 네트워크(`@geo.as.name`) 같은 조건을 더해 같은 방식으로 거릅니다. `@session.type`은 봇도 `user`로 나올 수 있어 이것만으로는 구분하지 않습니다. |\n\n**수집 범위**: 세션 샘플링 100%라 숫자 보정이 필요 없습니다. 광고 차단기가 RUM 전송을 막은 방문은 빠집니다(필요하면 SDK `proxy` 옵션으로 자사 도메인 경유). RUM 이벤트는 30일 보관이며, 그보다 긴 방문·PV 추이는 RUM 기반 커스텀 메트릭으로 15개월 보관할 수 있습니다."
+      },
+      "layout": {
+        "width": 12,
+        "height": 7
+      }
+    }
+  ]
+}
