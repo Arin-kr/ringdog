@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/apiClient";
 import { isLoggedIn } from "@/lib/auth";
 import { hasMore, mergeProducts } from "@/lib/paging";
+import { blockOperation, RUM_OPERATIONS, trackOperation } from "@/lib/rumOperations";
 
 import { BannerCarousel } from "./home/BannerCarousel";
 import { CategoryIcons } from "./home/CategoryIcons";
@@ -99,16 +100,22 @@ export function ProductCatalog({ variant = "all" }: { variant?: "all" | "new" })
 
   async function handleAddToCart(productId: string): Promise<void> {
     if (!isLoggedIn()) {
+      blockOperation(RUM_OPERATIONS.addToCart, "login_required", { operationKey: productId });
       setCartMessage({ text: "장바구니에 담으려면 로그인이 필요합니다.", error: true });
       return;
     }
 
     try {
-      await apiFetch("/api/cart/items", {
-        method: "POST",
-        auth: true,
-        body: { product_id: productId, quantity: 1 },
-      });
+      await trackOperation(
+        RUM_OPERATIONS.addToCart,
+        () =>
+          apiFetch("/api/cart/items", {
+            method: "POST",
+            auth: true,
+            body: { product_id: productId, quantity: 1 },
+          }),
+        { operationKey: productId },
+      );
       setCartMessage({ text: "장바구니에 담았습니다.", error: false });
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "장바구니 추가에 실패했습니다.";

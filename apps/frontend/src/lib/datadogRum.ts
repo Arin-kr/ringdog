@@ -64,3 +64,31 @@ export function initRum(config: RumConfig): void {
     plugins: [nextjsPlugin()],
   });
 }
+
+/**
+ * Tags the RUM session with the logged-in member (usr.id) or clears it, so
+ * visitors split into members vs. guests; the SDK's anonymous id (usr.
+ * anonymous_id) stays on both. Called on init with the stored token too:
+ * a returning visitor (or k6 browser, which injects the token into
+ * localStorage) never passes through the login form. Only the user id is
+ * sent, never the email. The token isn't verified here; it's just a label.
+ */
+export function setRumUserFromToken(token: string | null): void {
+  const userId = token ? userIdFromToken(token) : null;
+  if (userId) {
+    datadogRum.setUser({ id: userId });
+  } else {
+    datadogRum.clearUser();
+  }
+}
+
+function userIdFromToken(token: string): string | null {
+  try {
+    const payload = token.split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const { userId } = JSON.parse(json) as { userId?: unknown };
+    return typeof userId === "string" && userId ? userId : null;
+  } catch {
+    return null;
+  }
+}

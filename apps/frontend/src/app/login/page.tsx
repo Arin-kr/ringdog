@@ -7,6 +7,7 @@ import { FormEvent, useState } from "react";
 import { Header } from "@/components/Header";
 import { apiFetch, ApiError } from "@/lib/apiClient";
 import { setToken } from "@/lib/auth";
+import { RUM_OPERATIONS, trackOperation } from "@/lib/rumOperations";
 
 interface LoginResponse {
   token: string;
@@ -26,10 +27,12 @@ export default function LoginPage(): JSX.Element {
     setError(null);
 
     try {
-      const data = await apiFetch<LoginResponse>("/api/auth/login", {
-        method: "POST",
-        body: { email, password },
-      });
+      const data = await trackOperation(RUM_OPERATIONS.login, () =>
+        apiFetch<LoginResponse>("/api/auth/login", {
+          method: "POST",
+          body: { email, password },
+        }),
+      );
       setToken(data.token);
       router.push("/");
       router.refresh();

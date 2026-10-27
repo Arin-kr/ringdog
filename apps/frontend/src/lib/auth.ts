@@ -1,3 +1,5 @@
+import { setRumUserFromToken } from "./datadogRum";
+
 const TOKEN_KEY = "ringdog_token";
 
 export function getToken(): string | null {
@@ -9,10 +11,12 @@ export function getToken(): string | null {
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  setRumUserFromToken(token);
 }
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  setRumUserFromToken(null);
 }
 
 export function isLoggedIn(): boolean {

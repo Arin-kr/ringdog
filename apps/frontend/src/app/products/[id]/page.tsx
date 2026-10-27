@@ -13,6 +13,7 @@ import { isLoggedIn } from "@/lib/auth";
 import { categoryForTags, categorySearchHref, subjectSearchHref } from "@/lib/categories";
 import { displayMeta, formatWon, reviewsFor } from "@/lib/displayMeta";
 import { productImages } from "@/lib/productImage";
+import { blockOperation, RUM_OPERATIONS, trackOperation } from "@/lib/rumOperations";
 
 function Stars({ rating }: { rating: number }): JSX.Element {
   const full = Math.max(0, Math.min(5, Math.round(rating)));
@@ -67,17 +68,23 @@ export default function ProductDetailPage(): JSX.Element {
 
   async function addToCart(): Promise<boolean> {
     if (!isLoggedIn()) {
+      blockOperation(RUM_OPERATIONS.addToCart, "login_required", { operationKey: params.id });
       setCartMessage({ text: "장바구니에 담으려면 로그인이 필요합니다.", error: true });
       return false;
     }
     if (!product) return false;
     setBusy(true);
     try {
-      await apiFetch("/api/cart/items", {
-        method: "POST",
-        auth: true,
-        body: { product_id: product.id, quantity },
-      });
+      await trackOperation(
+        RUM_OPERATIONS.addToCart,
+        () =>
+          apiFetch("/api/cart/items", {
+            method: "POST",
+            auth: true,
+            body: { product_id: product.id, quantity },
+          }),
+        { operationKey: product.id },
+      );
       setCartMessage({ text: "장바구니에 담았습니다.", error: false });
       return true;
     } catch (err) {

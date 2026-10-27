@@ -9,6 +9,7 @@ import { apiFetch, ApiError } from "@/lib/apiClient";
 import { isLoggedIn } from "@/lib/auth";
 import { formatWon } from "@/lib/displayMeta";
 import { productImages } from "@/lib/productImage";
+import { abandonOperation, RUM_OPERATIONS, trackOperation } from "@/lib/rumOperations";
 
 interface CartProduct {
   id: string;
@@ -64,6 +65,21 @@ export default function CartPage(): JSX.Element {
     })();
   }, [router]);
 
+  // 결제 응답을 기다리다 다른 화면으로 가거나 탭을 닫으면 RUM checkout operation을
+  // abandoned로 닫는다 (장애 중 "기다리다 포기한 결제"를 실패와 구분해 셀 수 있게).
+  useEffect(() => {
+    const abandonIfPending = (): void => {
+      if (!checkingOutRef.current) return;
+      checkingOutRef.current = false;
+      abandonOperation(RUM_OPERATIONS.checkout);
+    };
+    window.addEventListener("pagehide", abandonIfPending);
+    return () => {
+      window.removeEventListener("pagehide", abandonIfPending);
+      abandonIfPending();
+    };
+  }, []);
+
   const subtotal = items.reduce(
     (sum, item) => sum + Number(item.product.price) * item.quantity,
     0,
@@ -88,11 +104,13 @@ export default function CartPage(): JSX.Element {
     setError(null);
 
     try {
-      const result = await apiFetch<CheckoutResponse>("/api/orders/checkout", {
-        method: "POST",
-        auth: true,
-        body: { coupon_code: couponCode || undefined },
-      });
+      const result = await trackOperation(RUM_OPERATIONS.checkout, () =>
+        apiFetch<CheckoutResponse>("/api/orders/checkout", {
+          method: "POST",
+          auth: true,
+          body: { coupon_code: couponCode || undefined },
+        }),
+      );
       setOrderResult(result);
       setItems([]);
     } catch (err) {

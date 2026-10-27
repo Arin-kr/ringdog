@@ -1,6 +1,7 @@
 "use client";
 
-import { initRum, type RumConfig } from "@/lib/datadogRum";
+import { getToken } from "@/lib/auth";
+import { initRum, setRumUserFromToken, type RumConfig } from "@/lib/datadogRum";
 
 /**
  * Mounted once in the root layout so Datadog RUM initializes as early as
@@ -16,7 +17,14 @@ import { initRum, type RumConfig } from "@/lib/datadogRum";
  * k6 browser's page.goto, never sent anything). initRum is idempotent and a
  * no-op on the server.
  */
+let userSynced = false;
+
 export function RumInit(props: RumConfig): null {
   initRum(props);
+  // Once per page load, like init; login/logout update it via auth.ts.
+  if (typeof window !== "undefined" && !userSynced) {
+    userSynced = true;
+    setRumUserFromToken(getToken());
+  }
   return null;
 }
