@@ -2,6 +2,7 @@
 // 방문자 대시보드용으로 세션을 섞는다:
 //   - BOT_RATIO: 헤드리스 user agent 그대로 (= "봇", 대시보드 봇 제외 필터에 걸림)
 //   - 나머지: 일반 데스크톱·모바일 브라우저 user agent, 그중 GUEST_RATIO는 비로그인 방문자
+//   - RETURN_RATIO: 봇이 아닌 방문 중 전에 왔던 방문자가 다시 오는 비율 (아래 재방문 설명)
 import { browser } from "k6/browser";
 import http from "k6/http";
 import { sleep } from "k6";
@@ -124,38 +125,87 @@ export function setup() {
   }
 }
 
+// 재방문: 방문이 끝나면 그 브라우저의 RUM 익명 ID(`_dd_s_v2` 쿠키의 aid)와 기기·회원 여부를 저장해 두고,
+// RETURN_RATIO만큼은 새 방문자 대신 저장한 방문자로 다시 온다. 새 context에 "지난 방문은 끝남" 상태의
+// 세션 쿠키(isExpired=1&aid=…)를 넣으면 SDK가 같은 익명 ID로 새 세션을 시작한다 = 같은 사람의 두 번째 방문.
+// 방문자 목록은 VU마다 따로 쌓인다(모듈 변수는 같은 VU의 반복 사이에 유지됨).
+// RUM Browser SDK 7.x 세션 쿠키 이름 (6.x 이하는 `_dd_s`)
+const RUM_SESSION_COOKIE = "_dd_s_v2";
+const RETURN_RATIO = 0.4;
+const MAX_KNOWN_VISITORS = 50;
+const knownVisitors = [];
+
+function anonymousIdOf(cookies) {
+  const dd = cookies.find((c) => c.name === RUM_SESSION_COOKIE);
+  const m = dd && /(?:^|&)aid=([^&]+)/.exec(dd.value);
+  return m ? m[1] : null;
+}
+
+function rememberVisitor(visitor) {
+  knownVisitors.push(visitor);
+  if (knownVisitors.length > MAX_KNOWN_VISITORS) knownVisitors.shift();
+}
+
+function newVisitor(mode) {
+  const isGuest = mode ? mode === "guest" || mode === "return" : Math.random() < GUEST_RATIO;
+  return { device: pickDevice(), isGuest, member: randomMember(), aid: null };
+}
+
 export default async function () {
-  // VISIT_MODE(bot|guest|member|form)는 수동 점검용. 평소에는 비워 두고 비율대로 섞는다
+  // VISIT_MODE(bot|guest|member|form|return)는 수동 점검용. 평소에는 비워 두고 비율대로 섞는다.
+  // return = 비로그인 방문, 두 번째 반복부터는 항상 재방문
   const mode = __ENV.VISIT_MODE;
   const isBot = mode ? mode === "bot" : Math.random() < BOT_RATIO;
-  const isGuest = mode ? mode === "guest" : !isBot && Math.random() < GUEST_RATIO;
-  const formLogin = mode ? mode === "form" : !isBot && !isGuest && Math.random() < FORM_LOGIN_RATIO;
+  const returnRatio = mode === "return" ? 1 : mode ? 0 : RETURN_RATIO;
+  const returning = !isBot && knownVisitors.length > 0 && Math.random() < returnRatio;
+  const visitor = isBot
+    ? null
+    : returning
+      ? knownVisitors[Math.floor(Math.random() * knownVisitors.length)]
+      : newVisitor(mode);
+  const formLogin = mode ? mode === "form" : !isBot && !visitor.isGuest && Math.random() < FORM_LOGIN_RATIO;
 
-  // 매 반복마다 새 context = 새 쿠키 = 새 RUM 세션·새 익명 ID
+  // 매 반복마다 새 context = 새 쿠키 = 새 RUM 세션. 재방문이면 익명 ID만 이어받는다
   const context = await browser.newContext(
-    isBot ? {} : Object.assign(pickDevice(), { locale: "ko-KR", timezoneID: "Asia/Seoul" }),
+    isBot ? {} : Object.assign({}, visitor.device, { locale: "ko-KR", timezoneID: "Asia/Seoul" }),
   );
+  if (returning) {
+    await context.addCookies([
+      {
+        name: RUM_SESSION_COOKIE,
+        value: `isExpired=1&aid=${visitor.aid}`,
+        url: BASE,
+        expires: Math.floor(Date.now() / 1000) + 365 * 24 * 3600,
+      },
+    ]);
+  }
   const page = await context.newPage();
   try {
-    if (isGuest) {
-      await guestVisit(page);
-      return;
-    }
-    if (formLogin) {
-      await loginWithForm(page, randomMember());
+    if (isBot || !visitor.isGuest) {
+      if (formLogin) {
+        await loginWithForm(page, visitor ? visitor.member : randomMember());
+      } else {
+        // 폼 로그인은 하이드레이션 전 fill이 400을 내므로 http로 토큰을 받아, 페이지 스크립트보다 먼저 localStorage에 주입한다.
+        // (goto 후 evaluate + 재이동은 RUM remote config fetch를 중단시켜 SDK가 시작되지 않음)
+        const token = login(visitor ? visitor.member : randomMember());
+        await context.addInitScript(`localStorage.setItem(${JSON.stringify(TOKEN_KEY)}, ${JSON.stringify(token)});`);
+      }
+      await memberCheckout(page);
     } else {
-      // 폼 로그인은 하이드레이션 전 fill이 400을 내므로 http로 토큰을 받아, 페이지 스크립트보다 먼저 localStorage에 주입한다.
-      // (goto 후 evaluate + 재이동은 RUM remote config fetch를 중단시켜 SDK가 시작되지 않음)
-      const token = login(randomMember());
-      await context.addInitScript(`localStorage.setItem(${JSON.stringify(TOKEN_KEY)}, ${JSON.stringify(token)});`);
+      await guestVisit(page);
     }
-    await memberCheckout(page);
   } finally {
     // context.close()는 브라우저를 바로 끝내서 RUM이 아직 보내지 않은 batch가 버려진다.
     // 다른 페이지로 이동하면 pagehide에서 SDK가 남은 이벤트를 sendBeacon으로 flush하므로, 이동 후 잠시 기다린다.
     try {
       await page.goto("about:blank");
       await page.waitForTimeout(5000);
+      if (visitor && !returning) {
+        const cookies = await context.cookies();
+        visitor.aid = anonymousIdOf(cookies);
+        if (visitor.aid) rememberVisitor(visitor);
+      }
+      if (mode && visitor) console.log(`visit: returning=${returning} aid=${visitor.aid} known=${knownVisitors.length}`);
     } catch (e) {
       // 정리 단계 실패는 무시
     }
