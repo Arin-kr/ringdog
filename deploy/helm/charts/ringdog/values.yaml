@@ -117,6 +117,6 @@ trafficGen:
   couponRatio: "0"
   trendingRatio: "1"
   ordersRatio: "1"
-  browserRatePerMin: 1
+  browserRatePerMin: 2 # 봇 30% + 회원·비로그인 방문 섞임 → 결제 세션 약 1.3회/분
   image: grafana/k6:0.52.0
   browserImage: grafana/k6:0.52.0-with-browser
