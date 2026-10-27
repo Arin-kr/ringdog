@@ -38,7 +38,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "선택한 기간에 온 서로 다른 방문자 수. `@usr.anonymous_id`(RUM SDK가 브라우저마다 만드는 익명 ID) 고유 수이며, 로그인 여부와 상관없이 모든 방문자에게 붙습니다. 같은 브라우저는 몇 번 와도 1명, 다른 기기·브라우저·시크릿 창·쿠키 삭제 후 방문은 새 사람으로 셉니다."
             },
             "layout": {
               "width": 3,
@@ -72,7 +73,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "선택한 기간에 시작된 방문(`@type:session`) 수. 15분 동안 아무 동작이 없거나 4시간이 지나면 방문이 끝나고, 그다음 동작부터 새 방문으로 셉니다."
             },
             "layout": {
               "width": 3,
@@ -106,7 +108,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "화면이 열린 횟수(`@type:view`). 새로고침과 SPA 화면 이동도 각각 1회입니다."
             },
             "layout": {
               "width": 3,
@@ -150,7 +153,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "페이지뷰 ÷ 방문. 한 번 방문해서 평균 몇 화면을 봤는지입니다. 높을수록 사이트 안에서 많이 둘러본 것입니다."
             },
             "layout": {
               "width": 3,
@@ -195,7 +199,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "방문 ÷ 순 방문자. 같은 방문자가 선택한 기간에 평균 몇 번 왔는지입니다. 1.0이면 모두 한 번씩만 온 것이고, 1.5면 평균 1.5번 방문입니다. 기간을 길게(7일·30일) 잡을수록 재방문이 쌓여 커집니다. 쿠키를 지우거나 다른 기기로 오면 새 방문자로 잡혀 재방문이 실제보다 낮게 나올 수 있습니다."
             },
             "layout": {
               "width": 3,
@@ -230,7 +235,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "방문 한 번의 평균 길이(`@session.time_spent`, 분). 방문의 첫 이벤트부터 마지막 이벤트까지의 시간입니다. 페이지를 떠날 때 RUM이 마지막 화면 데이터를 보내므로 마지막 화면에 머문 시간도 포함되며, 15분 넘게 아무 동작이 없으면 거기서 방문이 끝난 것으로 봅니다. 아직 진행 중인 방문은 지금까지의 길이로 계산돼 짧게 나옵니다."
             },
             "layout": {
               "width": 3,
@@ -264,7 +270,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "아직 끝나지 않은 방문(`@session.is_active:true`), 즉 마지막 활동 후 15분이 지나지 않은 방문 수입니다. 기간을 최근 15분으로 놓고 보세요. 기간을 길게 잡으면 그 기간에 시작해 아직 진행 중인 방문만 셉니다."
             },
             "layout": {
               "width": 3,
@@ -308,7 +315,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "화면을 1개만 보고 끝난 방문(`@session.view.count:1`) ÷ 전체 방문. 흔히 말하는 이탈률입니다. 진행 중인 방문은 이후 화면이 더 늘 수 있어, 최근 구간은 높게 나올 수 있습니다."
             },
             "layout": {
               "width": 3,
@@ -353,7 +361,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "로그인한 회원 수(`@usr.id` 고유 수). 같은 회원이 PC와 모바일로 와도 1명입니다. 방문 도중 로그인해도 그 방문은 회원 방문으로 셉니다. 회원 ID는 방문이 끝난 뒤(마지막 활동 후 약 15분) 세션 기록에 반영되므로, 최근 15분 구간은 회원이 적게 나옵니다."
             },
             "layout": {
               "width": 3,
@@ -388,7 +397,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "회원 ID가 없는 방문의 익명 ID 고유 수. 회원이 아니므로 기기·브라우저 단위로 셉니다. 같은 기기가 비로그인 방문과 로그인 방문을 각각 하면 양쪽에 모두 잡힙니다."
             },
             "layout": {
               "width": 3,
@@ -422,7 +432,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "회원 ID가 붙은 방문 수. 회원 ID는 방문이 끝난 뒤(마지막 활동 후 약 15분) 세션 기록에 반영되므로, 최근 15분 구간은 회원이 적게 나옵니다."
             },
             "layout": {
               "width": 3,
@@ -456,7 +467,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "끝까지 로그인하지 않은 방문 수입니다. 방문 도중 로그인하면 회원 방문으로 옮겨 갑니다."
             },
             "layout": {
               "width": 3,
@@ -505,7 +517,8 @@
                   "response_format": "timeseries",
                   "display_type": "bars"
                 }
-              ]
+              ],
+              "description": "시간대별 회원 방문과 비로그인 방문 수. 회원 ID는 방문이 끝난 뒤(마지막 활동 후 약 15분) 세션 기록에 반영되므로, 최근 15분 구간은 회원이 적게 나옵니다."
             },
             "layout": {
               "width": 8,
@@ -549,7 +562,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "회원 방문 ÷ 전체 방문(봇 제외). 회원 ID는 방문이 끝난 뒤(마지막 활동 후 약 15분) 세션 기록에 반영되므로, 최근 15분 구간은 회원이 적게 나옵니다."
             },
             "layout": {
               "width": 4,
@@ -610,7 +624,8 @@
                   "response_format": "timeseries",
                   "display_type": "bars"
                 }
-              ]
+              ],
+              "description": "막대 하나 = 그 시간 구간 안의 순 방문자 수. 같은 사람이 여러 구간에 오면 구간마다 1명씩 잡히므로, 막대를 더한 값은 위의 순 방문자(UV)보다 큽니다."
             },
             "layout": {
               "width": 6,
@@ -659,7 +674,8 @@
                   "response_format": "timeseries",
                   "display_type": "line"
                 }
-              ]
+              ],
+              "description": "시간대별 방문 수와 페이지뷰 수. 두 선의 간격이 벌어질수록 방문당 많이 둘러본 것입니다."
             },
             "layout": {
               "width": 6,
@@ -711,7 +727,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "화면별 페이지뷰 수(`@view.url_path_group`). 상품 ID처럼 바뀌는 경로는 `/products/?`처럼 한 줄로 묶입니다."
             },
             "layout": {
               "width": 4,
@@ -753,7 +770,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "방문을 시작한 첫 화면별 방문 수(`@session.initial_view.url_path_group`). 광고·검색·공유 링크가 어디로 들어오는지 볼 때 씁니다."
             },
             "layout": {
               "width": 4,
@@ -806,7 +824,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "기기 종류(`@device.type`)와 OS(`@os.name`)별 순 방문자. 브라우저의 user agent로 판별합니다."
             },
             "layout": {
               "width": 4,
@@ -851,7 +870,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "봇을 빼기 전 전체 순 방문자. 위 섹션의 실 방문자와 비교해 봇이 얼마나 섞였는지 봅니다."
             },
             "layout": {
               "width": 3,
@@ -886,7 +906,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "헤드리스 브라우저(`@browser.name:HeadlessChrome`)로 들어온 순 방문자. 크롤러·자동화 스크립트·모니터링 도구가 여기에 해당합니다."
             },
             "layout": {
               "width": 3,
@@ -930,7 +951,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "봇 방문 ÷ 전체 방문. 봇을 빼지 않으면 방문자 수가 이 비율만큼 부풀려집니다."
             },
             "layout": {
               "width": 3,
@@ -980,7 +1002,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "봇을 가려내는 근거. 브라우저 이름과 접속 네트워크(`@geo.as.name`, 통신사·클라우드 사업자)별 방문 수입니다. 실서비스에서는 데이터센터 네트워크에서 대량으로 오는 방문도 봇 후보로 봅니다."
             },
             "layout": {
               "width": 3,
@@ -1052,7 +1075,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "업무 단계별 성공 ÷ 시도(성공+실패). 앱이 `startOperation`으로 시작을, `succeedOperation`/`failOperation`으로 결과를 표시합니다. 끝나지 않은 채 방문이 끝나면 실패로 잡힙니다. 비로그인 담기 시도도 실패(other)로 들어가므로 장바구니 담기 성공률은 비로그인 비율만큼 낮아집니다."
             },
             "layout": {
               "width": 4,
@@ -1102,7 +1126,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "실패를 단계와 사유별로 나눈 수. `error` = 요청 실패, `abandoned` = 결제를 기다리다 페이지를 떠남, `other` = 비로그인 상태에서 담기 시도(`login_required`)처럼 앱이 정한 사유입니다."
             },
             "layout": {
               "width": 4,
@@ -1146,7 +1171,8 @@
                   ],
                   "response_format": "scalar"
                 }
-              ]
+              ],
+              "description": "결제 성공 ÷ 결제 시도. 화면 오류가 없어도 사용자가 결제를 끝내지 못하면 내려갑니다."
             },
             "layout": {
               "width": 4,
@@ -1195,7 +1221,8 @@
                   "response_format": "timeseries",
                   "display_type": "bars"
                 }
-              ]
+              ],
+              "description": "시간대별 결제 성공과 실패 수. 장애 구간에서 실패 막대가 올라옵니다."
             },
             "layout": {
               "width": 6,
@@ -1240,7 +1267,8 @@
                   "response_format": "timeseries",
                   "display_type": "line"
                 }
-              ]
+              ],
+              "description": "단계 시작부터 성공·실패까지 걸린 시간(`@operation.duration`)의 95번째 백분위수. 사용자 100명 중 느린 5명이 겪는 시간입니다."
             },
             "layout": {
               "width": 6,
@@ -1259,7 +1287,7 @@
         "vertical_align": "top",
         "show_tick": false,
         "has_padding": true,
-        "content": "### 카운팅 기준\n\n| 지표 | 정의 |\n|---|---|\n| **순 방문자 (UV)** | `@usr.anonymous_id` 고유 수. RUM SDK가 브라우저마다 만드는 익명 ID(쿠키에 저장돼 세션이 바뀌어도 유지)로, **로그인 여부와 상관없이 모든 방문자**에게 붙습니다. 같은 브라우저로 여러 번 와도 1명, 다른 기기·브라우저·시크릿 창은 다른 사람으로 셉니다. |\n| **방문 (세션)** | `@type:session` 개수. 15분 동안 아무 동작이 없거나 4시간이 지나면 새 방문입니다. |\n| **페이지뷰 (PV)** | `@type:view` 개수. 화면 이동(SPA 라우팅 포함)마다 1회로 셉니다. |\n| **지금 접속 중** | `@session.is_active:true` 세션. 기간을 최근 15분 정도로 놓고 보세요. |\n| **회원 방문자** | 로그인하면 앱이 `datadogRum.setUser({ id })`로 회원 ID를 붙입니다. `@usr.id` 고유 수 = 회원 수(기기가 달라도 1명). 방문 중간에 로그인해도 그 방문은 회원 방문입니다. 이메일 등 개인정보는 보내지 않습니다. |\n| **비로그인 방문자** | 회원 ID가 없는 방문(`-@usr.id:*`)의 익명 ID 고유 수. 같은 기기가 비로그인·로그인 상태로 각각 오면 양쪽에 모두 잡힙니다. |\n| **실 방문자 (봇 제외)** | 크롤러·자동화 스크립트·모니터링 도구 같은 헤드리스 브라우저(`@browser.name:HeadlessChrome`)를 뺀 값. 실서비스에서는 user agent·데이터센터 네트워크(`@geo.as.name`) 같은 조건을 더해 같은 방식으로 거릅니다. `@session.type`은 봇도 `user`로 나올 수 있어 이것만으로는 구분하지 않습니다. |\n\n**수집 범위**: 세션 샘플링 100%라 숫자 보정이 필요 없습니다. 광고 차단기가 RUM 전송을 막은 방문은 빠집니다(필요하면 SDK `proxy` 옵션으로 자사 도메인 경유). RUM 이벤트는 30일 보관이며, 그보다 긴 방문·PV 추이는 RUM 기반 커스텀 메트릭으로 15개월 보관할 수 있습니다.\n\n### 핵심 업무 흐름 (RUM Operations)\n\n앱 코드가 `startOperation` → `succeedOperation` / `failOperation`으로 **로그인(`login`) · 장바구니 담기(`add_to_cart`) · 결제(`checkout`)** 의 시작과 결과를 직접 표시합니다(`@type:operation`). 화면 오류가 없어도 사용자가 목적을 이뤘는지를 셉니다. 실패 사유: `error`(요청 실패), `abandoned`(결제 대기 중 페이지를 떠남), `other`(비로그인 상태에서 담기 시도 = `login_required`). 서비스 건강 지표라 이 섹션은 봇 트래픽도 포함합니다."
+        "content": "### 카운팅 기준\n\n위젯별 자세한 기준은 각 위젯 제목 옆 ⓘ에 마우스를 올리면 보입니다.\n\n| 지표 | 정의 |\n|---|---|\n| **순 방문자 (UV)** | `@usr.anonymous_id` 고유 수. RUM SDK가 브라우저마다 만드는 익명 ID(쿠키에 저장돼 세션이 바뀌어도 유지)로, **로그인 여부와 상관없이 모든 방문자**에게 붙습니다. 같은 브라우저로 여러 번 와도 1명, 다른 기기·브라우저·시크릿 창은 다른 사람으로 셉니다. |\n| **방문 (세션)** | `@type:session` 개수. 15분 동안 아무 동작이 없거나 4시간이 지나면 새 방문입니다. |\n| **페이지뷰 (PV)** | `@type:view` 개수. 화면 이동(SPA 라우팅 포함)마다 1회로 셉니다. |\n| **지금 접속 중** | `@session.is_active:true` 세션. 기간을 최근 15분 정도로 놓고 보세요. |\n| **회원 방문자** | 로그인하면 앱이 `datadogRum.setUser({ id })`로 회원 ID를 붙입니다. `@usr.id` 고유 수 = 회원 수(기기가 달라도 1명). 방문 중간에 로그인해도 그 방문은 회원 방문입니다. 이메일 등 개인정보는 보내지 않습니다. |\n| **비로그인 방문자** | 회원 ID가 없는 방문(`-@usr.id:*`)의 익명 ID 고유 수. 같은 기기가 비로그인·로그인 상태로 각각 오면 양쪽에 모두 잡힙니다. |\n| **실 방문자 (봇 제외)** | 크롤러·자동화 스크립트·모니터링 도구 같은 헤드리스 브라우저(`@browser.name:HeadlessChrome`)를 뺀 값. 실서비스에서는 user agent·데이터센터 네트워크(`@geo.as.name`) 같은 조건을 더해 같은 방식으로 거릅니다. `@session.type`은 봇도 `user`로 나올 수 있어 이것만으로는 구분하지 않습니다. |\n\n**수집 범위**: 세션 샘플링 100%라 숫자 보정이 필요 없습니다. 광고 차단기가 RUM 전송을 막은 방문은 빠집니다(필요하면 SDK `proxy` 옵션으로 자사 도메인 경유). RUM 이벤트는 30일 보관이며, 그보다 긴 방문·PV 추이는 RUM 기반 커스텀 메트릭으로 15개월 보관할 수 있습니다.\n\n### 핵심 업무 흐름 (RUM Operations)\n\n앱 코드가 `startOperation` → `succeedOperation` / `failOperation`으로 **로그인(`login`) · 장바구니 담기(`add_to_cart`) · 결제(`checkout`)** 의 시작과 결과를 직접 표시합니다(`@type:operation`). 화면 오류가 없어도 사용자가 목적을 이뤘는지를 셉니다. 실패 사유: `error`(요청 실패), `abandoned`(결제 대기 중 페이지를 떠남), `other`(비로그인 상태에서 담기 시도 = `login_required`). 서비스 건강 지표라 이 섹션은 봇 트래픽도 포함합니다."
       },
       "layout": {
         "width": 12,
