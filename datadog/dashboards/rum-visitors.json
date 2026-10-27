@@ -992,6 +992,266 @@
     },
     {
       "definition": {
+        "type": "group",
+        "layout_type": "ordered",
+        "show_title": true,
+        "title": "핵심 업무 흐름 성공률 (RUM Operations · 봇 포함)",
+        "widgets": [
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "단계별 성공률 (%) — 로그인 · 장바구니 담기 · 결제",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "ok",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo @operation.status:success"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@operation.name",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "all",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@operation.name",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * ok / all"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "실패 사유 — error · abandoned(이탈) · other(로그인 필요 등)",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "f",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo @operation.status:failure"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@operation.name",
+                          "limit": 5,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        },
+                        {
+                          "facet": "@operation.failure_reason",
+                          "limit": 5,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "f"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "결제 성공률 (%)",
+              "autoscale": false,
+              "precision": 1,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "ok",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo @operation.name:checkout @operation.status:success"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "all",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo @operation.name:checkout"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * ok / all"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {
+              "width": 4,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "결제 결과 추이 — 성공 vs 실패",
+              "show_legend": true,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "ok",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo @operation.name:checkout @operation.status:success"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    },
+                    {
+                      "data_source": "rum",
+                      "name": "fail",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo @operation.name:checkout @operation.status:failure"
+                      },
+                      "compute": {
+                        "aggregation": "count"
+                      }
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "ok",
+                      "alias": "성공"
+                    },
+                    {
+                      "formula": "fail",
+                      "alias": "실패"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "bars"
+                }
+              ]
+            },
+            "layout": {
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "단계별 소요 시간 p95 (ms)",
+              "show_legend": true,
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "rum",
+                      "name": "p",
+                      "search": {
+                        "query": "@type:operation service:ringdog-frontend env:demo"
+                      },
+                      "compute": {
+                        "aggregation": "pc95",
+                        "metric": "@operation.duration"
+                      },
+                      "group_by": [
+                        {
+                          "facet": "@operation.name",
+                          "limit": 10,
+                          "sort": {
+                            "aggregation": "count",
+                            "order": "desc"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "p / 1000000"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "display_type": "line"
+                }
+              ]
+            },
+            "layout": {
+              "width": 6,
+              "height": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
         "type": "note",
         "background_color": "white",
         "font_size": "14",
@@ -999,11 +1259,11 @@
         "vertical_align": "top",
         "show_tick": false,
         "has_padding": true,
-        "content": "### 카운팅 기준\n\n| 지표 | 정의 |\n|---|---|\n| **순 방문자 (UV)** | `@usr.anonymous_id` 고유 수. RUM SDK가 브라우저마다 만드는 익명 ID(쿠키에 저장돼 세션이 바뀌어도 유지)로, **로그인 여부와 상관없이 모든 방문자**에게 붙습니다. 같은 브라우저로 여러 번 와도 1명, 다른 기기·브라우저·시크릿 창은 다른 사람으로 셉니다. |\n| **방문 (세션)** | `@type:session` 개수. 15분 동안 아무 동작이 없거나 4시간이 지나면 새 방문입니다. |\n| **페이지뷰 (PV)** | `@type:view` 개수. 화면 이동(SPA 라우팅 포함)마다 1회로 셉니다. |\n| **지금 접속 중** | `@session.is_active:true` 세션. 기간을 최근 15분 정도로 놓고 보세요. |\n| **회원 방문자** | 로그인하면 앱이 `datadogRum.setUser({ id })`로 회원 ID를 붙입니다. `@usr.id` 고유 수 = 회원 수(기기가 달라도 1명). 방문 중간에 로그인해도 그 방문은 회원 방문입니다. 이메일 등 개인정보는 보내지 않습니다. |\n| **비로그인 방문자** | 회원 ID가 없는 방문(`-@usr.id:*`)의 익명 ID 고유 수. 같은 기기가 비로그인·로그인 상태로 각각 오면 양쪽에 모두 잡힙니다. |\n| **실 방문자 (봇 제외)** | 크롤러·자동화 스크립트·모니터링 도구 같은 헤드리스 브라우저(`@browser.name:HeadlessChrome`)를 뺀 값. 실서비스에서는 user agent·데이터센터 네트워크(`@geo.as.name`) 같은 조건을 더해 같은 방식으로 거릅니다. `@session.type`은 봇도 `user`로 나올 수 있어 이것만으로는 구분하지 않습니다. |\n\n**수집 범위**: 세션 샘플링 100%라 숫자 보정이 필요 없습니다. 광고 차단기가 RUM 전송을 막은 방문은 빠집니다(필요하면 SDK `proxy` 옵션으로 자사 도메인 경유). RUM 이벤트는 30일 보관이며, 그보다 긴 방문·PV 추이는 RUM 기반 커스텀 메트릭으로 15개월 보관할 수 있습니다."
+        "content": "### 카운팅 기준\n\n| 지표 | 정의 |\n|---|---|\n| **순 방문자 (UV)** | `@usr.anonymous_id` 고유 수. RUM SDK가 브라우저마다 만드는 익명 ID(쿠키에 저장돼 세션이 바뀌어도 유지)로, **로그인 여부와 상관없이 모든 방문자**에게 붙습니다. 같은 브라우저로 여러 번 와도 1명, 다른 기기·브라우저·시크릿 창은 다른 사람으로 셉니다. |\n| **방문 (세션)** | `@type:session` 개수. 15분 동안 아무 동작이 없거나 4시간이 지나면 새 방문입니다. |\n| **페이지뷰 (PV)** | `@type:view` 개수. 화면 이동(SPA 라우팅 포함)마다 1회로 셉니다. |\n| **지금 접속 중** | `@session.is_active:true` 세션. 기간을 최근 15분 정도로 놓고 보세요. |\n| **회원 방문자** | 로그인하면 앱이 `datadogRum.setUser({ id })`로 회원 ID를 붙입니다. `@usr.id` 고유 수 = 회원 수(기기가 달라도 1명). 방문 중간에 로그인해도 그 방문은 회원 방문입니다. 이메일 등 개인정보는 보내지 않습니다. |\n| **비로그인 방문자** | 회원 ID가 없는 방문(`-@usr.id:*`)의 익명 ID 고유 수. 같은 기기가 비로그인·로그인 상태로 각각 오면 양쪽에 모두 잡힙니다. |\n| **실 방문자 (봇 제외)** | 크롤러·자동화 스크립트·모니터링 도구 같은 헤드리스 브라우저(`@browser.name:HeadlessChrome`)를 뺀 값. 실서비스에서는 user agent·데이터센터 네트워크(`@geo.as.name`) 같은 조건을 더해 같은 방식으로 거릅니다. `@session.type`은 봇도 `user`로 나올 수 있어 이것만으로는 구분하지 않습니다. |\n\n**수집 범위**: 세션 샘플링 100%라 숫자 보정이 필요 없습니다. 광고 차단기가 RUM 전송을 막은 방문은 빠집니다(필요하면 SDK `proxy` 옵션으로 자사 도메인 경유). RUM 이벤트는 30일 보관이며, 그보다 긴 방문·PV 추이는 RUM 기반 커스텀 메트릭으로 15개월 보관할 수 있습니다.\n\n### 핵심 업무 흐름 (RUM Operations)\n\n앱 코드가 `startOperation` → `succeedOperation` / `failOperation`으로 **로그인(`login`) · 장바구니 담기(`add_to_cart`) · 결제(`checkout`)** 의 시작과 결과를 직접 표시합니다(`@type:operation`). 화면 오류가 없어도 사용자가 목적을 이뤘는지를 셉니다. 실패 사유: `error`(요청 실패), `abandoned`(결제 대기 중 페이지를 떠남), `other`(비로그인 상태에서 담기 시도 = `login_required`). 서비스 건강 지표라 이 섹션은 봇 트래픽도 포함합니다."
       },
       "layout": {
         "width": 12,
-        "height": 7
+        "height": 9
       }
     }
   ]
